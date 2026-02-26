@@ -23,7 +23,7 @@ audience: LEWG
 
 ## 1. The Need for Escape Hatches
 
-Safe interfaces should be the default. They should validate input, maintain invariants, and protect users from misuse. However, C++ also needs an explicit path for trusted data - when the invariant is already established at a boundary and re-validation is pure overhead.
+Safe interfaces should be the default. They should validate input, maintain invariants, and protect users from misuse. However, C++ also needs an explicit path for trusted data - when the precondition is already satisfied at a boundary and re-validation is pure overhead.
 
 This pattern appears in the standard library, in production Boost libraries, and in the current `cstring_view` proposal. Three independent examples follow.
 
@@ -61,7 +61,7 @@ pct_string_view bad("100%pure");         // throws
 Internally, the library's own parser has already validated the encoding before extracting URL components. Repeating that validation would be redundant. A separate function bypasses it at the trusted boundary:
 
 ```cpp
-// Escape hatch: invariant already established by the parser.
+// Escape hatch: precondition already satisfied by the parser.
 pct_string_view s = make_pct_string_view_unsafe(data, size, decoded_size);
 ```
 
@@ -69,7 +69,7 @@ This pattern was adopted independently by three Boost libraries: Boost.URL ([`ma
 
 ## 4. Application Level
 
-On BSD-derived systems, directory iteration exposes a filename pointer and a filename length via `dirent` (`d_name` and `d_namlen`) [FreeBSD `readdir(3)`](https://man.freebsd.org/cgi/man.cgi?query=readdir&sektion=3)<sup>[7]</sup> and [FreeBSD `dirent.h`](https://cgit.freebsd.org/src/tree/sys/sys/dirent.h)<sup>[8]</sup>. The common invariant for path components is that names are null-terminated and do not contain embedded null bytes [POSIX Base Definitions](https://pubs.opengroup.org/onlinepubs/9799919799/)<sup>[9]</sup>. Rescanning each name in a validating constructor repeats work the operating system already did.
+On BSD-derived systems, directory iteration exposes a filename pointer and a filename length via `dirent` (`d_name` and `d_namlen`) [FreeBSD `readdir(3)`](https://man.freebsd.org/cgi/man.cgi?query=readdir&sektion=3)<sup>[7]</sup> and [FreeBSD `dirent.h`](https://cgit.freebsd.org/src/tree/sys/sys/dirent.h)<sup>[8]</sup>. POSIX requires that path components are null-terminated and contain no embedded null bytes [POSIX Base Definitions](https://pubs.opengroup.org/onlinepubs/9799919799/)<sup>[9]</sup>. Rescanning each name in a validating constructor repeats work the operating system already did.
 
 ```cpp
 void visit_directory(DIR* dir)
@@ -79,20 +79,20 @@ void visit_directory(DIR* dir)
         const char* p = de->d_name;
         std::size_t n = de->d_namlen;
 
-        // Trusted boundary: OS already established the invariant.
+        // Trusted boundary: OS already satisfied the precondition.
         cstring_view name = cstring_view::unsafe(p, n);
         consume(name);
     }
 }
 ```
 
-The safe path remains the default for untrusted input. The unsafe path exists for proven invariants and zero additional runtime cost.
+The safe path remains the default for untrusted input. The unsafe path exists for proven preconditions and zero additional runtime cost.
 
 ## 5. Conclusion
 
 The standard library already provides constrained defaults with explicit broader counterparts. Production libraries independently converge on the same pattern for trusted boundaries. This paper asks for no wording and no poll. It asks the committee to recognize a design value: safe by default, with explicit escape hatches where zero-cost composition requires them.
 
-The interaction between explicit escape hatches and hardened precondition checking is a related question that deserves separate treatment.
+How explicit escape hatches interact with Hardening, Contracts, and Erroneous Behavior is a related question that deserves separate treatment.
 
 ---
 

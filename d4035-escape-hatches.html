@@ -868,8 +868,8 @@ possible.”</p>
 <h2 id="the-need-for-escape-hatches">1. The Need for Escape Hatches</h2>
 <p>Safe interfaces should be the default. They should validate input,
 maintain invariants, and protect users from misuse. However, C++ also
-needs an explicit path for trusted data - when the invariant is already
-established at a boundary and re-validation is pure overhead.</p>
+needs an explicit path for trusted data - when the precondition is
+already satisfied at a boundary and re-validation is pure overhead.</p>
 <p>This pattern appears in the standard library, in production Boost
 libraries, and in the current <code>cstring_view</code> proposal. Three
 independent examples follow.</p>
@@ -905,7 +905,7 @@ encoding and throws on failure:</p>
 encoding before extracting URL components. Repeating that validation
 would be redundant. A separate function bypasses it at the trusted
 boundary:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: invariant already established by the parser.</span></span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: precondition already satisfied by the parser.</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>pct_string_view s <span class="op">=</span> make_pct_string_view_unsafe<span class="op">(</span>data<span class="op">,</span> size<span class="op">,</span> decoded_size<span class="op">);</span></span></code></pre></div>
 <p>This pattern was adopted independently by three Boost libraries:
 Boost.URL (<a href="https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp"><code>make_pct_string_view_unsafe</code></a><sup>[4]</sup>),
@@ -918,9 +918,8 @@ coincidence. It is convergence on a structural need.</p>
 pointer and a filename length via <code>dirent</code>
 (<code>d_name</code> and <code>d_namlen</code>) <a href="https://man.freebsd.org/cgi/man.cgi?query=readdir&amp;sektion=3">FreeBSD
 <code>readdir(3)</code></a><sup>[7]</sup> and <a href="https://cgit.freebsd.org/src/tree/sys/sys/dirent.h">FreeBSD
-<code>dirent.h</code></a><sup>[8]</sup>. The common invariant for path
-components is that names are null-terminated and do not contain embedded
-null bytes <a href="https://pubs.opengroup.org/onlinepubs/9799919799/">POSIX Base
+<code>dirent.h</code></a><sup>[8]</sup>. POSIX requires that path
+components are null-terminated and contain no embedded null bytes <a href="https://pubs.opengroup.org/onlinepubs/9799919799/">POSIX Base
 Definitions</a><sup>[9]</sup>. Rescanning each name in a validating
 constructor repeats work the operating system already did.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> visit_directory<span class="op">(</span>DIR<span class="op">*</span> dir<span class="op">)</span></span>
@@ -930,13 +929,14 @@ constructor repeats work the operating system already did.</p>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> p <span class="op">=</span> de<span class="op">-&gt;</span>d_name<span class="op">;</span></span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>size_t n <span class="op">=</span> de<span class="op">-&gt;</span>d_namlen<span class="op">;</span></span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Trusted boundary: OS already established the invariant.</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Trusted boundary: OS already satisfied the precondition.</span></span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        cstring_view name <span class="op">=</span> cstring_view<span class="op">::</span>unsafe<span class="op">(</span>p<span class="op">,</span> n<span class="op">);</span></span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        consume<span class="op">(</span>name<span class="op">);</span></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The safe path remains the default for untrusted input. The unsafe
-path exists for proven invariants and zero additional runtime cost.</p>
+path exists for proven preconditions and zero additional runtime
+cost.</p>
 <h2 id="conclusion">5. Conclusion</h2>
 <p>The standard library already provides constrained defaults with
 explicit broader counterparts. Production libraries independently
@@ -944,8 +944,8 @@ converge on the same pattern for trusted boundaries. This paper asks for
 no wording and no poll. It asks the committee to recognize a design
 value: safe by default, with explicit escape hatches where zero-cost
 composition requires them.</p>
-<p>The interaction between explicit escape hatches and hardened
-precondition checking is a related question that deserves separate
+<p>How explicit escape hatches interact with Hardening, Contracts, and
+Erroneous Behavior is a related question that deserves separate
 treatment.</p>
 <hr />
 <h1 id="acknowledgements">Acknowledgements</h1>
