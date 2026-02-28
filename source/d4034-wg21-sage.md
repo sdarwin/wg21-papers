@@ -7,7 +7,7 @@ reply-to:
 audience: WG21
 ---
 
-# WG21-SAGE: Saving All Gathered Expertise
+# Saving All Gathered Expertise: WG21-SAGE
 
 ## Abstract
 
@@ -23,7 +23,7 @@ The technology exists. The methodology is demonstrated. Participation is volunta
 
 ## Revision History
 
-### R0: January 2026
+### R0: January 2026 (Post-Croydon)
 
 - Initial version with agentic interview proposal and experimental results
 
@@ -93,8 +93,8 @@ WG21 has created substantial documentation. The question is what that documentat
 
 | Document | Knowledge Transmitted |
 |----------|----------------------|
-| [P2000](https://wg21.link/P2000) | Vision, priorities |
-| [P0592](https://wg21.link/P0592) | Feature roadmaps |
+| [P2000: Direction for ISO C++](https://wg21.link/P2000) | Vision, priorities |
+| [P0592: Bold Overall Plan](https://wg21.link/P0592)     | Feature roadmaps   |
 
 WG21's documentation transmits conclusions effectively. The judgment behind those conclusions is held by experienced participants.
 
@@ -104,7 +104,7 @@ Consider SD-9, which says things like "use `[[nodiscard]]` for functions where i
 - How to make this judgment in ambiguous cases
 - The underlying principle (error handling philosophy, RAII patterns)
 
-SD-10 comes closest to real knowledge transfer by referencing "Design and Evolution of C++" principles. But the references are brief, newcomers may not have read D&E, and there's no explanation of how to apply principles to novel cases.
+SD-10 comes closest to real knowledge transfer by referencing "Design and Evolution of C++" principles. But the references are brief, newcomers may not have read D&E, and there is no explanation of how to apply principles to novel cases.
 
 P2000 articulates the right philosophy and goals. The methodology presented in this paper complements that work by capturing the evaluative judgment that experienced participants apply when assessing whether a proposal meets those goals.
 
@@ -112,19 +112,19 @@ The generating principles - how to *think* about API design, how to recognize pa
 
 ### 2.5 Case Study: The `[[nodiscard]]` Policy Papers
 
-[SD-9: Library Evolution Policies](https://isocpp.org/std/standing-documents/sd-9-library-evolution-policies) represents a good-faith effort to capture policy knowledge. The supporting papers illustrate what written documentation can and cannot transmit.
+[SD-9: Library Evolution Policies](https://isocpp.org/std/standing-documents/sd-9-library-evolution-policies)<sup>[5]</sup> represents a good-faith effort to capture policy knowledge. The supporting papers illustrate what written documentation can and cannot transmit.
 
-The foundational paper [P2267R1: Library Evolution Policies](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2267r1.html) captures process - how policies are adopted. [P3201R1: LEWG [[nodiscard]] policy](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3201r1.html) captures outcome - what the policy says. The question is how much of the underlying judgment each transmits.
+The foundational paper [P2267R1: Library Evolution Policies](https://wg21.link/p2267r1)<sup>[12]</sup> captures process - how policies are adopted. [P3201R1: LEWG [[nodiscard]] policy](https://wg21.link/p3201r1)<sup>[15]</sup> captures outcome - what the policy says. The question is how much of the underlying judgment each transmits.
 
 Two rationale papers attempt deeper knowledge transfer, with instructive differences in success:
 
-**[P3162R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3162r0.html)** does reasonably well at conveying philosophy. The three guiding principles—minimize complexity, focus on the 90% case, center on outcomes—are genuinely transferable mental models. A reader could apply "minimize complexity" to reject a proposal that marks every getter `[[nodiscard]]`. The "90% case" principle teaches prioritization: catch the severe/common bugs, accept that edge cases slip through. "Center on outcomes" reframes the question from "what does the standard say" to "what diagnostics do users actually see"—a useful perspective shift.
+**[P3162R0: LEWG `[[nodiscard]]` Rationale](https://wg21.link/p3162r0)**<sup>[13]</sup> does reasonably well at conveying philosophy. The three guiding principles - minimize complexity, focus on the 90% case, center on outcomes - are genuinely transferable mental models. A reader could apply "minimize complexity" to reject a proposal that marks every getter `[[nodiscard]]`. The "90% case" principle teaches prioritization: catch the severe/common bugs, accept that edge cases slip through. "Center on outcomes" reframes the question from "what does the standard say" to "what diagnostics do users actually see" - a useful perspective shift.
 
 The concrete examples (`.empty()` vs `.clear()` confusion, `async` synchronous trap, allocation leaks) give pattern-matching anchors. Someone could recognize analogous situations: a `reset()` that returns the old value might warrant `[[nodiscard]]` under the "common mistake" criterion.
 
 The paper does not fully explain *why* these three principles were chosen over others, or how to resolve conflicts between them.
 
-**[P3122R1](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3122r1.html)** is more operationally precise but transfers less tacit knowledge. The core insight—"implementors know best, stop micromanaging"—is valuable but presented as assertion rather than derived from principles. The paper gives excellent *what* (the proposed wording categories) but limited *why* for each category. Why are comparison operators special? Why does the const/non-const distinction matter? The examples illustrate but don't teach the underlying reasoning.
+**[P3122R1: `[[nodiscard]]` should be a little less aggressive](https://wg21.link/p3122r1)**<sup>[14]</sup> is more operationally precise but transfers less tacit knowledge. The core insight - "implementors know best, stop micromanaging" - is valuable but presented as assertion rather than derived from principles. The paper gives excellent *what* (the proposed wording categories) but limited *why* for each category. Why are comparison operators special? Why does the const/non-const distinction matter? The examples illustrate but do not teach the underlying reasoning.
 
 The wording itself is a checklist, not a framework. A reader could apply it to existing standard library functions but would struggle with genuinely novel patterns. If someone invents a new abstraction that does not fit the bullets, they have no tools to reason about it.
 
@@ -136,7 +136,7 @@ Neither discusses the cost model for false positives. When does an unwanted warn
 
 Neither provides negative examples - cases where `[[nodiscard]]` was added and later regretted, or where reasonable people disagreed. Learning from both successes and mistakes is how tacit knowledge transfers most effectively.
 
-**Assessment:** P3162R0 transfers approximately 60% of the tacit knowledge needed to reason independently about new cases. P3122R1 transfers approximately 30%, functioning more as a reference specification than a teaching document. Both are valuable contributions. Neither fully equips a reader to handle genuinely novel situations.
+**Assessment:** P3162R0 conveys transferable mental models that a reader could apply to new cases. P3122R1 functions more as a reference specification than a teaching document. Both are valuable contributions. Neither fully equips a reader to handle genuinely novel situations.
 
 These papers represent the best of what written documentation can achieve. The remaining gap - the judgment that experienced committee members apply but have not yet articulated - is what structured interviews can capture.
 
@@ -155,7 +155,7 @@ Long-time committee participants possess deep understanding of WG21's principles
 
 > *That said, I worry about the future of C++. Those of you who saw my CppCon keynote or have participated in some of the WG21 evening sessions know that I'm concerned about our lack of direction.*
 >
-> *My main concern is that we are delaying decisions about major issues while moving quite fast with minor proposals that do not appear to be strongly connected to the rest of the language. The effect is to complicate the language with many minor conveniences (each helping someone but most not affecting the majority of C++ developers) while repeatedly rehashing major proposals (complicating parts, rejecting other parts, and failing to see connections between proposals brought forward in separate papers). This does not lead to a simpler and more coherent language as seen by developers. In fact, many developers fear the work of the committee as adding complexity without benefits. I find it far easier to allay such fears presenting major features delivering major benefits than by listing lots of little features – however beloved by C++ language and library experts.*
+> *My main concern is that we are delaying decisions about major issues while moving quite fast with minor proposals that do not appear to be strongly connected to the rest of the language. The effect is to complicate the language with many minor conveniences (each helping someone but most not affecting the majority of C++ developers) while repeatedly rehashing major proposals (complicating parts, rejecting other parts, and failing to see connections between proposals brought forward in separate papers). This does not lead to a simpler and more coherent language as seen by developers. In fact, many developers fear the work of the committee as adding complexity without benefits. I find it far easier to allay such fears presenting major features delivering major benefits than by listing lots of little features - however beloved by C++ language and library experts.*
 >
 > *Please consider the possibility of a moratorium on new minor proposals until we have decided a set of major features that we should aim to include in C++20. This would avoid the problem we had with many significant proposals "almost ready" for C++17 while our efforts diffused on minor proposals and debates about novel alternatives to the major proposals. Ideally, we would have a vote on that set of features at the next meeting (Kona), so that we would have 3 years to integrate them into the standard and try them out.*
 >
@@ -176,7 +176,7 @@ Bjarne demonstrates the kind of coherence judgment that experienced participants
 >
 > *Doing otherwise is an affront to proposals such as Filesystem which has gone through years of scrutiny of an actual (widely-used) implementation.*
 
-Howard is articulating a **generating principle**—the deep reasoning that should guide standardization decisions. He's not just saying "we need implementations"; he's explaining *why* and *what kind* of validation matters.
+Howard is articulating a **generating principle** - the deep reasoning that should guide standardization decisions. He is not just saying "we need implementations"; he is explaining *why* and *what kind* of validation matters.
 
 **Source:** `lib/2016/07/0694.php` (July 25, 2016)
 **Context:** Continued discussion about variant
@@ -187,7 +187,7 @@ Howard is articulating a **generating principle**—the deep reasoning that shou
 >
 > *The reason we have the TS system is to handle exactly this situation.*
 >
-> *Now I can only blame myself. I did not get myself to Oulu (this time it was a wedding instead of a funeral — a much better reason!). And if I had, I wasn't really following variant so closely as to know that there wasn't at least one implementation tracking at least the major design changes over the years. Perhaps I could have asked that question in full committee prior to the vote (if I had been there). Perhaps the answer would not have swayed any vote but my own.*
+> *Now I can only blame myself. I did not get myself to Oulu (this time it was a wedding instead of a funeral - a much better reason!). And if I had, I wasn't really following variant so closely as to know that there wasn't at least one implementation tracking at least the major design changes over the years. Perhaps I could have asked that question in full committee prior to the vote (if I had been there). Perhaps the answer would not have swayed any vote but my own.*
 
 "I won't bother to go down the list of libraries where this strategy has failed us in the past." Howard holds a catalog of library standardization outcomes - which succeeded, which failed, and why. This is a generating principle in action: not just "require field experience" but the accumulated evidence base that makes the principle actionable. A structured interview could capture that catalog.
 
@@ -292,7 +292,7 @@ Interviews are one such measure - a deliberate investment in capturing knowledge
 
 ### 4.3 Interview Guide
 
-Effective interviews elicit tacit knowledge that experts may not realize they possess. The key is drawing out *stories*—specific narratives about decisions, problems, and outcomes. Learning from mistakes transfers tacit knowledge better than success stories, though both have value.
+Effective interviews elicit tacit knowledge that experts may not realize they possess. The key is drawing out *stories* - specific narratives about decisions, problems, and outcomes. Learning from mistakes transfers tacit knowledge better than success stories, though both have value.
 
 **Interview Technique**
 
@@ -345,14 +345,14 @@ Start with a general question, then use the response to drill down into a relata
 
 ### 4.4 How AI Enables This Now
 
-Modern AI capabilities make this project feasible in ways that weren't possible even a few years ago:
+Modern AI capabilities make this project feasible in ways that were not possible even a few years ago:
 
 - **High-quality transcription**: Accurate speech-to-text for technical conversations
 - **Synthesis across interviews**: Identifying common themes and principles from multiple sources
 - **Structured extraction**: Converting narrative knowledge into organized frameworks
 - **Accessibility**: Making captured knowledge searchable and navigable
 
-We have developed an agentic knowledge extraction framework ([WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md)) that processes interview transcripts and produces structured output distinguishing:
+We have developed an agentic knowledge extraction framework ([WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md))<sup>[16]</sup> that processes interview transcripts and produces structured output distinguishing:
 
 - **Principles**: Distilled, actionable rules that can be applied to evaluate new proposals
 - **Experiences**: Supporting stories that illustrate and validate the principles
@@ -371,7 +371,7 @@ Generative AI does not devalue expertise. It reveals that judgment was always th
 
 In the generative AI economy, **human attention becomes the scarcest and most valuable resource**. Everything else scales; attention does not. The institution that captures and allocates expert attention most efficiently gains an advantage. Agentic knowledge capture is an attention allocation system: routing the right questions to the right experts, filtering noise from signal, and ensuring that when a human reviews synthesized output, it matters.
 
-This reframes any concern about displacement:
+The inversion reframes any concern about displacement:
 
 - **Comparative advantage shifts**: Experts focus on judgment rather than production. Howard Hinnant's value lies in knowing which library proposals lack sufficient field experience, not in typing out his reasoning. The AI handles transcription and synthesis; the expert provides the irreplaceable judgment.
 - **Capability expansion**: More people can contribute meaningfully. An expert who might never write a paper can share insights through a one-hour interview. The total knowledge captured increases even as individual time requirements decrease.
@@ -382,27 +382,27 @@ The economics are clear: judgment is the bottleneck owned by experts. This metho
 
 ## 5. Experimental Results
 
-We conducted interviews with experienced committee members and processed the results through the agentic workflow described above. The full transcripts, synthesized knowledge files, and the agentic extraction rule are available in the [GitHub repository](https://github.com/cppalliance/wg21-sage).
+We conducted interviews with experienced committee members and processed the results through the agentic workflow described above. The full transcripts, synthesized knowledge files, and the agentic extraction rule are available in the [GitHub repository](https://github.com/cppalliance/wg21-sage)<sup>[16]</sup>.
 
 The summaries below are AI-generated syntheses. They have not yet undergone full interviewee review. See Section 1 (Disclosure) for the applicable caveats.
 
 ### 5.1 Matheus Izvekov
 
-Matheus Izvekov brings a rare perspective to WG21: deep compiler implementation expertise in templates, overload resolution, and partial ordering—areas where most original experts have retired or become inactive. His experience highlights the relationship between how papers pass through EWG and the implementation realities discovered later in CWG or during compiler work.
+Matheus Izvekov brings a rare perspective to WG21: deep compiler implementation expertise in templates, overload resolution, and partial ordering - areas where most original experts have retired or become inactive. His experience highlights the relationship between how papers pass through EWG and the implementation realities discovered later in CWG or during compiler work.
 
-His central insight is that **high vote counts in EWG do not necessarily indicate understanding**. His first paper achieved near-consensus, yet later revealed that the full implications were not widely understood - a pattern he observed in his personal experience. This disconnect stems from the separation of experts (concentrated in CWG) from the design phase (EWG), compounded by simultaneous scheduling that prevents cross-pollination. Importantly, this is not a flaw in the committee per se—it's unreasonable to expect everyone to be an expert in everything, especially given C++'s complexity. Voters often follow the lead of trusted experts on topics they don't fully understand, which is a reasonable trust mechanism.
+His central insight is that **high vote counts in EWG do not necessarily indicate understanding**. His first paper achieved near-consensus, yet later revealed that the full implications were not widely understood - a pattern he observed in his personal experience. This disconnect stems from the separation of experts (concentrated in CWG) from the design phase (EWG), compounded by simultaneous scheduling that prevents cross-pollination. Importantly, this is not a flaw in the committee per se - it is unreasonable to expect everyone to be an expert in everything, especially given C++'s complexity. Voters often follow the lead of trusted experts on topics they do not fully understand, which is a reasonable trust mechanism.
 
 Matheus also articulates a tension between library and language features: foundational operations like `std::move` pay unnecessary compile-time costs as templates when they could be cheaper and better-diagnosed as language primitives. He observes that language features can sometimes provide a more polished user experience than library solutions for foundational operations.
 
 **Key Insights:**
 
-- Near-unanimous EWG votes can mask widespread misunderstanding of a paper's implications; voters sometimes follow trusted experts on topics they don't fully understand—a reasonable trust mechanism, but one that can obscure whether genuine comprehension backs the vote
-- Features that bypass EWG review risk incomplete specifications that only surface during implementation—potentially years later
+- Near-unanimous EWG votes can mask widespread misunderstanding of a paper's implications; voters sometimes follow trusted experts on topics they do not fully understand - a reasonable trust mechanism, but one that can obscure whether genuine comprehension backs the vote
+- Features that bypass EWG review risk incomplete specifications that only surface during implementation-potentially years later
 - The simultaneous scheduling of CWG and EWG prevents experts from contributing to evolution discussions, causing papers to arrive at CWG in suboptimal shape
 - The committee should throttle feature adoption based on available implementation capacity; approving features faster than they can be implemented wastes resources
-- Rationale discussed orally in study groups is often lost because it's not recorded in papers; however, requiring authors to document every objection may be counterproductive—papers typically address concerns with measurable consensus impact
+- Rationale discussed orally in study groups is often lost because it is not recorded in papers; however, requiring authors to document every objection may be counterproductive - papers typically address concerns with measurable consensus impact
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/matheus-izvekov.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/matheus-izvekov.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/matheus-izvekov.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/matheus-izvekov.know.md)<sup>[16]</sup>
 
 ### 5.2 Howard Hinnant
 
@@ -420,7 +420,7 @@ Howard also articulates a structural property of WG21: it is a volunteer organiz
 - Every proposal must clearly answer: what specific problem does this solve, and without this proposal, how hard is the problem to solve?
 - ABI stability concerns should trigger cost/benefit analysis, not automatic rejection; some ABI breaks are worth the transition cost
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/howard-hinnant.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/howard-hinnant.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/howard-hinnant.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/howard-hinnant.know.md)<sup>[16]</sup>
 
 #### The Power of Stories
 
@@ -428,9 +428,9 @@ When asked about `string_view`'s reputation as "dangerous" (it can dangle), Howa
 
 > *"Any good tool is dangerous. I mean, I'm a big fan of pocket knives and kitchen knives... they can really help in the kitchen or they can chop your fingers off. You just have to know how to use them."*
 
-This is the kind of insight that no policy document could capture. The knife analogy is visual, memorable, and instantly teachable—a newcomer hearing it once will remember it forever. It conveys not just a position (dangerous tools are acceptable) but a *philosophy* (C++ trusts its users; power matters more than protection from misuse).
+The knife analogy is the kind of insight that no policy document could capture. It is visual, memorable, and instantly teachable. It conveys not just a position (dangerous tools are acceptable) but a *philosophy* (C++ trusts its users; power matters more than protection from misuse).
 
-The storytelling format of interviews yields surprisingly sharp insights precisely because experts think in stories. When Howard reaches for the knife analogy, he's accessing decades of accumulated judgment compressed into a vivid image. Written specifications capture *what*; stories capture *why* and *how to think*.
+The storytelling format of interviews yields surprisingly sharp insights precisely because experts think in stories. When Howard reaches for the knife analogy, he is accessing decades of accumulated judgment compressed into a vivid image. Written specifications capture *what*; stories capture *why* and *how to think*.
 
 ### 5.3 Dave Abrahams (From Existing Documentary Footage)
 
@@ -450,7 +450,7 @@ He also provides a foundational account of how consensus-based collaboration can
 - Effective technical leadership means moderating discussions so all arguments are heard, remaining non-partisan toward solutions; Beman Dawes's ecumenical leadership style created a level of respect that attracted high-caliber contributors
 - The best technical work uncovers existing truths rather than creating arbitrary constructs; approach problems as exploration toward the right answer, not competition between proposed solutions
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/dave-abrahams.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/dave-abrahams.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/dave-abrahams.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/dave-abrahams.know.md)<sup>[16]</sup>
 
 ### 5.4 Sean Parent (From Existing Documentary Footage)
 
@@ -469,7 +469,7 @@ Parent articulates a principle about documented rationale: "Every decision that 
 - Standards bodies benefit from documenting rationale for decisions and maintaining explicit design principles; this improves consistency across similar decisions
 - Meta-programming should be implementation technique for library authors, not exposed interface; Stepanov always viewed it as "a hack so he could implement generic programming"
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/sean-parent.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/sean-parent.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/sean-parent.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/sean-parent.know.md)<sup>[16]</sup>
 
 #### Independent Validation
 
@@ -495,7 +495,7 @@ They describe carrying these lessons forward to Swift. Chris Lattner deliberatel
 - New languages or features benefit from deliberate instability periods where breaking changes are expected, allowing real-world learning before permanent commitment
 - Languages need external proving grounds (like Boost was for C++) where ideas can be tested extensively before standardization; the committee structure itself cannot serve this function
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/abrahams-gregor.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/abrahams-gregor.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/abrahams-gregor.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/abrahams-gregor.know.md)<sup>[16]</sup>
 
 ### 5.6 From Interviews to Evaluation Model
 
@@ -513,11 +513,11 @@ flowchart TD
     EV --> P["Applied to Papers"]
 ```
 
-**Stage 1 - Capture.** [WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md) is a knowledge extraction agent. Given an interview transcript, it produces a structured knowledge file containing principles (actionable rules with "When to Apply" conditions and "Red Flags" for violations) and experiences (supporting stories that illustrate and validate the principles). Each principle carries metadata: category, confidence level, and whether it applies to library proposals, language proposals, or both. We applied `WG21_CAPTURE` to each of the five transcripts in `inputs/`, producing five knowledge files in `knowledge/`.
+**Stage 1 - Capture.** [WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md)<sup>[16]</sup> is a knowledge extraction agent. Given an interview transcript, it produces a structured knowledge file containing principles (actionable rules with "When to Apply" conditions and "Red Flags" for violations) and experiences (supporting stories that illustrate and validate the principles). Each principle carries metadata: category, confidence level, and whether it applies to library proposals, language proposals, or both. We applied `WG21_CAPTURE` to each of the five transcripts in `inputs/`, producing five knowledge files in `knowledge/`.
 
-**Stage 2 - Merge.** [WG21_MERGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_MERGE.md) is a knowledge merging agent. Given multiple knowledge files, it identifies principles that appear in two or more independent sources, intelligently merges them into a single statement, and discards principles corroborated by only one source. The merged principles are written in a concise style with "Examples of" and "Counterexamples" lists drawn from the source material. We applied `WG21_MERGE` to the five knowledge files, producing [merged.know.md](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/merged.know.md) containing 11 merged principles.
+**Stage 2 - Merge.** [WG21_MERGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_MERGE.md)<sup>[16]</sup> is a knowledge merging agent. Given multiple knowledge files, it identifies principles that appear in two or more independent sources, intelligently merges them into a single statement, and discards principles corroborated by only one source. The merged principles are written in a concise style with "Examples of" and "Counterexamples" lists drawn from the source material. We applied `WG21_MERGE` to the five knowledge files, producing [merged.know.md](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/merged.know.md)<sup>[16]</sup> containing 11 merged principles.
 
-**Stage 3 - Judge.** [WG21_JUDGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_JUDGE.md) is an evaluation model generator. Given a merged knowledge file and a focus, it produces a purpose-built scoring model for evaluating WG21 papers against the distilled principles. The generated model includes a gate function (to reject papers outside scope), scoring criteria with concrete indicators at each level (0/1/2), a passing threshold, and source traceability back to the original principles. We applied `WG21_JUDGE` to `merged.know.md` with a general focus, producing [WG21_EVAL_GENERAL.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_EVAL_GENERAL.md) - a general-purpose evaluation model with 11 scoring criteria and a passing threshold of 14/22. The full model is reproduced in Appendix A.
+**Stage 3 - Judge.** [WG21_JUDGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_JUDGE.md)<sup>[16]</sup> is an evaluation model generator. Given a merged knowledge file and a focus, it produces a purpose-built scoring model for evaluating WG21 papers against the distilled principles. The generated model includes a gate function (to reject papers outside scope), scoring criteria with concrete indicators at each level (0/1/2), a passing threshold, and source traceability back to the original principles. We applied `WG21_JUDGE` to `merged.know.md` with a general focus, producing [WG21_EVAL_GENERAL.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_EVAL_GENERAL.md)<sup>[16]</sup> - a general-purpose evaluation model with 11 scoring criteria and a passing threshold of 14/22. The full model is reproduced in Appendix A.
 
 #### Rule File Inventory
 
@@ -531,7 +531,7 @@ flowchart TD
 
 ## 6. Application: Self-Evaluation
 
-To demonstrate the evaluation model in practice, the lead author applied `WG21_EVAL_GENERAL.md` (Appendix A) to his own paper [P4003R0](https://wg21.link/p4003r0) "Coroutines for I/O". The result is [d4003-eval.md](https://github.com/cppalliance/wg21-sage/blob/master/evaluations/d4003-eval.md), reproduced in full in Appendix B.
+To demonstrate the evaluation model in practice, the lead author applied `WG21_EVAL_GENERAL.md` (Appendix A) to his own paper [P4003R0](https://wg21.link/p4003r0)<sup>[17]</sup> "Coroutines for I/O". The result is [d4003-eval.md](https://github.com/cppalliance/wg21-sage/blob/master/evaluations/d4003-eval.md)<sup>[16]</sup>, reproduced in full in Appendix B.
 
 The paper scored **17/22** (passing threshold: 14/22). Six criteria received full marks: complexity awareness, implementation validation, external incubation, knowledge capture, enabling previously-impossible capabilities, and principled design. Five criteria scored partial: political fragility, proven practice (limited independent adoption), consensus collaboration (single-organization development), language-library boundary tensions, and licensing documentation.
 
@@ -606,7 +606,7 @@ WG21 has built deep expertise over three decades. Experienced participants hold 
 
 The methodology is straightforward: structured interviews, AI-assisted transcription, knowledge synthesis, expert review. The experimental results demonstrate that the workflow produces structured, reviewable output.
 
-WG21 is a voluntary organization. No one can compel participation, enforce paper quality standards, or mandate the use of any evaluation tool. In this environment, the only institutional mechanisms that gain adoption are ones that demonstrate their value through use. This workflow produces informational output with no authority. It can only succeed by being useful. This is not a limitation. It is the design.
+WG21 is a voluntary organization. No one can compel participation, enforce paper quality standards, or mandate the use of any evaluation tool. In this environment, the only institutional mechanisms that gain adoption are ones that demonstrate their value through use. The workflow produces informational output with no authority. It can only succeed by being useful. That constraint is not a limitation. It is the design.
 
 Every institution accumulates tacit knowledge in the minds of experienced practitioners. Every institution benefits from making that knowledge explicit. WG21 is not unusual in facing this challenge. It is unusual in the depth of expertise available to capture.
 
@@ -640,45 +640,23 @@ Thanks to all interview participants for sharing their expertise.
 
 ## References
 
-### Great Founder Theory
-
-- Burja, Samo. [Great Founder Theory](https://www.samoburja.com/gft/). 2020.
-
-### WG21 Structure and Participation
-
-- ISO C++ Committee. [The Committee](https://isocpp.org/std/the-committee). Description of WG21 structure and subgroups.
-- ISO C++ Committee. [Meetings and Participation](https://isocpp.org/std/meetings-and-participation). How to participate in WG21.
-- ISO C++ Committee. [How to Submit a Proposal](https://isocpp.org/std/submit-a-proposal). Guide for newcomers.
-
-### Standing Documents
-
-- [SD-3: Study Group Organizational Information](https://isocpp.org/std/standing-documents/sd-3-study-group-organizational-information). Formation and operation of Study Groups.
-- [SD-4: WG21 Practices and Procedures](https://isocpp.org/std/standing-documents/sd-4-wg21-practices-and-procedures). Operational practices, consensus, proposal handling.
-- [SD-7: Mailing Procedures and How to Write Papers](https://isocpp.org/std/standing-documents/sd-7-mailing-procedures-and-how-to-write-papers). Document formatting and submission.
-- [SD-8: Standard Library Compatibility](https://isocpp.org/std/standing-documents/sd-8-standard-library-compatibility). Breaking change policies.
-- [SD-9: Library Evolution Policies](https://isocpp.org/std/standing-documents/sd-9-library-evolution-policies). Default design policies.
-- [SD-10: Language Evolution Principles](https://isocpp.org/std/standing-documents/sd-10-language-evolution-principles). EWG design principles.
-
-### Direction Papers
-
-- Stroustrup, Hinnant, Orr, Vandevoorde, Wong. [P2000: Direction for ISO C++](https://wg21.link/P2000). Committee philosophy and priorities.
-- Voutilainen, Ville. [P0592: Bold Overall Plan](https://wg21.link/P0592). Feature roadmaps.
-
-### Committee Reports
-
-- WG21. [N4990: WG21 2023-2024 Convener's Report](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4990.pdf). Committee structure and workflow.
-- WG21. [N4999: WG21 Active Subgroups](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4999.html). Current study groups and working groups.
-
-### Process Documentation
-
-- Bastien, JF; Revzin, Barry. [P2138R4: Rules of Design <=> Wording engagement](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2138r4.html). Defines the separation between Evolution and Wording group responsibilities.
-
-### Policy Papers (Case Study)
-
-- Levi, Inbal et al. [P2267R1: Library Evolution Policies](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2267r1.html). Framework for LEWG policy adoption.
-- Neațu, Darius; Sankel, David. [P3162R0: LEWG [[nodiscard]] policy](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3162r0.html). Rationale paper with guiding principles.
-- Wakely, Jonathan. [P3122R1: [[nodiscard]] should be a little less aggressive](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3122r1.html). Implementation-focused policy proposal.
-- Neațu, Darius; Sankel, David. [P3201R1: LEWG [[nodiscard]] policy](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3201r1.html). Final policy wording.
+1. Burja, Samo. Great Founder Theory. 2020. https://www.samoburja.com/gft/
+2. ISO C++ Committee. The Committee; Meetings and Participation; How to Submit a Proposal. https://isocpp.org/std/
+3. SD-3, SD-4, SD-5, SD-7: WG21 Standing Documents (Procedures). https://isocpp.org/std/standing-documents/
+4. SD-8: Standard Library Compatibility. https://isocpp.org/std/standing-documents/sd-8-standard-library-compatibility
+5. SD-9: Library Evolution Policies. https://isocpp.org/std/standing-documents/sd-9-library-evolution-policies
+6. SD-10: Language Evolution Principles. https://isocpp.org/std/standing-documents/sd-10-language-evolution-principles
+7. Stroustrup, Hinnant, Orr, Vandevoorde, Wong. P2000: Direction for ISO C++. https://wg21.link/p2000
+8. Voutilainen, Ville. P0592: Bold Overall Plan. https://wg21.link/p0592
+9. N4990: WG21 2023-2024 Convener's Report. https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4990.pdf
+10. N4999: WG21 Active Subgroups. https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4999.html
+11. Bastien, JF; Revzin, Barry. P2138R4: Rules of Design <=> Wording engagement. https://wg21.link/p2138r4
+12. Levi, Inbal et al. P2267R1: Library Evolution Policies. https://wg21.link/p2267r1
+13. Nea&#x021B;u, Darius; Sankel, David. P3162R0: LEWG [[nodiscard]] policy. https://wg21.link/p3162r0
+14. Wakely, Jonathan. P3122R1: [[nodiscard]] should be a little less aggressive. https://wg21.link/p3122r1
+15. Nea&#x021B;u, Darius; Sankel, David. P3201R1: LEWG [[nodiscard]] policy. https://wg21.link/p3201r1
+16. WG21-SAGE: Transcripts, knowledge files, and agentic rules. https://github.com/cppalliance/wg21-sage
+17. Falco, Gerbino, Gill. P4003R0: Coroutines for I/O. https://wg21.link/p4003r0
 
 ---
 
@@ -704,7 +682,7 @@ Read the paper's title, abstract, and target audience. If the paper's subject ma
 ```markdown
 ## Gate: Scope Mismatch
 
-**Result:** DECLINED — This paper falls outside the model's evaluation scope.
+**Result:** DECLINED - This paper falls outside the model's evaluation scope.
 
 **Paper scope:** [one sentence describing what the paper addresses]
 
@@ -736,7 +714,7 @@ For each criterion, assign a score of 0, 1, or 2.
 | 11 | Without Agreed Principles, Decisions Drift       | 0-2      |      |
 |    | **TOTAL**                                        | **X/22** |      |
 
-Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
+Scoring: PASS = 2 (compliant), PARTIAL = 1 (partial), FAIL = 0 (non-compliant)
 
 **Passing threshold**: 14 / 22
 
@@ -750,8 +728,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ### Criterion-by-Criterion Analysis
 
-#### 1. Political Fragility Kills Proposals — [emoji]
-
+#### 1. Political Fragility Kills Proposals
 **Score: X/2**
 
 > Consensus without a tiebreaker is structurally fragile. Competing proposals fracture politically. One defection after approval kills years of work. No one can compel resolution; champions simply tire and leave.
@@ -768,8 +745,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 2. Standardize Proven Practice — [emoji]
-
+#### 2. Standardize Proven Practice
 **Score: X/2**
 
 > Standardize proven practice. Require field experience from independent users outside the proposer's organization. A last-minute implementation is not field experience. A library nobody uses has no value.
@@ -778,7 +754,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 **Partial (1):** An implementation exists and has some users, but feedback is limited to the proposer's organization or team. Field experience is recent rather than sustained over years.
 
-**Non-compliant (0):** No implementation predates the proposal, or the implementation was created shortly before submission. No independent field experience is documented. The proposal resembles `std::regex` — standardized without competitive implementation experience.
+**Non-compliant (0):** No implementation predates the proposal, or the implementation was created shortly before submission. No independent field experience is documented. The proposal resembles `std::regex` - standardized without competitive implementation experience.
 
 **Evidence from paper:** [evaluator fills in]
 
@@ -786,8 +762,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 3. Complexity Threatens C++ — [emoji]
-
+#### 3. Complexity Threatens C++
 **Score: X/2**
 
 > Complexity that only grows kills a language. C++ requires expertise merely to use it. Features accumulate; nothing is removed. The trajectory ends at COBOL.
@@ -804,8 +779,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 4. Consensus Collaboration Produces Great Things — [emoji]
-
+#### 4. Consensus Collaboration Produces Great Things
 **Score: X/2**
 
 > Experts collaborating without ego exceed individual capability. Arguments serve understanding, not dominance. This requires leadership that moderates rather than advocates.
@@ -822,8 +796,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 5. Implementation Validates Design — [emoji]
-
+#### 5. Implementation Validates Design
 **Score: X/2**
 
 > Implementation is the minimum credible evidence. A live demo outperforms any paper. Feedback from compiler and library maintainers outweighs committee speculation.
@@ -840,8 +813,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 6. Innovation Requires External Incubation — [emoji]
-
+#### 6. Innovation Requires External Incubation
 **Score: X/2**
 
 > Innovation needs a sandbox outside the standard. Designs must iterate through real use before stabilization. Premature standardization locks in mistakes. Boost proved this for C++11; Swift proved it again.
@@ -858,8 +830,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 7. Institutional Knowledge Degrades Without Capture — [emoji]
-
+#### 7. Institutional Knowledge Degrades Without Capture
 **Score: X/2**
 
 > Rationale not written down is rationale lost. Knowledge degrades at every process transition. The committee has no retrospectives, no formal onboarding, no written institutional memory.
@@ -876,8 +847,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 8. Library Complexity Belongs in the Language — [emoji]
-
+#### 8. Library Complexity Belongs in the Language
 **Score: X/2**
 
 > When a simple concept requires a complex implementation, the language is missing a feature. `std::pair` at 2000 lines is a language deficiency. `std::move` as a template instantiated everywhere is a tax on every translation unit.
@@ -894,15 +864,14 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 9. Permissive Licensing Maximizes Adoption — [emoji]
-
+#### 9. Permissive Licensing Maximizes Adoption
 **Score: X/2**
 
 > One license. Maximally permissive. No copyleft, no credit requirements, no strings. Legal departments default to "no"; every friction point is an adoption that never happens.
 
 **Compliant (2):** Any reference implementation or associated library uses a single, maximally permissive license (BSL, MIT, BSD, or equivalent). Corporate legal departments can approve adoption without negotiation, as the Boost Software License enabled Boost to appear in startup screens worldwide.
 
-**Partial (1):** The licensing is mostly permissive but has minor friction points — multiple licenses, attribution requirements, or ambiguities that require legal review.
+**Partial (1):** The licensing is mostly permissive but has minor friction points - multiple licenses, attribution requirements, or ambiguities that require legal review.
 
 **Non-compliant (0):** The reference implementation uses copyleft or restrictive licensing. Licensing terms are ambiguous or require per-organization legal review. Corporate adoption is impeded by licensing friction regardless of technical merit.
 
@@ -912,8 +881,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 10. Standardize What Was Previously Impossible — [emoji]
-
+#### 10. Standardize What Was Previously Impossible
 **Score: X/2**
 
 > Standardize what was impossible. Make the difficult easy. Do not standardize the already-easy. A library's value is enabling domain experts to stay in their domain.
@@ -930,8 +898,7 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 ---
 
-#### 11. Without Agreed Principles, Decisions Drift — [emoji]
-
+#### 11. Without Agreed Principles, Decisions Drift
 **Score: X/2**
 
 > Without documented design principles, every decision is ad hoc. Similar questions receive different answers. The language becomes the sum of political victories, not a coherent design.
@@ -992,20 +959,20 @@ Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
 
 | #  | Criterion                                        | Score     |        |
 |----|--------------------------------------------------|-----------|--------|
-| 1  | Political Fragility Kills Proposals              | 1         | ⚠️     |
-| 2  | Standardize Proven Practice                      | 1         | ⚠️     |
-| 3  | Complexity Threatens C++                         | 2         | ✅     |
-| 4  | Consensus Collaboration Produces Great Things    | 1         | ⚠️     |
-| 5  | Implementation Validates Design                  | 2         | ✅     |
-| 6  | Innovation Requires External Incubation          | 2         | ✅     |
-| 7  | Institutional Knowledge Degrades Without Capture | 2         | ✅     |
-| 8  | Library Complexity Belongs in the Language        | 1         | ⚠️     |
-| 9  | Permissive Licensing Maximizes Adoption           | 1         | ⚠️     |
-| 10 | Standardize What Was Previously Impossible       | 2         | ✅     |
-| 11 | Without Agreed Principles, Decisions Drift       | 2         | ✅     |
+| 1  | Political Fragility Kills Proposals              | 1         | PARTIAL     |
+| 2  | Standardize Proven Practice                      | 1         | PARTIAL     |
+| 3  | Complexity Threatens C++                         | 2         | PASS     |
+| 4  | Consensus Collaboration Produces Great Things    | 1         | PARTIAL     |
+| 5  | Implementation Validates Design                  | 2         | PASS     |
+| 6  | Innovation Requires External Incubation          | 2         | PASS     |
+| 7  | Institutional Knowledge Degrades Without Capture | 2         | PASS     |
+| 8  | Library Complexity Belongs in the Language        | 1         | PARTIAL     |
+| 9  | Permissive Licensing Maximizes Adoption           | 1         | PARTIAL     |
+| 10 | Standardize What Was Previously Impossible       | 2         | PASS     |
+| 11 | Without Agreed Principles, Decisions Drift       | 2         | PASS     |
 |    | **TOTAL**                                        | **17/22** |        |
 
-Scoring: ✅ = 2 (compliant), ⚠️ = 1 (partial), ❌ = 0 (non-compliant)
+Scoring: PASS = 2 (compliant), PARTIAL = 1 (partial), FAIL = 0 (non-compliant)
 
 **Passing threshold**: 14 / 22
 
@@ -1025,7 +992,7 @@ The recommendation is positive with caveats. The paper's technical merits are su
 
 ### Criterion-by-Criterion Analysis
 
-#### 1. Political Fragility Kills Proposals — ⚠️
+#### 1. Political Fragility Kills Proposals - PARTIAL
 
 **Score: 1/2**
 
@@ -1039,7 +1006,7 @@ Within its own camp, the proposal has converged on a single design vision. The t
 
 ---
 
-#### 2. Standardize Proven Practice — ⚠️
+#### 2. Standardize Proven Practice - PARTIAL
 
 **Score: 1/2**
 
@@ -1060,7 +1027,7 @@ All three implementations originate from C++ Alliance. The paper does not docume
 
 ---
 
-#### 3. Complexity Threatens C++ — ✅
+#### 3. Complexity Threatens C++ - PASS
 
 **Score: 2/2**
 
@@ -1082,7 +1049,7 @@ The paper replaces complex existing patterns (callback hell, viral allocator par
 
 ---
 
-#### 4. Consensus Collaboration Produces Great Things — ⚠️
+#### 4. Consensus Collaboration Produces Great Things - PARTIAL
 
 **Score: 1/2**
 
@@ -1101,7 +1068,7 @@ The design explicitly builds on Kohlhoff's executor model and credits it through
 
 ---
 
-#### 5. Implementation Validates Design — ✅
+#### 5. Implementation Validates Design - PASS
 
 **Score: 2/2**
 
@@ -1124,7 +1091,7 @@ The paper's methodology is "use C++20 coroutines directly for I/O and observe wh
 
 ---
 
-#### 6. Innovation Requires External Incubation — ✅
+#### 6. Innovation Requires External Incubation - PASS
 
 **Score: 2/2**
 
@@ -1142,7 +1109,7 @@ The paper's methodology is "use C++20 coroutines directly for I/O and observe wh
 
 ---
 
-#### 7. Institutional Knowledge Degrades Without Capture — ✅
+#### 7. Institutional Knowledge Degrades Without Capture - PASS
 
 **Score: 2/2**
 
@@ -1163,7 +1130,7 @@ The paper's methodology is "use C++20 coroutines directly for I/O and observe wh
 
 ---
 
-#### 8. Library Complexity Belongs in the Language — ⚠️
+#### 8. Library Complexity Belongs in the Language - PARTIAL
 
 **Score: 1/2**
 
@@ -1181,7 +1148,7 @@ However, the paper explicitly acknowledges language-library boundary tensions:
 
 ---
 
-#### 9. Permissive Licensing Maximizes Adoption — ⚠️
+#### 9. Permissive Licensing Maximizes Adoption - PARTIAL
 
 **Score: 1/2**
 
@@ -1199,7 +1166,7 @@ C++ Alliance projects are known to use the Boost Software License. However, the 
 
 ---
 
-#### 10. Standardize What Was Previously Impossible — ✅
+#### 10. Standardize What Was Previously Impossible - PASS
 
 **Score: 2/2**
 
@@ -1218,7 +1185,7 @@ The paper argues this is a distinct approach from both the Networking TS and sen
 
 ---
 
-#### 11. Without Agreed Principles, Decisions Drift — ✅
+#### 11. Without Agreed Principles, Decisions Drift - PASS
 
 **Score: 2/2**
 
