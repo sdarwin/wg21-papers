@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4007R0: Senders and Coroutines</title>
+  <title>P4007R1: Senders and Coroutines</title>
   <style type="text/css">
 
 @font-face {
@@ -823,7 +823,7 @@ outline: none;
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4007R0</p>
+  <p><strong>Document Number:</strong> P4007R1</p>
   <p><strong>Date:</strong> 2026-02-22</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Mungo Gill
@@ -1184,11 +1184,12 @@ coroutine, this is expressed naturally as a tuple (here,
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span>buf<span class="op">);</span>    <span class="co">// also a tuple</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        result<span class="op">.</span>append<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span>                          <span class="co">// n bytes arrived regardless of ec</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_return</span> <span class="op">{</span>ec<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>result<span class="op">)};</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// n bytes arrived regardless of ec</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        result<span class="op">.</span>append<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_return</span> <span class="op">{</span>ec<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>result<span class="op">)};</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The caller always receives both the error and the accumulated data.
 Composed I/O operations produce tuples because partial progress is the
 norm. A <code>read</code> that fills 47 bytes before the connection
@@ -1235,14 +1236,14 @@ first the size, then the data.</p>
 <span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>           <span class="cf">return</span> just<span class="op">(</span><span class="bu">std::</span>as_writeable_bytes<span class="op">(</span><span class="bu">std::</span>span<span class="op">(&amp;</span>buf<span class="op">.</span>size<span class="op">,</span> <span class="dv">1</span><span class="op">)))</span></span>
 <span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> async_read<span class="op">(</span>handle<span class="op">)</span></span>
 <span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> then<span class="op">(</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span>           <span class="co">// from set_value</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span> <span class="co">// from set_value</span></span>
 <span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>                      <span class="ot">assert</span><span class="op">(</span>bytes_read <span class="op">==</span> <span class="kw">sizeof</span><span class="op">(</span>buf<span class="op">.</span>size<span class="op">));</span></span>
 <span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>                      buf<span class="op">.</span>data <span class="op">=</span> <span class="bu">std::</span>make_unique<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">[]&gt;(</span>buf<span class="op">.</span>size<span class="op">);</span></span>
 <span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>                      <span class="cf">return</span> <span class="bu">std::</span>span<span class="op">(</span>buf<span class="op">.</span>data<span class="op">.</span>get<span class="op">(),</span> buf<span class="op">.</span>size<span class="op">);</span></span>
 <span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>                    <span class="op">})</span></span>
 <span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> async_read<span class="op">(</span>handle<span class="op">)</span></span>
 <span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> then<span class="op">(</span></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span>           <span class="co">// from set_value</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span> <span class="co">// from set_value</span></span>
 <span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>                      <span class="ot">assert</span><span class="op">(</span>bytes_read <span class="op">==</span> buf<span class="op">.</span>size<span class="op">);</span></span>
 <span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>                      <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(</span>buf<span class="op">);</span></span>
 <span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>                    <span class="op">});</span></span>
@@ -1553,7 +1554,7 @@ introduces a different mechanism:</p>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
 <span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> s<span class="op">.</span>async_read<span class="op">(</span>buf<span class="op">);</span></span>
 <span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_yield</span> with_error<span class="op">(</span>ec<span class="op">);</span>        <span class="co">// unfortunately, terminates the coroutine</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_yield</span> with_error<span class="op">(</span>ec<span class="op">);</span> <span class="co">// unfortunately, terminates the coroutine</span></span>
 <span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> n<span class="op">;</span></span>
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>For six years, every C++ coroutine library has taught the same two
@@ -1732,10 +1733,12 @@ it.</p>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> op <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span></span>
 <span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    write_env<span class="op">(</span></span>
 <span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        ex<span class="op">::</span>on<span class="op">(</span>sch<span class="op">,</span></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>            handle_connection<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>conn<span class="op">))),</span>   <span class="co">// operator new allocates here...</span></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        prop<span class="op">(</span>get_allocator<span class="op">,</span> alloc<span class="op">)),</span>               <span class="co">// ...but allocator arrives here</span></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">);</span></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>start<span class="op">(</span>op<span class="op">);</span></span></code></pre></div>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>            <span class="co">// operator new allocates here...</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>            handle_connection<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>conn<span class="op">))),</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ...but allocator arrives here</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>        prop<span class="op">(</span>get_allocator<span class="op">,</span> alloc<span class="op">)),</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">);</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>start<span class="op">(</span>op<span class="op">);</span></span></code></pre></div>
 <p>The receiver’s environment carries the allocator after
 <code>connect</code>. The frame was allocated before.</p>
 <p>The only way to get the frame allocator into the coroutine frame is
@@ -2410,36 +2413,44 @@ Section 1.4</a><sup>[1]</sup>’s <code>recv_sender</code> and
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
 <span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> recv_rcvr <span class="op">{</span></span>
 <span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>        read_op<span class="op">*</span> <span class="va">self_</span><span class="op">;</span></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_value<span class="op">(</span><span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">({},</span> n<span class="op">);</span> <span class="op">}</span></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_error<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">(</span>ec<span class="op">,</span> <span class="dv">0</span><span class="op">);</span> <span class="op">}</span></span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_stopped<span class="op">()</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> execution<span class="op">::</span>set_stopped<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">self_</span><span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">));</span> <span class="op">}</span></span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    Rcvr <span class="va">rcvr_</span><span class="op">;</span></span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>    SOCKET <span class="va">sock_</span><span class="op">;</span></span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>byte<span class="op">*</span> <span class="va">data_</span><span class="op">;</span></span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">len_</span><span class="op">;</span></span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">bytes_read_</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>optional<span class="op">&lt;</span><span class="dt">connect_result_t</span><span class="op">&lt;</span>recv_sender<span class="op">,</span> recv_rcvr<span class="op">&gt;&gt;</span> <span class="va">child_</span><span class="op">;</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_value<span class="op">(</span><span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>            <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">({},</span> n<span class="op">);</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_error<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>            <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">(</span>ec<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_stopped<span class="op">()</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>            execution<span class="op">::</span>set_stopped<span class="op">(</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>move<span class="op">(</span><span class="va">self_</span><span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">));</span></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
 <span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="op">&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> start_recv<span class="op">();</span> <span class="op">}</span></span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start_recv<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>        <span class="va">child_</span><span class="op">.</span>emplace<span class="op">(</span>execution<span class="op">::</span><span class="fu">connect</span><span class="op">(</span></span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>            async_recv<span class="op">(</span><span class="va">sock_</span><span class="op">,</span> <span class="va">data_</span> <span class="op">+</span> <span class="va">bytes_read_</span><span class="op">,</span> <span class="va">len_</span> <span class="op">-</span> <span class="va">bytes_read_</span><span class="op">),</span></span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>            recv_rcvr<span class="op">{</span><span class="kw">this</span><span class="op">}));</span></span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>start<span class="op">(*</span><span class="va">child_</span><span class="op">);</span></span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    Rcvr <span class="va">rcvr_</span><span class="op">;</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>    SOCKET <span class="va">sock_</span><span class="op">;</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>byte<span class="op">*</span> <span class="va">data_</span><span class="op">;</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">len_</span><span class="op">;</span></span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">bytes_read_</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>optional<span class="op">&lt;</span><span class="dt">connect_result_t</span><span class="op">&lt;</span>recv_sender<span class="op">,</span> recv_rcvr<span class="op">&gt;&gt;</span> <span class="va">child_</span><span class="op">;</span></span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="op">&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> start_recv<span class="op">();</span> <span class="op">}</span></span>
 <span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> completed<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">,</span> <span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">bytes_read_</span> <span class="op">+=</span> n<span class="op">;</span></span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">bytes_read_</span> <span class="op">==</span> <span class="va">len_</span><span class="op">)</span></span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> execution<span class="op">::</span>set_value<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> <span class="va">bytes_read_</span><span class="op">);</span></span>
-<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>ec<span class="op">)</span></span>
-<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> start_recv<span class="op">();</span></span>
-<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>set_error<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> ec<span class="op">);</span>   <span class="co">// bytes_read_ bytes are lost</span></span>
-<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start_recv<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">child_</span><span class="op">.</span>emplace<span class="op">(</span>execution<span class="op">::</span><span class="fu">connect</span><span class="op">(</span></span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>            async_recv<span class="op">(</span><span class="va">sock_</span><span class="op">,</span> <span class="va">data_</span> <span class="op">+</span> <span class="va">bytes_read_</span><span class="op">,</span> <span class="va">len_</span> <span class="op">-</span> <span class="va">bytes_read_</span><span class="op">),</span></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>            recv_rcvr<span class="op">{</span><span class="kw">this</span><span class="op">}));</span></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>start<span class="op">(*</span><span class="va">child_</span><span class="op">);</span></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> completed<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">,</span> <span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>        <span class="va">bytes_read_</span> <span class="op">+=</span> n<span class="op">;</span></span>
+<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">bytes_read_</span> <span class="op">==</span> <span class="va">len_</span><span class="op">)</span></span>
+<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> execution<span class="op">::</span>set_value<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> <span class="va">bytes_read_</span><span class="op">);</span></span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>ec<span class="op">)</span></span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> start_recv<span class="op">();</span></span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>        <span class="co">// bytes_read_ bytes are lost</span></span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>set_error<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> ec<span class="op">);</span></span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
 <p>Every name is from P2300R10: <code>recv_sender</code>,
 <code>async_recv</code>, <code>connect</code>, <code>start</code>,
 <code>set_value</code>, <code>set_error</code>,

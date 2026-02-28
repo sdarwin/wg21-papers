@@ -682,15 +682,24 @@ Read the paper's title, abstract, and target audience. If the paper's subject ma
 ```markdown
 ## Gate: Scope Mismatch
 
-**Result:** DECLINED - This paper falls outside the model's evaluation scope.
+**Result:** DECLINED - This paper falls outside the
+model's evaluation scope.
 
-**Paper scope:** [one sentence describing what the paper addresses]
+**Paper scope:** [one sentence describing what the paper
+addresses]
 
-**Model scope:** This model evaluates C++ standardization proposals against principles of proven practice, political viability, design coherence, implementation validation, complexity control, institutional knowledge, and ecosystem fit derived from experienced WG21 practitioners.
+**Model scope:** This model evaluates C++ standardization
+proposals against principles of proven practice, political
+viability, design coherence, implementation validation,
+complexity control, institutional knowledge, and ecosystem
+fit derived from experienced WG21 practitioners.
 
-**Overlap:** [N] of 11 principles apply to this paper's subject matter.
+**Overlap:** [N] of 11 principles apply to this paper's
+subject matter.
 
-**Recommendation:** [Suggest which kind of evaluation model would be appropriate, or suggest the user generate one from a knowledge file covering the paper's domain.]
+**Recommendation:** [Suggest which kind of evaluation
+model would be appropriate, or suggest the user generate
+one from a knowledge file covering the paper's domain.]
 ```
 
 ---
@@ -945,11 +954,20 @@ Scoring: PASS = 2 (compliant), PARTIAL = 1 (partial), FAIL = 0 (non-compliant)
 
 ### Gate
 
-**Paper scope:** A coroutine-native I/O execution model using C++20 language features, proposing the IoAwaitable protocol with two concepts, a type-erased executor, frame allocator propagation, and launch functions for asynchronous byte-oriented I/O.
+**Paper scope:** A coroutine-native I/O execution model
+using C++20 language features, proposing the IoAwaitable
+protocol with two concepts, a type-erased executor, frame
+allocator propagation, and launch functions for
+asynchronous byte-oriented I/O.
 
-**Model scope:** This model evaluates C++ standardization proposals against principles of proven practice, political viability, design coherence, implementation validation, complexity control, institutional knowledge, and ecosystem fit derived from experienced WG21 practitioners.
+**Model scope:** This model evaluates C++ standardization
+proposals against principles of proven practice, political
+viability, design coherence, implementation validation,
+complexity control, institutional knowledge, and ecosystem
+fit derived from experienced WG21 practitioners.
 
-**Overlap:** 11 of 11 principles apply to this paper's subject matter.
+**Overlap:** 11 of 11 principles apply to this paper's
+subject matter.
 
 **Result:** PASS - proceed to evaluation.
 

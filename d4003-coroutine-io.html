@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4003R0: Coroutines for I/O</title>
+  <title>P4003R1: Coroutines for I/O</title>
   <style type="text/css">
 
 @font-face {
@@ -823,7 +823,7 @@ outline: none;
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4003R0</p>
+  <p><strong>Document Number:</strong> P4003R1</p>
   <p><strong>Date:</strong> 2026-02-22</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Steve
@@ -1195,16 +1195,18 @@ per standard awaitable requirements</li>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bool</span> await_ready<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span> <span class="op">}</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// This signature satisfies IoAwaitable</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> await_suspend<span class="op">(</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> cont<span class="op">,</span> io_env <span class="at">const</span><span class="op">*</span> env <span class="op">)</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">cont_</span> <span class="op">=</span> cont<span class="op">;</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">env_</span> <span class="op">=</span> env<span class="op">;</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        start_async_operation<span class="op">(</span> <span class="op">&amp;</span><span class="va">result_</span> <span class="op">);</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>noop_coroutine<span class="op">();</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    T await_resume<span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">result_</span><span class="op">;</span> <span class="op">}</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    await_suspend<span class="op">(</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> cont<span class="op">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>                   io_env <span class="at">const</span><span class="op">*</span> env <span class="op">)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="va">cont_</span> <span class="op">=</span> cont<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">env_</span> <span class="op">=</span> env<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        start_async_operation<span class="op">(</span> <span class="op">&amp;</span><span class="va">result_</span> <span class="op">);</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>noop_coroutine<span class="op">();</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    T await_resume<span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">result_</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
 <h4 id="compile-time-protocol-checking">Compile-Time Protocol
 Checking</h4>
 <p>The two-argument <code>await_suspend</code> signature is not just an
@@ -1371,17 +1373,19 @@ propagation (read TLS)</li>
 <span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    T await_resume<span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">h_</span><span class="op">.</span>promise<span class="op">().</span>result<span class="op">();</span> <span class="op">}</span></span>
 <span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Satisfies IoAwaitable</span></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> await_suspend<span class="op">(</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> cont<span class="op">,</span> io_env <span class="at">const</span><span class="op">*</span> env <span class="op">)</span></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="va">h_</span><span class="op">.</span>promise<span class="op">().</span>set_continuation<span class="op">(</span> cont <span class="op">);</span></span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">h_</span><span class="op">.</span>promise<span class="op">().</span>set_environment<span class="op">(</span> env <span class="op">);</span></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">h_</span><span class="op">;</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Satisfies IoRunnable</span></span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;</span><span class="dt">promise_type</span><span class="op">&gt;</span> handle<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">h_</span><span class="op">;</span> <span class="op">}</span></span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> release<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">h_</span> <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span> <span class="op">}</span></span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    await_suspend<span class="op">(</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> cont<span class="op">,</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>                   io_env <span class="at">const</span><span class="op">*</span> env <span class="op">)</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">h_</span><span class="op">.</span>promise<span class="op">().</span>set_continuation<span class="op">(</span> cont <span class="op">);</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">h_</span><span class="op">.</span>promise<span class="op">().</span>set_environment<span class="op">(</span> env <span class="op">);</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">h_</span><span class="op">;</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Satisfies IoRunnable</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;</span><span class="dt">promise_type</span><span class="op">&gt;</span> handle<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">h_</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> release<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">h_</span> <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
 <p>The <code>handle()</code> method provides access to the typed
 coroutine handle, allowing launch functions to resume the coroutine and
 access the promise. The <code>release()</code> method transfers
@@ -1527,10 +1531,12 @@ bridges non-coroutine code into the coroutine world or performs executor
 hopping within a coroutine chain. Launch functions are constrained on
 <em>IoRunnable</em> to work with any conforming task type:</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>Executor Ex<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>unspecified run_async<span class="op">(</span> Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args <span class="op">);</span>  <span class="co">// returns wrapper, caller invokes with task</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>Executor Ex<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>unspecified run<span class="op">(</span> Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args <span class="op">);</span>        <span class="co">// returns wrapper for co_await</span></span></code></pre></div>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co">// returns wrapper, caller invokes with task</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>unspecified run_async<span class="op">(</span> Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args <span class="op">);</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>Executor Ex<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co">// returns wrapper for co_await</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>unspecified run<span class="op">(</span> Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args <span class="op">);</span></span></code></pre></div>
 <p><strong>Requirements:</strong></p>
 <ol type="1">
 <li>Accept or provide an executor</li>
@@ -1750,8 +1756,9 @@ an executor bound to the context.</p>
 <span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">requires</span><span class="op">(</span>X<span class="op">&amp;</span> x<span class="op">)</span> <span class="op">{</span></span>
 <span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">typename</span> X<span class="op">::</span><span class="dt">executor_type</span><span class="op">;</span></span>
 <span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">requires</span> Executor<span class="op">&lt;</span><span class="kw">typename</span> X<span class="op">::</span><span class="dt">executor_type</span><span class="op">&gt;;</span></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span> x<span class="op">.</span>get_executor<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> <span class="bu">std::</span>same_as<span class="op">&lt;</span><span class="kw">typename</span> X<span class="op">::</span><span class="dt">executor_type</span><span class="op">&gt;;</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span></code></pre></div>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span> x<span class="op">.</span>get_executor<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>            <span class="op">-&gt;</span> <span class="bu">std::</span>same_as<span class="op">&lt;</span><span class="kw">typename</span> X<span class="op">::</span><span class="dt">executor_type</span><span class="op">&gt;;</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span></code></pre></div>
 <p>The concept formalizes the relationship between execution contexts
 and their executors. Types like <code>io_context</code> and
 <code>thread_pool</code> satisfy <code>ExecutionContext</code> - they
@@ -1784,7 +1791,8 @@ configuration - arrives too late.</p>
 <div class="sourceCode" id="cb21"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> t <span class="op">=</span> my_coro<span class="op">(</span>sock<span class="op">);</span>  <span class="co">// operator new called HERE</span></span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> t<span class="op">;</span>              <span class="co">// await_transform kicks in HERE (too late)</span></span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>spawn<span class="op">(</span> my_coro<span class="op">(</span>sock<span class="op">)</span> <span class="op">);</span>  <span class="co">// my_coro(sock) evaluated BEFORE calling spawn (too late)</span></span></code></pre></div>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">// my_coro(sock) evaluated BEFORE calling spawn (too late)</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>spawn<span class="op">(</span> my_coro<span class="op">(</span>sock<span class="op">)</span> <span class="op">);</span></span></code></pre></div>
 <h3 id="the-awkward-approach">5.2 The Awkward Approach</h3>
 <p>C++ provides exactly one hook at the right time:
 <strong><code>promise_type::operator new</code></strong>. The compiler
@@ -2578,14 +2586,16 @@ compile time. <em>- end note</em> ]</p>
 <span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">requires</span> <span class="op">{</span> <span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">;</span> <span class="op">}</span> <span class="op">&amp;&amp;</span></span>
 <span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">requires</span><span class="op">(</span>T<span class="op">&amp;</span> t<span class="op">,</span> T <span class="at">const</span><span class="op">&amp;</span> ct<span class="op">,</span> <span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span> <span class="at">const</span><span class="op">&amp;</span> cp<span class="op">,</span></span>
 <span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>           <span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">&amp;</span> p<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ct<span class="op">.</span>handle<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> same_as<span class="op">&lt;</span>coroutine_handle<span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">&gt;&gt;;</span></span>
-<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> cp<span class="op">.</span>exception<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> same_as<span class="op">&lt;</span>exception_ptr<span class="op">&gt;;</span></span>
-<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> t<span class="op">.</span>release<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
-<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> p<span class="op">.</span>set_continuation<span class="op">(</span>coroutine_handle<span class="op">&lt;&gt;{})</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
-<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> p<span class="op">.</span>set_environment<span class="op">(</span><span class="kw">static_cast</span><span class="op">&lt;</span>io_env <span class="at">const</span><span class="op">*&gt;(</span><span class="kw">nullptr</span><span class="op">))</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
-<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span> <span class="op">&amp;&amp;</span></span>
-<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>  <span class="op">(</span>is_void_v<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span>declval<span class="op">&lt;</span>T<span class="op">&amp;&gt;().</span>await_resume<span class="op">())&gt;</span> <span class="op">||</span></span>
-<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>   <span class="kw">requires</span><span class="op">(</span><span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">&amp;</span> p<span class="op">)</span> <span class="op">{</span> p<span class="op">.</span>result<span class="op">();</span> <span class="op">});</span></span></code></pre></div>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ct<span class="op">.</span>handle<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">-&gt;</span> same_as<span class="op">&lt;</span>coroutine_handle<span class="op">&lt;</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>            <span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">&gt;&gt;;</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> cp<span class="op">.</span>exception<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> same_as<span class="op">&lt;</span>exception_ptr<span class="op">&gt;;</span></span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> t<span class="op">.</span>release<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> p<span class="op">.</span>set_continuation<span class="op">(</span>coroutine_handle<span class="op">&lt;&gt;{})</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> p<span class="op">.</span>set_environment<span class="op">(</span><span class="kw">static_cast</span><span class="op">&lt;</span>io_env <span class="at">const</span><span class="op">*&gt;(</span><span class="kw">nullptr</span><span class="op">))</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a>  <span class="op">(</span>is_void_v<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span>declval<span class="op">&lt;</span>T<span class="op">&amp;&gt;().</span>await_resume<span class="op">())&gt;</span> <span class="op">||</span></span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a>   <span class="kw">requires</span><span class="op">(</span><span class="kw">typename</span> T<span class="op">::</span><span class="dt">promise_type</span><span class="op">&amp;</span> p<span class="op">)</span> <span class="op">{</span> p<span class="op">.</span>result<span class="op">();</span> <span class="op">});</span></span></code></pre></div>
 <p>1 A type <code>T</code> meets the <code>io_runnable</code>
 requirements if it satisfies <code>io_awaitable&lt;T&gt;</code>, has a
 nested type <code>promise_type</code>, and satisfies the semantic
