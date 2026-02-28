@@ -352,7 +352,7 @@ Modern AI capabilities make this project feasible in ways that weren't possible 
 - **Structured extraction**: Converting narrative knowledge into organized frameworks
 - **Accessibility**: Making captured knowledge searchable and navigable
 
-We have developed an agentic knowledge extraction framework ([WG21_CAPTURE.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_CAPTURE.md)) that processes interview transcripts and produces structured output distinguishing:
+We have developed an agentic knowledge extraction framework ([WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md)) that processes interview transcripts and produces structured output distinguishing:
 
 - **Principles**: Distilled, actionable rules that can be applied to evaluate new proposals
 - **Experiences**: Supporting stories that illustrate and validate the principles
@@ -382,7 +382,7 @@ The economics are clear: judgment is the bottleneck owned by experts. This metho
 
 ## 5. Experimental Results
 
-We conducted interviews with experienced committee members and processed the results through the agentic workflow described above. The full transcripts, synthesized knowledge files, and the agentic extraction rule are available in the [GitHub repository](https://github.com/cppalliance/wg21-capturing-knowledge).
+We conducted interviews with experienced committee members and processed the results through the agentic workflow described above. The full transcripts, synthesized knowledge files, and the agentic extraction rule are available in the [GitHub repository](https://github.com/cppalliance/wg21-sage).
 
 The summaries below are AI-generated syntheses. They have not yet undergone full interviewee review. See Section 1 (Disclosure) for the applicable caveats.
 
@@ -402,7 +402,7 @@ Matheus also articulates a tension between library and language features: founda
 - The committee should throttle feature adoption based on available implementation capacity; approving features faster than they can be implemented wastes resources
 - Rationale discussed orally in study groups is often lost because it's not recorded in papers; however, requiring authors to document every objection may be counterproductive—papers typically address concerns with measurable consensus impact
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/inputs/matheus-izvekov.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/matheus-izvekov.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/matheus-izvekov.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/matheus-izvekov.know.md)
 
 ### 5.2 Howard Hinnant
 
@@ -420,7 +420,7 @@ Howard also articulates a structural property of WG21: it is a volunteer organiz
 - Every proposal must clearly answer: what specific problem does this solve, and without this proposal, how hard is the problem to solve?
 - ABI stability concerns should trigger cost/benefit analysis, not automatic rejection; some ABI breaks are worth the transition cost
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/inputs/howard-hinnant.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/howard-hinnant.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/howard-hinnant.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/howard-hinnant.know.md)
 
 #### The Power of Stories
 
@@ -450,7 +450,7 @@ He also provides a foundational account of how consensus-based collaboration can
 - Effective technical leadership means moderating discussions so all arguments are heard, remaining non-partisan toward solutions; Beman Dawes's ecumenical leadership style created a level of respect that attracted high-caliber contributors
 - The best technical work uncovers existing truths rather than creating arbitrary constructs; approach problems as exploration toward the right answer, not competition between proposed solutions
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/inputs/dave-abrahams.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/dave-abrahams.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/dave-abrahams.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/dave-abrahams.know.md)
 
 ### 5.4 Sean Parent (From Existing Documentary Footage)
 
@@ -469,7 +469,7 @@ Parent articulates a principle about documented rationale: "Every decision that 
 - Standards bodies benefit from documenting rationale for decisions and maintaining explicit design principles; this improves consistency across similar decisions
 - Meta-programming should be implementation technique for library authors, not exposed interface; Stepanov always viewed it as "a hack so he could implement generic programming"
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/inputs/sean-parent.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/sean-parent.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/sean-parent.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/sean-parent.know.md)
 
 #### Independent Validation
 
@@ -495,7 +495,7 @@ They describe carrying these lessons forward to Swift. Chris Lattner deliberatel
 - New languages or features benefit from deliberate instability periods where breaking changes are expected, allowing real-world learning before permanent commitment
 - Languages need external proving grounds (like Boost was for C++) where ideas can be tested extensively before standardization; the committee structure itself cannot serve this function
 
-**References:** [Full transcript](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/inputs/abrahams-gregor.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/abrahams-gregor.know.md)
+**References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/abrahams-gregor.md) ・ [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/abrahams-gregor.know.md)
 
 ### 5.6 From Interviews to Evaluation Model
 
@@ -513,25 +513,25 @@ flowchart TD
     EV --> P["Applied to Papers"]
 ```
 
-**Stage 1 - Capture.** [WG21_CAPTURE.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_CAPTURE.md) is a knowledge extraction agent. Given an interview transcript, it produces a structured knowledge file containing principles (actionable rules with "When to Apply" conditions and "Red Flags" for violations) and experiences (supporting stories that illustrate and validate the principles). Each principle carries metadata: category, confidence level, and whether it applies to library proposals, language proposals, or both. We applied `WG21_CAPTURE` to each of the five transcripts in `inputs/`, producing five knowledge files in `knowledge/`.
+**Stage 1 - Capture.** [WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md) is a knowledge extraction agent. Given an interview transcript, it produces a structured knowledge file containing principles (actionable rules with "When to Apply" conditions and "Red Flags" for violations) and experiences (supporting stories that illustrate and validate the principles). Each principle carries metadata: category, confidence level, and whether it applies to library proposals, language proposals, or both. We applied `WG21_CAPTURE` to each of the five transcripts in `inputs/`, producing five knowledge files in `knowledge/`.
 
-**Stage 2 - Merge.** [WG21_MERGE.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_MERGE.md) is a knowledge merging agent. Given multiple knowledge files, it identifies principles that appear in two or more independent sources, intelligently merges them into a single statement, and discards principles corroborated by only one source. The merged principles are written in a concise style with "Examples of" and "Counterexamples" lists drawn from the source material. We applied `WG21_MERGE` to the five knowledge files, producing [merged.know.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/knowledge/merged.know.md) containing 11 merged principles.
+**Stage 2 - Merge.** [WG21_MERGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_MERGE.md) is a knowledge merging agent. Given multiple knowledge files, it identifies principles that appear in two or more independent sources, intelligently merges them into a single statement, and discards principles corroborated by only one source. The merged principles are written in a concise style with "Examples of" and "Counterexamples" lists drawn from the source material. We applied `WG21_MERGE` to the five knowledge files, producing [merged.know.md](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/merged.know.md) containing 11 merged principles.
 
-**Stage 3 - Judge.** [WG21_JUDGE.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_JUDGE.md) is an evaluation model generator. Given a merged knowledge file and a focus, it produces a purpose-built scoring model for evaluating WG21 papers against the distilled principles. The generated model includes a gate function (to reject papers outside scope), scoring criteria with concrete indicators at each level (0/1/2), a passing threshold, and source traceability back to the original principles. We applied `WG21_JUDGE` to `merged.know.md` with a general focus, producing [WG21_EVAL_GENERAL.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_EVAL_GENERAL.md) - a general-purpose evaluation model with 11 scoring criteria and a passing threshold of 14/22. The full model is reproduced in Appendix A.
+**Stage 3 - Judge.** [WG21_JUDGE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_JUDGE.md) is an evaluation model generator. Given a merged knowledge file and a focus, it produces a purpose-built scoring model for evaluating WG21 papers against the distilled principles. The generated model includes a gate function (to reject papers outside scope), scoring criteria with concrete indicators at each level (0/1/2), a passing threshold, and source traceability back to the original principles. We applied `WG21_JUDGE` to `merged.know.md` with a general focus, producing [WG21_EVAL_GENERAL.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_EVAL_GENERAL.md) - a general-purpose evaluation model with 11 scoring criteria and a passing threshold of 14/22. The full model is reproduced in Appendix A.
 
 #### Rule File Inventory
 
 | Rule File                                                                                                                          | Input                      | Output                  | Purpose                                                       |
 |------------------------------------------------------------------------------------------------------------------------------------|----------------------------|-------------------------|---------------------------------------------------------------|
-| [`WG21_CAPTURE.md`](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_CAPTURE.md)   | Interview transcript       | `*.know.md`             | Extract principles and experiences from a single source       |
-| [`WG21_MERGE.md`](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_MERGE.md)       | Multiple `*.know.md` files | `merged.know.md`        | Retain only principles corroborated by 2+ independent sources |
-| [`WG21_JUDGE.md`](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/rules/WG21_JUDGE.md)       | `merged.know.md` + focus   | `WG21_EVAL_*.md`        | Generate a paper-scoring model from merged principles         |
+| [`WG21_CAPTURE.md`](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md)   | Interview transcript       | `*.know.md`             | Extract principles and experiences from a single source       |
+| [`WG21_MERGE.md`](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_MERGE.md)       | Multiple `*.know.md` files | `merged.know.md`        | Retain only principles corroborated by 2+ independent sources |
+| [`WG21_JUDGE.md`](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_JUDGE.md)       | `merged.know.md` + focus   | `WG21_EVAL_*.md`        | Generate a paper-scoring model from merged principles         |
 
 ---
 
 ## 6. Application: Self-Evaluation
 
-To demonstrate the evaluation model in practice, the lead author applied `WG21_EVAL_GENERAL.md` (Appendix A) to his own paper [P4003R0](https://wg21.link/p4003r0) "Coroutines for I/O". The result is [d4003-eval.md](https://github.com/cppalliance/wg21-capturing-knowledge/blob/master/evaluations/d4003-eval.md), reproduced in full in Appendix B.
+To demonstrate the evaluation model in practice, the lead author applied `WG21_EVAL_GENERAL.md` (Appendix A) to his own paper [P4003R0](https://wg21.link/p4003r0) "Coroutines for I/O". The result is [d4003-eval.md](https://github.com/cppalliance/wg21-sage/blob/master/evaluations/d4003-eval.md), reproduced in full in Appendix B.
 
 The paper scored **17/22** (passing threshold: 14/22). Six criteria received full marks: complexity awareness, implementation validation, external incubation, knowledge capture, enabling previously-impossible capabilities, and principled design. Five criteria scored partial: political fragility, proven practice (limited independent adoption), consensus collaboration (single-organization development), language-library boundary tensions, and licensing documentation.
 
