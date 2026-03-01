@@ -164,9 +164,8 @@ read(tcp::socket& sock)
     char buf[1024];
     for (;;)
     {
-        auto [ec, n] = co_await sock.read_some(buf);    // also a tuple
-        // n bytes arrived regardless of ec
-        result.append(buf, n);
+        auto [ec, n] = co_await sock.read_some(buf);   // also a tuple
+        result.append(buf, n);                         // n bytes arrived regardless of ec
         if (ec)
             co_return {ec, std::move(result)};
     }
@@ -207,14 +206,14 @@ sender_of<dynamic_buffer> auto async_read_array(auto handle) {
            return just(std::as_writeable_bytes(std::span(&buf.size, 1)))
                 | async_read(handle)
                 | then(
-                    [&buf] (std::size_t bytes_read) { // from set_value
+                    [&buf] (std::size_t bytes_read) {           // from set_value
                       assert(bytes_read == sizeof(buf.size));
                       buf.data = std::make_unique<std::byte[]>(buf.size);
                       return std::span(buf.data.get(), buf.size);
                     })
                 | async_read(handle)
                 | then(
-                    [&buf] (std::size_t bytes_read) { // from set_value
+                    [&buf] (std::size_t bytes_read) {           // from set_value
                       assert(bytes_read == buf.size);
                       return std::move(buf);
                     });
@@ -413,7 +412,7 @@ do_read(tcp_socket& s, buffer& buf)
 {
     auto [ec, n] = co_await s.async_read(buf);
     if (ec)
-        co_yield with_error(ec); // unfortunately, terminates the coroutine
+        co_yield with_error(ec);        // unfortunately, terminates the coroutine
     co_return n;
 }
 ```
@@ -527,10 +526,8 @@ recycling_allocator<> alloc;
 auto op = connect(
     write_env(
         ex::on(sch,
-            // operator new allocates here...
-            handle_connection(std::move(conn))),
-        // ...but allocator arrives here
-        prop(get_allocator, alloc)),
+            handle_connection(std::move(conn))),   // operator new allocates here...
+        prop(get_allocator, alloc)),               // ...but allocator arrives here
     rcvr);
 start(op);
 ```
@@ -878,15 +875,10 @@ struct read_op
 {
     struct recv_rcvr {
         read_op* self_;
-        void set_value(std::size_t n) && noexcept {
-            self_->completed({}, n);
-        }
-        void set_error(std::error_code ec) && noexcept {
-            self_->completed(ec, 0);
-        }
+        void set_value(std::size_t n) && noexcept { self_->completed({}, n); }
+        void set_error(std::error_code ec) && noexcept { self_->completed(ec, 0); }
         void set_stopped() && noexcept {
-            execution::set_stopped(
-                std::move(self_->rcvr_));
+            execution::set_stopped(std::move(self_->rcvr_));
         }
     };
 
@@ -912,8 +904,7 @@ struct read_op
             return execution::set_value(std::move(rcvr_), bytes_read_);
         if (!ec)
             return start_recv();
-        // bytes_read_ bytes are lost
-        execution::set_error(std::move(rcvr_), ec);
+        execution::set_error(std::move(rcvr_), ec);   // bytes_read_ bytes are lost
     }
 };
 ```

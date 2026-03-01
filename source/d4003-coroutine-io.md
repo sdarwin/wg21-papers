@@ -158,8 +158,7 @@ struct my_awaitable
 
     // This signature satisfies IoAwaitable
     std::coroutine_handle<>
-    await_suspend( std::coroutine_handle<> cont,
-                   io_env const* env )
+        await_suspend( std::coroutine_handle<> cont, io_env const* env )
     {
         cont_ = cont;
         env_ = env;
@@ -307,8 +306,7 @@ struct task
 
     // Satisfies IoAwaitable
     std::coroutine_handle<>
-    await_suspend( std::coroutine_handle<> cont,
-                   io_env const* env )
+        await_suspend( std::coroutine_handle<> cont, io_env const* env )
     {
         h_.promise().set_continuation( cont );
         h_.promise().set_environment( env );
@@ -438,12 +436,11 @@ A launch function (e.g., `run_async`, `run`) bridges non-coroutine code into the
 
 ```cpp
 template<Executor Ex, class... Args>
-// returns wrapper, caller invokes with task
-unspecified run_async( Ex ex, Args&&... args );
+unspecified run_async( Ex ex, Args&&... args ); // returns wrapper,
+                                                // caller invokes with task
 
 template<Executor Ex, class... Args>
-// returns wrapper for co_await
-unspecified run( Ex ex, Args&&... args );
+unspecified run( Ex ex, Args&&... args );       // returns wrapper for co_await
 ```
 
 **Requirements:**
@@ -600,8 +597,7 @@ concept ExecutionContext =
     requires(X& x) {
         typename X::executor_type;
         requires Executor<typename X::executor_type>;
-        { x.get_executor() } noexcept
-            -> std::same_as<typename X::executor_type>;
+        { x.get_executor() } noexcept -> std::same_as<typename X::executor_type>;
     };
 ```
 
@@ -629,8 +625,7 @@ Coroutine frame allocation has a fundamental timing constraint: `operator new` e
 auto t = my_coro(sock);  // operator new called HERE
 co_await t;              // await_transform kicks in HERE (too late)
 
-// my_coro(sock) evaluated BEFORE calling spawn (too late)
-spawn( my_coro(sock) );
+spawn( my_coro(sock) );  // my_coro(sock) evaluated BEFORE calling spawn (too late)
 ```
 
 ### 5.2 The Awkward Approach
@@ -1270,9 +1265,7 @@ concept io_runnable =
   requires { typename T::promise_type; } &&
   requires(T& t, T const& ct, typename T::promise_type const& cp,
            typename T::promise_type& p) {
-    { ct.handle() } noexcept
-        -> same_as<coroutine_handle<
-            typename T::promise_type>>;
+    { ct.handle() } noexcept -> same_as<coroutine_handle<typename T::promise_type>>;
     { cp.exception() } noexcept -> same_as<exception_ptr>;
     { t.release() } noexcept;
     { p.set_continuation(coroutine_handle<>{}) } noexcept;

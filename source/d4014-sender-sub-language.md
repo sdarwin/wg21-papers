@@ -312,7 +312,7 @@ struct fold_left_fn {
                     I i = first;
                     return (*this)(++i, last, u, f);      // recursive Kleisli composition
                 });
-        return std::move(nxt);                            // inductive case: bind + recurse
+        return std::move(nxt);                           // inductive case: bind + recurse
     }
 };
 ```
@@ -336,16 +336,16 @@ The `any_sender_of` type is provided by the [stdexec](https://github.com/NVIDIA/
 The following example is drawn from [backtrack.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp)<sup>[31]</sup> in the sender-examples repository:
 
 ```cpp
-auto search_tree(auto                    test,            // predicate
-                 tree::NodePtr<int>      tree,            // current node
-                 stdexec::scheduler auto sch,             // execution context
-                 any_node_sender&&       fail)            // the continuation (failure recovery)
+auto search_tree(auto                    test,  // predicate
+                 tree::NodePtr<int>      tree,  // current node
+                 stdexec::scheduler auto sch,   // execution context
+                 any_node_sender&&       fail)  // the continuation (failure recovery)
     -> any_node_sender {                                  // type-erased monadic return
     if (tree == nullptr) {
         return std::move(fail);                           // invoke the continuation
     }
     if (test(tree)) {
-        return stdexec::just(tree);                       // pure/return: lift into context
+        return stdexec::just(tree);                      // pure/return: lift into context
     }
     return stdexec::on(sch, stdexec::just())              // schedule on executor
       | stdexec::let_value(                               // monadic bind (>>=)
@@ -361,7 +361,8 @@ auto search_tree(auto                    test,            // predicate
                                     test,
                                     tree->right(),        // with failure continuation
                                     sch,
-                                    std::move(fail));     // continuation-passing failure recovery
+                                    std::move(fail));     // continuation-passing
+                                                          //   failure recovery
                             }));
             });
 }
@@ -387,7 +388,7 @@ The following example is drawn from [retry.hpp](https://github.com/NVIDIA/stdexe
 ```cpp
 // Deferred construction helper - emplaces non-movable types
 // into std::optional via conversion operator
-template <std::invocable Fun>                              // higher-order function wrapper
+template <std::invocable Fun>                             // higher-order function wrapper
     requires std::is_nothrow_move_constructible_v<Fun>
 struct _conv {
     Fun f_;                                               // stored callable
@@ -410,7 +411,7 @@ struct _retry_receiver                                    // receiver adaptor pa
           _retry_receiver<S, R>> {
     _op<S, R>* o_;                                        // pointer to owning op state
 
-    auto base() && noexcept -> R&& {                      // access inner receiver (rvalue)
+    auto base() && noexcept -> R&& {                     // access inner receiver (rvalue)
         return static_cast<R&&>(o_->r_);
     }
     auto base() const& noexcept -> const R& {             // access inner receiver (const)
@@ -429,31 +430,31 @@ struct _retry_receiver                                    // receiver adaptor pa
 // and re-constructed on each retry
 template <class S, class R>
 struct _op {
-    S s_;                                                 // the sender to retry
-    R r_;                                                 // the downstream receiver
-    std::optional<                                        // optional nested op state
-        stdexec::connect_result_t<                        //   type of connect(S, retry_rcvr)
-            S&, _retry_receiver<S, R>>> o_;               //   re-created on each retry
+    S s_;                                              // the sender to retry
+    R r_;                                              // the downstream receiver
+    std::optional<                                     // optional nested op state
+        stdexec::connect_result_t<                     //   type of connect(S, retry_rcvr)
+            S&, _retry_receiver<S, R>>> o_;            //   re-created on each retry
 
-    _op(S s, R r)                                         // construct from sender + receiver
+    _op(S s, R r)                                      // construct from sender + receiver
         : s_(static_cast<S&&>(s))
         , r_(static_cast<R&&>(r))
         , o_{_connect()} {}                               // initial connection
 
     _op(_op&&) = delete;                                  // immovable (stable address)
 
-    auto _connect() noexcept {                            // connect sender to retry receiver
-        return _conv{[this] {                             // deferred construction via _conv
-            return stdexec::connect(                      //   connect sender
-                s_,                                       //   to retry receiver
-                _retry_receiver<S, R>{this});             //   that points back to this op
+    auto _connect() noexcept {                         // connect sender to retry receiver
+        return _conv{[this] {                          // deferred construction via _conv
+            return stdexec::connect(                   //   connect sender
+                s_,                                    //   to retry receiver
+                _retry_receiver<S, R>{this});          //   that points back to this op
         }};
     }
 
     void _retry() noexcept {                              // retry: destroy and reconnect
         STDEXEC_TRY {
-            o_.emplace(_connect());                       // re-emplace the operation state
-            stdexec::start(*o_);                          // restart the operation
+            o_.emplace(_connect());                    // re-emplace the operation state
+            stdexec::start(*o_);                       // restart the operation
         }
         STDEXEC_CATCH_ALL {                               // if reconnection itself throws
             stdexec::set_error(                           //   propagate to downstream
@@ -477,15 +478,15 @@ struct _retry_sender {
     explicit _retry_sender(S s)                           // construct from inner sender
         : s_(static_cast<S&&>(s)) {}
 
-    template <class>                                       // completion signature transform:
-    using _error = stdexec::completion_signatures<>;      //   remove all error signatures
+    template <class>                                    // completion signature transform:
+    using _error = stdexec::completion_signatures<>;   //   remove all error signatures
 
     template <class... Args>
     using _value =                                        // pass through value signatures
         stdexec::completion_signatures<
             stdexec::set_value_t(Args...)>;
 
-    template <class Self, class... Env>                    // compute transformed signatures
+    template <class Self, class... Env>                 // compute transformed signatures
     static consteval auto get_completion_signatures()
         -> stdexec::transform_completion_signatures<      // signature transformation
             stdexec::completion_signatures_of_t<S&, Env...>, // from inner sender's sigs
@@ -569,7 +570,7 @@ auto schedule() const noexcept {
 
 ```cpp
 // From nvexec/stream/common.cuh - CUDA kernel launch syntax
-continuation_kernel<<<1, 1, 0, get_stream()>>>(           // <<<grid, block, smem, stream>>>
+continuation_kernel<<<1, 1, 0, get_stream()>>>(  // <<<grid, block, smem, stream>>>
     static_cast<R&&>(rcvr_), Tag(), static_cast<Args&&>(args)...);
 ```
 
