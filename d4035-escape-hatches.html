@@ -848,7 +848,8 @@ outline: none;
   Established Practice</a></li>
   <li><a href="#application-level" id="toc-application-level">4.
   Application Level</a></li>
-  <li><a href="#conclusion" id="toc-conclusion">5. Conclusion</a></li>
+  <li><a href="#structured-concurrency" id="toc-structured-concurrency">5. Structured Concurrency</a></li>
+  <li><a href="#conclusion" id="toc-conclusion">6. Conclusion</a></li>
   <li><a href="#acknowledgements" id="toc-acknowledgements">Acknowledgements</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
@@ -871,13 +872,14 @@ maintain invariants, and protect users from misuse. However, C++ also
 needs an explicit path for trusted data - when the precondition is
 already satisfied at a boundary and re-validation is pure overhead.</p>
 <p>This pattern appears in the standard library, in production Boost
-libraries, and in the current <code>cstring_view</code> proposal. Three
-independent examples follow.</p>
+libraries, in the current <code>cstring_view</code> proposal, and in
+coroutine-based concurrency libraries. Four independent examples
+follow.</p>
 <h2 id="standard-precedent">2. Standard Precedent</h2>
 <p>The standard library provides <a href="https://eel.is/c++draft/thread.condition.condvar"><code>std::condition_variable</code></a><sup>[1]</sup>,
 which requires <code>std::unique_lock&lt;std::mutex&gt;</code>. This
 constraint enables optimizations. When the constraint is too narrow -
-when the user holds a different lock type - <a href="https://eel.is/c++draft/thread.condition.condvarany"><code>std::condition_variable_any</code></a><sup>[2]</sup>
+when the user holds a different lock type - <a href="https://eel.is/c++draft/thread.condition.condvarany"><code>std::condition_variable_any</code></a><sup>[1]</sup>
 provides the explicit broader path:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>mutex mtx<span class="op">;</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>shared_mutex smtx<span class="op">;</span></span>
@@ -894,7 +896,7 @@ provides the explicit broader path:</p>
 <p>The constrained interface is the default. The broader interface is
 explicit and named. Both exist in the standard.</p>
 <h2 id="established-practice">3. Established Practice</h2>
-<p><a href="https://github.com/boostorg/url">Boost.URL</a><sup>[3]</sup>
+<p><a href="https://github.com/boostorg/url">Boost.URL</a><sup>[2]</sup>
 provides <code>pct_string_view</code>, a non-owning reference to a valid
 percent-encoded string. Construction from untrusted input validates the
 encoding and throws on failure:</p>
@@ -908,19 +910,19 @@ boundary:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: precondition already satisfied by the parser.</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>pct_string_view s <span class="op">=</span> make_pct_string_view_unsafe<span class="op">(</span>data<span class="op">,</span> size<span class="op">,</span> decoded_size<span class="op">);</span></span></code></pre></div>
 <p>This pattern was adopted independently by three Boost libraries:
-Boost.URL (<a href="https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp"><code>make_pct_string_view_unsafe</code></a><sup>[4]</sup>),
-Boost.Process (<a href="https://github.com/boostorg/process/blob/develop/include/boost/process/v2/cstring_ref.hpp"><code>basic_cstring_ref</code></a><sup>[5]</sup>),
-and Boost.SQLite (<a href="https://github.com/klemens-morgenstern/sqlite/blob/develop/include/boost/sqlite/cstring_ref.hpp"><code>cstring_ref</code></a><sup>[6]</sup>).
+Boost.URL (<a href="https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp"><code>make_pct_string_view_unsafe</code></a><sup>[3]</sup>),
+Boost.Process (<a href="https://github.com/boostorg/process/blob/develop/include/boost/process/v2/cstring_ref.hpp"><code>basic_cstring_ref</code></a><sup>[4]</sup>),
+and Boost.SQLite (<a href="https://github.com/klemens-morgenstern/sqlite/blob/develop/include/boost/sqlite/cstring_ref.hpp"><code>cstring_ref</code></a><sup>[5]</sup>).
 Three independent libraries arriving at the same design is not
 coincidence. It is convergence on a structural need.</p>
 <h2 id="application-level">4. Application Level</h2>
 <p>On BSD-derived systems, directory iteration exposes a filename
 pointer and a filename length via <code>dirent</code>
 (<code>d_name</code> and <code>d_namlen</code>) <a href="https://man.freebsd.org/cgi/man.cgi?query=readdir&amp;sektion=3">FreeBSD
-<code>readdir(3)</code></a><sup>[7]</sup> and <a href="https://cgit.freebsd.org/src/tree/sys/sys/dirent.h">FreeBSD
-<code>dirent.h</code></a><sup>[8]</sup>. POSIX requires that path
+<code>readdir(3)</code></a><sup>[6]</sup> and <a href="https://cgit.freebsd.org/src/tree/sys/sys/dirent.h">FreeBSD
+<code>dirent.h</code></a><sup>[7]</sup>. POSIX requires that path
 components are null-terminated and contain no embedded null bytes <a href="https://pubs.opengroup.org/onlinepubs/9799919799/">POSIX Base
-Definitions</a><sup>[9]</sup>. Rescanning each name in a validating
+Definitions</a><sup>[8]</sup>. Rescanning each name in a validating
 constructor repeats work the operating system already did.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> visit_directory<span class="op">(</span>DIR<span class="op">*</span> dir<span class="op">)</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
@@ -937,13 +939,44 @@ constructor repeats work the operating system already did.</p>
 <p>The safe path remains the default for untrusted input. The unsafe
 path exists for proven preconditions and zero additional runtime
 cost.</p>
-<h2 id="conclusion">5. Conclusion</h2>
+<h2 id="structured-concurrency">5. Structured Concurrency</h2>
+<p>Structured concurrency enforces the same discipline for asynchronous
+lifetimes that structured control flow enforces for execution order:
+activations nest, scopes nest, a parent outlives its children, and RAII
+works. <a href="https://github.com/cppalliance/capy">Capy</a><sup>[9]</sup>
+provides <code>run</code> as the structured default and
+<code>run_async</code> as the explicit escape hatch:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>recycling_frame_allocator alloc<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe default: structured, caller suspends until child completes.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> run<span class="op">(</span>ex<span class="op">,</span> alloc<span class="op">)(</span>my_coro<span class="op">());</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: fire-and-forget, caller continues immediately.</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>run_async<span class="op">(</span>ex<span class="op">,</span> alloc<span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">[]()</span> <span class="op">{</span> <span class="co">/* Result handler. */</span> <span class="op">},</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="bu">std::</span>exception_ptr<span class="op">)</span> <span class="op">{</span> <span class="co">/* Error handler. */</span> <span class="op">}</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="op">)(</span>my_coro<span class="op">());</span></span></code></pre></div>
+<p>The structured path is the default. The unstructured path requires a
+longer name and explicit handlers - the caller must decide up front how
+results and errors are delivered. The escape hatch still provides
+guardrails: a work guard keeps the execution context alive, a stop token
+enables cooperative cancellation, and typed handlers prevent silent
+result loss.</p>
+<p>The consequences of misuse are higher in concurrency than in data
+validation - a wrong <code>pct_string_view</code> produces garbage data,
+while a wrong detached task produces data races. That severity is
+precisely why the escape hatch must be designed rather than left to raw
+<code>std::thread</code> or <code>std::async</code>, which offer none of
+these guardrails. Eliminating the escape hatch does not eliminate
+unstructured concurrency; it pushes programmers toward worse tools.</p>
+<h2 id="conclusion">6. Conclusion</h2>
 <p>The standard library already provides constrained defaults with
 explicit broader counterparts. Production libraries independently
-converge on the same pattern for trusted boundaries. This paper asks for
-no wording and no poll. It asks the committee to recognize a design
-value: safe by default, with explicit escape hatches where zero-cost
-composition requires them.</p>
+converge on the same pattern for trusted boundaries. The same principle
+governs concurrency structure. This paper asks for no wording and no
+poll. It asks the committee to recognize a design value: safe by
+default, with explicit escape hatches where zero-cost composition
+requires them.</p>
 <p>How explicit escape hatches interact with Hardening, Contracts, and
 Erroneous Behavior is a related question that deserves separate
 treatment.</p>
@@ -954,23 +987,24 @@ Nevin Liber for discussion and feedback on safe and unsafe construction
 paths.</p>
 <hr />
 <h1 id="references">References</h1>
-<p>[1] C++ Working Draft, <code>condition_variable</code>,
-https://eel.is/c++draft/thread.condition.condvar</p>
-<p>[2] C++ Working Draft, <code>condition_variable_any</code>,
+<p>[1] C++ Working Draft, <code>condition_variable</code>
+https://eel.is/c++draft/thread.condition.condvar,
+<code>condition_variable_any</code>
 https://eel.is/c++draft/thread.condition.condvarany</p>
-<p>[3] Boost.URL, https://github.com/boostorg/url</p>
-<p>[4] Boost.URL, <code>pct_string_view.hpp</code>,
+<p>[2] Boost.URL, https://github.com/boostorg/url</p>
+<p>[3] Boost.URL, <code>pct_string_view.hpp</code>,
 https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp</p>
-<p>[5] Boost.Process, <code>cstring_ref.hpp</code>,
+<p>[4] Boost.Process, <code>cstring_ref.hpp</code>,
 https://github.com/boostorg/process/blob/develop/include/boost/process/v2/cstring_ref.hpp</p>
-<p>[6] Boost.SQLite, <code>cstring_ref.hpp</code>,
+<p>[5] Boost.SQLite, <code>cstring_ref.hpp</code>,
 https://github.com/klemens-morgenstern/sqlite/blob/develop/include/boost/sqlite/cstring_ref.hpp</p>
-<p>[7] FreeBSD <code>readdir(3)</code>,
+<p>[6] FreeBSD <code>readdir(3)</code>,
 https://man.freebsd.org/cgi/man.cgi?query=readdir&amp;sektion=3</p>
-<p>[8] FreeBSD source, <code>sys/sys/dirent.h</code>,
+<p>[7] FreeBSD source, <code>sys/sys/dirent.h</code>,
 https://cgit.freebsd.org/src/tree/sys/sys/dirent.h</p>
-<p>[9] The Open Group Base Specifications Issue 8,
+<p>[8] The Open Group Base Specifications Issue 8,
 https://pubs.opengroup.org/onlinepubs/9799919799/</p>
+<p>[9] Capy, https://github.com/cppalliance/capy</p>
 
 </body>
 </html>
