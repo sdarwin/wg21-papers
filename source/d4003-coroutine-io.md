@@ -1,6 +1,6 @@
 ---
 title: "Coroutines for I/O"
-document: P4003R1
+document: D4003R1
 date: 2026-02-22
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -47,13 +47,13 @@ We adopted three priorities:
 
 I/O applications share four requirements:
 
-- **The application decides executor policy.** A read operation should not need to know about executor policy.
+1. **The application decides executor policy.** A read operation should not need to know about executor policy.
 
-- **The application sends stop signals.** Stop signals propagate from the launch site to pending operations. The API builds on `std::stop_token`.
+2. **The application sends stop signals.** Stop signals propagate from the launch site to pending operations. The API builds on `std::stop_token`.
 
-- **The application decides frame allocation.** The allocator is a property of the coroutine chain, not of the operation.
+3. **The application decides frame allocation.** The allocator is a property of the coroutine chain, not of the operation.
 
-- **The execution context owns its I/O objects.** A socket knows its event loop. The call site does not.
+4. **The execution context owns its I/O objects.** A socket knows its event loop. The call site does not.
 
 ---
 
@@ -105,7 +105,7 @@ The _IoAwaitable_ protocol is a pair of concepts layered on top of each other, w
 
 ```mermaid
 flowchart LR
-    IoAwaitable["IoAwaitable"] --> IoRunnable["IoRunnable"] --> task["io_task&lt;T&gt;"]
+    IoAwaitable["IoAwaitable"] -- refined by --> IoRunnable["IoRunnable"] -- modeled by --> task["io_task&lt;T&gt;"]
 ```
 
 > To help readers understand how these requirements fit together, this paper provides the `io_awaitable_promise_base` CRTP mixin (Section 7) as a non-normative reference implementation. It is not proposed for standardization - implementors may write their own machinery - but examining it clarifies how the protocol works in practice. The mixin also provides the `this_coro::environment` accessor, which allows coroutines to retrieve their bound context without suspending.
@@ -245,7 +245,10 @@ sequenceDiagram
     participant child as child task
     participant io as I/O operation
 
-    run_async->>parent: set_environment(env) via handle()
+    run_async->>parent: handle()
+    run_async->>parent: set_environment(env)
+    run_async->>parent: set_continuation(trampoline)
+    run_async->>parent: handle.resume()
     parent->>child: await_suspend(h, env)
     child->>io: await_suspend(h, env)
     io-->>child: resume
@@ -528,6 +531,7 @@ Some contexts prohibit inline execution. A strand currently executing work canno
 `post` queues work for later execution. Unlike `dispatch`, it never executes inline - the work item is always enqueued, and `post` returns immediately.
 
 Use `post` for:
+
 - **New work** that is not a continuation of the current operation
 - **Breaking call chains** to bound stack depth
 - **Safety under locks** - posting while holding a mutex avoids deadlock risk from inline execution
@@ -574,6 +578,7 @@ protected:
 ```
 
 Derived classes can provide:
+
 - **Platform reactor**: epoll, IOCP, io_uring, or kqueue integration
 - **Supporting singletons**: Timer queues, resolver services, signal handlers
 - **Orderly shutdown**: `stop()` and `join()` for graceful termination
@@ -898,6 +903,7 @@ flowchart TD
 ```
 
 This is safe because:
+
 - TLS is only read in `operator new` - no other code path inspects the thread-local frame allocator
 - TLS is written by the currently-running coroutine before any child is created, and restored from the heap-stable `io_env` on every resume via `await_resume`
 - Thread migration is handled: when a coroutine suspends on thread A and resumes on thread B, the `await_resume` path writes the correct frame allocator into thread B's TLS before the coroutine body continues. TLS is never *read* on a thread unless the coroutine that wrote it is actively executing on that thread
@@ -956,7 +962,7 @@ A socket, an SSL context, an HTTP parser, a database connection - all live insid
 
 This research produced `any_read_stream`, a type-erased wrapper for any type satisfying the `ReadStream` concept (complete listing in Appendix B). It is not part of the _IoAwaitable_ protocol, but it demonstrates what the protocol enables: zero-steady-state-allocation type erasure for I/O, with cached awaitable storage and a vtable that dispatches through the two-argument `await_suspend`.
 
-[Boost.Http](https://github.com/cppalliance/http)<sup>[8]</sup>, an HTTP library built on Capy, works entirely in terms of type-erased streams. It reads requests, parses headers, dispatches to route handlers, and sends responses without knowing whether the underlying transport is a TCP socket, a TLS connection, or a test harness. The HTTP library depends on Capy's type-erased abstractions. It ships as a compiled library with stable ABI.
+[Http](https://github.com/cppalliance/http)<sup>[8]</sup>, an HTTP library built on Capy, works entirely in terms of type-erased streams. It reads requests, parses headers, dispatches to route handlers, and sends responses without knowing whether the underlying transport is a TCP socket, a TLS connection, or a test harness. The HTTP library depends on Capy's type-erased abstractions. It ships as a compiled library with stable ABI.
 
 ### 6.3 One Template Parameter
 
@@ -1964,6 +1970,7 @@ auto [ec] = co_await sock.connect(endpoint);
 ```
 
 This binding has implications:
+
 - A socket cannot migrate between contexts
 - Completions are delivered to the context that owns the socket
 - The context must remain alive while operations are pending
@@ -2237,6 +2244,6 @@ The authors would like to thank Chris Kohlhoff for Boost.Asio and Lewis Baker fo
 5. [Capy](https://github.com/cppalliance/capy) - _IoAwaitable_ protocol implementation (Vinnie Falco, Steve Gerbino). https://github.com/cppalliance/capy
 6. [Corosio](https://github.com/cppalliance/corosio) - Coroutine-native I/O library (Vinnie Falco, Steve Gerbino). https://github.com/cppalliance/corosio
 7. [Optimizing Away C++ Virtual Functions May Be Pointless](https://www.youtube.com/watch?v=i5MAXAxp_Tw) - CppCon 2023 (Shachar Shemesh). https://www.youtube.com/watch?v=i5MAXAxp_Tw
-8. [Boost.Http](https://github.com/cppalliance/http) - HTTP library built on Capy (Vinnie Falco). https://github.com/cppalliance/http
+8. [Http](https://github.com/cppalliance/http) - HTTP library built on Capy (Vinnie Falco). https://github.com/cppalliance/http
 9. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver Interface For Networking" (Dietmar K&uuml;hl, 2023). https://wg21.link/p2762r2
 10. [Compiler Explorer](https://godbolt.org/z/Wzrb7McrT) - Self-contained IoAwaitable demonstration. https://godbolt.org/z/Wzrb7McrT

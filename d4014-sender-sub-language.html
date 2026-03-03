@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4014R1: The Sender Sub-Language</title>
+  <title>D4014R1: The Sender Sub-Language</title>
   <style type="text/css">
 
 @font-face {
@@ -823,7 +823,7 @@ outline: none;
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4014R1</p>
+  <p><strong>Document Number:</strong> D4014R1</p>
   <p><strong>Date:</strong> 2026-02-22</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Mungo Gill
@@ -945,8 +945,8 @@ through the pipe operator. The Sender Sub-Language builds from this
 foundation into an expressive system for describing asynchronous work,
 and the depth of that system is worth understanding.</p>
 <p>This paper is a guide to the Sender Sub-Language. <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup> (“Senders and
-C++”) examines the coroutine integration; this paper focuses on what the
-Sub-Language is, where it came from, and what it looks like in
+Coroutines”) examines the coroutine integration; this paper focuses on
+what the Sub-Language is, where it came from, and what it looks like in
 practice.</p>
 <hr />
 <h2 id="the-equivalents">2. The Equivalents</h2>
@@ -967,7 +967,7 @@ language feature to its Sub-Language counterpart:</p>
 <tbody>
 <tr>
 <td>Sequential statements</td>
-<td><code>\|</code> pipe chaining</td>
+<td><code>|</code> pipe chaining</td>
 </tr>
 <tr>
 <td>Local variables</td>
@@ -1024,8 +1024,8 @@ language feature to its Sub-Language counterpart:</p>
 </tr>
 </tbody>
 </table>
-<p>The table is largely self-explanatory. Three details bear noting.
-First, the iteration and branching equivalents (<a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp"><code>repeat_effect_until</code></a><sup>[26]</sup>,
+<p>Three details bear noting. First, the iteration and branching
+equivalents (<a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp"><code>repeat_until</code></a><sup>[26]</sup>,
 <a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp"><code>any_sender_of&lt;&gt;</code></a><sup>[24]</sup>,
 <a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp"><code>variant_sender</code></a><sup>[25]</sup>)
 are provided by the <a href="https://github.com/NVIDIA/stdexec">stdexec</a><sup>[23]</sup>
@@ -1141,7 +1141,8 @@ technique with deep roots in the theory of computation.</p>
 <tr>
 <td><code>start(op)</code></td>
 <td>CPS evaluation</td>
-<td></td>
+<td><a href="https://doi.org/10.1016/0304-3975(75)90017-1">Plotkin
+(1975)</a></td>
 </tr>
 <tr>
 <td>Completion signatures</td>
@@ -1165,11 +1166,11 @@ language research.</p>
 <p>Both models - coroutines for direct-style async and senders for
 compile-time work graphs - are real contributions to C++. Both were
 described as valuable by the same engineer, in his own published words.
-Eric Niebler’s 2020 assessment, “90% of all async code in the future
-should be coroutines simply for maintainability,” captures the coroutine
-model’s strengths for I/O and general-purpose async programming. The
-Sender Sub-Language’s strengths for heterogeneous compute and
-zero-allocation pipelines are equally real.</p>
+Eric Niebler’s 2020 assessment<sup>[11]</sup>, “90% of all async code in
+the future should be coroutines simply for maintainability,” captures
+the coroutine model’s strengths for I/O and general-purpose async
+programming. The Sender Sub-Language’s strengths for heterogeneous
+compute and zero-allocation pipelines are equally real.</p>
 <p>His published writing provides the most complete public record of the
 design thinking behind <code>std::execution</code>, documented with
 candor and intellectual honesty. The following timeline, drawn from that
@@ -1239,7 +1240,7 @@ Coroutine Task Type”). <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[6]
 Task Issues”) cataloged twenty-nine open concerns. <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
 (“Task’s Allocator Use”) reworked the allocator model six months after
 adoption. <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup>
-(“Senders and C++”) documented three structural gaps.</p>
+(“Senders and Coroutines”) documented three structural gaps.</p>
 <table>
 <colgroup>
 <col style="width: 5%" />
@@ -1382,7 +1383,7 @@ in the sender-examples repository:</p>
 <span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>                           <span class="op">++</span>n<span class="op">;</span>                           <span class="co">// mutate closure state</span></span>
 <span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>                           <span class="cf">return</span> n <span class="op">==</span> k<span class="op">;</span>                 <span class="co">// termination predicate</span></span>
 <span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                       <span class="op">})</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                     <span class="op">|</span> exec<span class="op">::</span>repeat_effect_until<span class="op">()</span>        <span class="co">// tail-recursive effect</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                     <span class="op">|</span> exec<span class="op">::</span>repeat_until<span class="op">()</span>        <span class="co">// tail-recursive effect</span></span>
 <span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>                     <span class="op">|</span> stdexec<span class="op">::</span>then<span class="op">([&amp;</span>acc<span class="op">]()</span> <span class="op">{</span>           <span class="co">// accumulator extraction</span></span>
 <span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>                           <span class="cf">return</span> acc<span class="op">;</span></span>
 <span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>                       <span class="op">});</span></span>
@@ -1397,12 +1398,12 @@ in the sender-examples repository:</p>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> acc<span class="op">;</span></span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The Sender Sub-Language version expresses iteration as tail-recursive
-continuation composition. The <a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp"><code>repeat_effect_until</code></a><sup>[26]</sup>
+continuation composition. The <a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp"><code>repeat_until</code></a><sup>[26]</sup>
 algorithm repeatedly invokes the sender until the predicate returns
 true. State is maintained through mutable lambda captures with reference
 captures into the closure - a pattern that requires careful attention to
 object lifetime across continuation boundaries. The
-<code>repeat_effect_until</code> algorithm is provided by the <a href="https://github.com/NVIDIA/stdexec">stdexec</a><sup>[23]</sup>
+<code>repeat_until</code> algorithm is provided by the <a href="https://github.com/NVIDIA/stdexec">stdexec</a><sup>[23]</sup>
 reference implementation; it is not yet part of the C++26 working
 paper.</p>
 <h3 id="the-fold">5.5 The Fold</h3>
@@ -1676,8 +1677,8 @@ async model provides.</p>
 <h3 id="the-trade-off">6.1 The Trade-off</h3>
 <table>
 <colgroup>
-<col style="width: 83%" />
-<col style="width: 16%" />
+<col style="width: 89%" />
+<col style="width: 10%" />
 </colgroup>
 <thead>
 <tr>
@@ -1698,13 +1699,9 @@ stack</td>
 </tr>
 <tr>
 <td>Compile-time work graph construction - <a href="https://eel.is/c++draft/exec.connect"><code>connect</code></a>
-collapses the pipeline into a single type</td>
-<td>The programming model of Section 5</td>
-</tr>
-<tr>
-<td>Deterministic nanosecond-level execution - <a href="https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/">HPC
+collapses the pipeline into a single type. <a href="https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/">HPC
 Wire</a> reports performance “on par with the CUDA implementation”</td>
-<td></td>
+<td>The programming model of Section 5</td>
 </tr>
 </tbody>
 </table>
@@ -1754,10 +1751,11 @@ them:</p>
 and <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html"><code>__global__</code></a><sup>[51]</sup>
 indicate whether a function executes on the host (CPU) or the device
 (GPU).</li>
-<li><strong>Memory space specifiers</strong>: <code>__device__</code>,
-<code>__managed__</code>, <code>__constant__</code>, and
-<code>__shared__</code> indicate the storage location of a variable on
-the device.</li>
+<li><strong>Memory space specifiers</strong>: <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html"><code>__device__</code></a><sup>[51]</sup>,
+<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html"><code>__managed__</code></a><sup>[51]</sup>,
+<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html"><code>__constant__</code></a><sup>[51]</sup>,
+and <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html"><code>__shared__</code></a><sup>[51]</sup>
+indicate the storage location of a variable on the device.</li>
 <li><strong>Kernel launch syntax</strong>: The
 <code>&lt;&lt;&lt;grid_dim, block_dim, dynamic_smem_bytes, stream&gt;&gt;&gt;</code>
 syntax between the function name and argument list is not valid
@@ -1850,7 +1848,7 @@ Templates serve generic programming. Coroutines serve async I/O. The
 Sender Sub-Language serves heterogeneous compute. The standard is
 stronger when each domain gets the model it needs, and neither is forced
 to use the other’s tool. <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup> (“Senders and
-C++”) examines the boundary where these two models meet.</p>
+Coroutines”) examines the boundary where these two models meet.</p>
 <p>Everyone can win.</p>
 <hr />
 <h2 id="conclusion">7. Conclusion</h2>
@@ -1947,7 +1945,7 @@ Sender Algorithm Customization.” 2026. https://wg21.link/p3826r3</li>
 Dietmar Kühl. “Task’s Allocator Use.” 2026.
 https://isocpp.org/files/papers/D3980R0.html</li>
 <li><a href="https://wg21.link/p4007r0">P4007R0</a>. Vinnie Falco, Mungo
-Gill. “Senders and C++.” 2026. https://wg21.link/p4007r0</li>
+Gill. “Senders and Coroutines.” 2026. https://wg21.link/p4007r0</li>
 </ol>
 <h3 id="blog-posts">Blog Posts</h3>
 <ol start="10" type="1">
@@ -1988,6 +1986,10 @@ https://www.haskell.org/onlinereport/haskell2010/</li>
 <li>Bartosz Milewski. <a href="https://github.com/hmemcpy/milewski-ctfp-pdf"><em>Category Theory
 for Programmers</em></a>. 2019.
 https://github.com/hmemcpy/milewski-ctfp-pdf</li>
+<li>Gordon Plotkin. <a href="https://doi.org/10.1016/0304-3975(75)90017-1">“Call-by-name,
+call-by-value and the lambda-calculus”</a>. <em>Theoretical Computer
+Science</em>, 1(2):125-159, 1975.
+https://doi.org/10.1016/0304-3975(75)90017-1</li>
 </ol>
 <h3 id="books">Books</h3>
 <ol start="21" type="1">
@@ -2009,9 +2011,9 @@ https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp</li>
 <li><a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp"><code>variant_sender.hpp</code></a>.
 Variant sender facility in stdexec (not part of C++26).
 https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp</li>
-<li><a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp"><code>repeat_effect_until.hpp</code></a>.
+<li><a href="https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp"><code>repeat_until.hpp</code></a>.
 Iteration algorithm in stdexec (not part of C++26).
-https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp</li>
+https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp</li>
 <li><a href="https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp"><code>retry.hpp</code></a>.
 Retry algorithm example in stdexec.
 https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp</li>

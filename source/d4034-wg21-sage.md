@@ -1002,7 +1002,7 @@ Scoring: PASS = 2 (compliant), PARTIAL = 1 (partial), FAIL = 0 (non-compliant)
 
 P4003R0 is one of the strongest R0 papers this model has seen on implementation-first design. The paper is explicitly a "research report drawn from working code" - a complete coroutine-only networking library spanning sockets, timers, TLS, DNS, and HTTP across three platforms (Windows, Linux, macOS). The IoAwaitable protocol it describes is minimal: two concepts, one struct, one type-erased executor. The paper documents rationale exhaustively, including alternatives considered and rejected (allocator_arg_t, promise-template await_suspend). Every design decision traces to implementation experience. The paper scores full marks on implementation validation, external incubation, knowledge capture, complexity awareness, enabling previously-impossible capabilities, and principled design.
 
-The paper's vulnerabilities are political and social. It enters a space where SG4 has already reached consensus that networking should use sender/receiver, and asks the committee to reconsider. All implementations (Capy, Corosio, Boost.Http) originate from a single organization (C++ Alliance). While respected WG21 contributors (Peter Dimov, Mateusz Pusz) provided feedback, the core design was not shaped by cross-organizational collaboration. Independent adoption outside the proposer's organization is not documented. These factors create political fragility - the paper asks a committee that has already committed to one direction to evaluate a fundamentally different approach, without demonstrating that the broader community has converged on its design.
+The paper's vulnerabilities are political and social. It enters a space where SG4 has already reached consensus that networking should use sender/receiver, and asks the committee to reconsider. All implementations (Capy, Corosio, Http) originate from a single organization (C++ Alliance). While respected WG21 contributors (Peter Dimov, Mateusz Pusz) provided feedback, the core design was not shaped by cross-organizational collaboration. Independent adoption outside the proposer's organization is not documented. These factors create political fragility - the paper asks a committee that has already committed to one direction to evaluate a fundamentally different approach, without demonstrating that the broader community has converged on its design.
 
 The recommendation is positive with caveats. The paper's technical merits are substantial, but its path through the committee depends on political dynamics that no amount of implementation quality can fully resolve. The paper would benefit from documented independent adoption, cross-organizational co-authorship, and explicit engagement with the sender/receiver community to reduce political risk.
 
@@ -1034,7 +1034,7 @@ Within its own camp, the proposal has converged on a single design vision. The t
 
 - **Capy** (github.com/cppalliance/capy): implements the IoAwaitable protocol
 - **Corosio** (github.com/cppalliance/corosio): sockets, timers, TLS, DNS on multiple platforms
-- **Boost.Http** (github.com/cppalliance/http): HTTP library built on Capy with type-erased streams
+- **Http** (github.com/cppalliance/http): HTTP library built on Capy with type-erased streams
 - Performance benchmarks: recycling frame allocator 3.1x faster than std::allocator (MSVC), 1.55x (Apple Clang)
 - Self-contained Compiler Explorer demonstration
 - The paper states "Both libraries are in active use"
@@ -1094,7 +1094,7 @@ The design explicitly builds on Kohlhoff's executor model and credits it through
 
 **Evidence from paper:** The paper is explicitly structured as a research report from implementation:
 
-- Three implementations: Capy (protocol), Corosio (networking), Boost.Http (application layer)
+- Three implementations: Capy (protocol), Corosio (networking), Http (application layer)
 - Cross-platform: Windows (IOCP), Linux (epoll/io_uring), macOS (kqueue)
 - Benchmarks: recycling frame allocator vs. mimalloc vs. std::allocator, with quantified results
 - Self-contained Compiler Explorer demonstration
@@ -1118,7 +1118,7 @@ The paper's methodology is "use C++20 coroutines directly for I/O and observe wh
 **Evidence from paper:** The IoAwaitable protocol was developed entirely outside the standard:
 
 - Capy and Corosio libraries were built and used before this paper was written
-- Boost.Http demonstrates that higher-level libraries can be built on the protocol
+- Http demonstrates that higher-level libraries can be built on the protocol
 - The design iterated through real networking use cases (HTTP servers, TLS connections, DNS resolution)
 - The incubation produced concrete lessons: TLS for frame allocators was chosen over allocator_arg_t after experiencing the ergonomic cost; the two-argument await_suspend was chosen after identifying the silent-mismatch problem with promise-template approaches
 - The paper explicitly states: "Standards should follow implementations, not the reverse"

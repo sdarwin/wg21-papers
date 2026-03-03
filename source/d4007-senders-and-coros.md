@@ -1,6 +1,6 @@
 ---
 title: "Senders and Coroutines"
-document: P4007R1
+document: D4007R1
 date: 2026-02-22
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"

@@ -1,6 +1,6 @@
 ---
 title: "The Sender Sub-Language"
-document: P4014R1
+document: D4014R1
 date: 2026-02-22
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -38,7 +38,7 @@ auto work = just(42) | then([](int v) { return v + 1; });
 
 One value lifted into the sender context, one transformation applied through the pipe operator. The Sender Sub-Language builds from this foundation into an expressive system for describing asynchronous work, and the depth of that system is worth understanding.
 
-This paper is a guide to the Sender Sub-Language. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and C++") examines the coroutine integration; this paper focuses on what the Sub-Language is, where it came from, and what it looks like in practice.
+This paper is a guide to the Sender Sub-Language. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") examines the coroutine integration; this paper focuses on what the Sub-Language is, where it came from, and what it looks like in practice.
 
 ---
 
@@ -48,7 +48,7 @@ The Sender Sub-Language provides equivalents for most of C++'s fundamental contr
 
 | Regular C++             | Sender Sub-Language                                     |
 |-------------------------|---------------------------------------------------------|
-| Sequential statements   | `\|` pipe chaining                                      |
+| Sequential statements   | `|` pipe chaining                                       |
 | Local variables         | Lambda captures (with move semantics across boundaries) |
 | `return`                | `set_value` into the receiver                           |
 | `try` / `catch`         | `upon_error` / `let_error`                              |
@@ -63,7 +63,7 @@ The Sender Sub-Language provides equivalents for most of C++'s fundamental contr
 | Range-for               | (not needed)                                            |
 | `if` with initializer   | (not needed)                                            |
 
-The table is largely self-explanatory. Three details bear noting. First, the iteration and branching equivalents ([`repeat_effect_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp)<sup>[26]</sup>, [`any_sender_of<>`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp)<sup>[24]</sup>, [`variant_sender`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp)<sup>[25]</sup>) are provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation but are not yet part of the C++26 working paper. Section 5 illustrates both patterns with working code. Second, the last three rows - structured bindings, range-for, and `if` with initializer - have no equivalent because the Sender Sub-Language does not produce intermediate return values. Values flow forward into continuations as arguments, not backward to callers as returns. Third, concurrent selection - the dual of `when_all` - is absent. Section 2.1 examines the gap.
+Three details bear noting. First, the iteration and branching equivalents ([`repeat_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp)<sup>[26]</sup>, [`any_sender_of<>`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp)<sup>[24]</sup>, [`variant_sender`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp)<sup>[25]</sup>) are provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation but are not yet part of the C++26 working paper. Section 5 illustrates both patterns with working code. Second, the last three rows - structured bindings, range-for, and `if` with initializer - have no equivalent because the Sender Sub-Language does not produce intermediate return values. Values flow forward into continuations as arguments, not backward to callers as returns. Third, concurrent selection - the dual of `when_all` - is absent. Section 2.1 examines the gap.
 
 ### 2.1 The Missing Row
 
@@ -107,7 +107,7 @@ The Sender Sub-Language is not merely a fluent API. It is continuation-passing s
 | `then(f)`                                 | Functor `fmap`            | [Moggi (1991)](https://doi.org/10.1016/0890-5401(91)90052-4)              |
 | `set_value` / `set_error` / `set_stopped` | Algebraic effect channels | [Danvy & Filinski (1990)](https://doi.org/10.1145/91556.91622)            |
 | `connect(sndr, rcvr)`                     | CPS reification           | [Lambda Papers (1975-1980)](https://en.wikisource.org/wiki/Lambda_Papers) |
-| `start(op)`                               | CPS evaluation            |                                                                           |
+| `start(op)`                               | CPS evaluation            | [Plotkin (1975)](https://doi.org/10.1016/0304-3975(75)90017-1)            |
 | Completion signatures                     | Type-level sum type       | [Griffin (1990)](https://doi.org/10.1145/96709.96714)                     |
 
 CPS makes control flow, variable binding, and resource lifetime explicit in the term structure. This is why optimizing compilers ([SML/NJ](https://www.smlnj.org/)<sup>[32]</sup>, [GHC](https://www.haskell.org/ghc/)<sup>[33]</sup>, [Chicken Scheme](https://www.call-cc.org/)<sup>[34]</sup>) use it as their intermediate representation, and why the Sender Sub-Language can build zero-allocation pipelines and compile-time work graphs. The names are not arbitrary: `just` echoes Haskell's `Just`, `let_value` mirrors monadic bind, and the three completion channels form a fixed algebraic effect system. The P2300 authors built a framework grounded in four decades of programming language research.
@@ -116,7 +116,7 @@ CPS makes control flow, variable binding, and resource lifetime explicit in the 
 
 ## 4. How the Emphasis Changed
 
-Both models - coroutines for direct-style async and senders for compile-time work graphs - are real contributions to C++. Both were described as valuable by the same engineer, in his own published words. Eric Niebler's 2020 assessment, "90% of all async code in the future should be coroutines simply for maintainability," captures the coroutine model's strengths for I/O and general-purpose async programming. The Sender Sub-Language's strengths for heterogeneous compute and zero-allocation pipelines are equally real.
+Both models - coroutines for direct-style async and senders for compile-time work graphs - are real contributions to C++. Both were described as valuable by the same engineer, in his own published words. Eric Niebler's 2020 assessment<sup>[11]</sup>, "90% of all async code in the future should be coroutines simply for maintainability," captures the coroutine model's strengths for I/O and general-purpose async programming. The Sender Sub-Language's strengths for heterogeneous compute and zero-allocation pipelines are equally real.
 
 His published writing provides the most complete public record of the design thinking behind `std::execution`, documented with candor and intellectual honesty. The following timeline, drawn from that record, shows how the emphasis naturally shifted as the target problems changed.
 
@@ -148,7 +148,7 @@ The post ended with a promise: *"Next post, I'll introduce these library abstrac
 
 Senders were now the foundation. Coroutines were one of several ways to consume them.
 
-**2025-2026.** The coroutine integration shipped via [P3552R3](https://wg21.link/p3552r3)<sup>[5]</sup> ("Add a Coroutine Task Type"). [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> ("Coroutine Task Issues") cataloged twenty-nine open concerns. [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> ("Task's Allocator Use") reworked the allocator model six months after adoption. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and C++") documented three structural gaps.
+**2025-2026.** The coroutine integration shipped via [P3552R3](https://wg21.link/p3552r3)<sup>[5]</sup> ("Add a Coroutine Task Type"). [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> ("Coroutine Task Issues") cataloged twenty-nine open concerns. [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> ("Task's Allocator Use") reworked the allocator model six months after adoption. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") documented three structural gaps.
 
 | Date      | Published writing                    | Concurrent paper activity                                                                              | Sender/coroutine relationship              |
 |-----------|--------------------------------------|--------------------------------------------------------------------------------------------------------|--------------------------------------------|
@@ -257,7 +257,7 @@ auto snder(int t) {
                            ++n;                           // mutate closure state
                            return n == k;                 // termination predicate
                        })
-                     | exec::repeat_effect_until()        // tail-recursive effect
+                     | exec::repeat_until()        // tail-recursive effect
                      | stdexec::then([&acc]() {           // accumulator extraction
                            return acc;
                        });
@@ -277,7 +277,7 @@ int loop(int t) {
 }
 ```
 
-The Sender Sub-Language version expresses iteration as tail-recursive continuation composition. The [`repeat_effect_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp)<sup>[26]</sup> algorithm repeatedly invokes the sender until the predicate returns true. State is maintained through mutable lambda captures with reference captures into the closure - a pattern that requires careful attention to object lifetime across continuation boundaries. The `repeat_effect_until` algorithm is provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation; it is not yet part of the C++26 working paper.
+The Sender Sub-Language version expresses iteration as tail-recursive continuation composition. The [`repeat_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp)<sup>[26]</sup> algorithm repeatedly invokes the sender until the predicate returns true. State is maintained through mutable lambda captures with reference captures into the closure - a pattern that requires careful attention to object lifetime across continuation boundaries. The `repeat_until` algorithm is provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation; it is not yet part of the C++26 working paper.
 
 ### 5.5 The Fold
 
@@ -543,12 +543,11 @@ The complexity documented in Section 5 is not accidental. It is the price of adm
 
 ### 6.1 The Trade-off
 
-| What you get                                                                                                                                                                            | What it costs                      |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| Full type visibility - the compiler sees the entire work graph as a concrete type                                                                                                       | Header-only implementations        |
-| Zero allocation in steady state - the operation state lives on the stack                                                                                                                | Long compile times                 |
-| Compile-time work graph construction - [`connect`](https://eel.is/c++draft/exec.connect) collapses the pipeline into a single type                                                      | The programming model of Section 5 |
-| Deterministic nanosecond-level execution - [HPC Wire](https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/) reports performance "on par with the CUDA implementation"  |                                    |
+| What you get                                                                                                                                                                                                                                                                                        | What it costs                      |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| Full type visibility - the compiler sees the entire work graph as a concrete type                                                                                                                                                                                                                    | Header-only implementations        |
+| Zero allocation in steady state - the operation state lives on the stack                                                                                                                                                                                                                             | Long compile times                 |
+| Compile-time work graph construction - [`connect`](https://eel.is/c++draft/exec.connect) collapses the pipeline into a single type. [HPC Wire](https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/) reports performance "on par with the CUDA implementation"       | The programming model of Section 5 |
 
 For GPU dispatch, high-frequency trading, embedded systems, and scientific computing, every party involved has opted in. The question is whether domains that do not need these properties - networking, file I/O, ordinary request handling - should be required to pay the same cost, or whether they deserve the same freedom to choose the model that serves them.
 
@@ -583,7 +582,7 @@ status_ = STDEXEC_LOG_CUDA_API(
 These annotations and APIs are non-standard C++ language extensions. The [CUDA C/C++ Language Extensions](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> documentation enumerates them:
 
 - **Execution space specifiers**: [`__host__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__device__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, and [`__global__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> indicate whether a function executes on the host (CPU) or the device (GPU).
-- **Memory space specifiers**: `__device__`, `__managed__`, `__constant__`, and `__shared__` indicate the storage location of a variable on the device.
+- **Memory space specifiers**: [`__device__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__managed__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__constant__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, and [`__shared__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> indicate the storage location of a variable on the device.
 - **Kernel launch syntax**: The `<<<grid_dim, block_dim, dynamic_smem_bytes, stream>>>` syntax between the function name and argument list is not valid C++.
 
 GPU compute has requirements that standard C++ alone cannot meet. These extensions require a specialized compiler ([`nvcc`](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html)<sup>[52]</sup>), and every NVIDIA GPU user has opted in to that requirement.
@@ -623,7 +622,7 @@ The Sender Sub-Language serves specific domains exceptionally well:
 
 Direct-style coroutines serve other domains equally well: networking, file I/O, request handling - the domains where partial success is normal, allocator propagation matters, and the programming model documented in Section 5 is a cost without a corresponding benefit.
 
-C++ has always grown by adding models that serve specific domains. Templates serve generic programming. Coroutines serve async I/O. The Sender Sub-Language serves heterogeneous compute. The standard is stronger when each domain gets the model it needs, and neither is forced to use the other's tool. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and C++") examines the boundary where these two models meet.
+C++ has always grown by adding models that serve specific domains. Templates serve generic programming. Coroutines serve async I/O. The Sender Sub-Language serves heterogeneous compute. The standard is stronger when each domain gets the model it needs, and neither is forced to use the other's tool. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") examines the boundary where these two models meet.
 
 Everyone can win.
 
@@ -686,7 +685,7 @@ and Dietmar K&uuml;hl for their valuable feedback in the development of this pap
 6. [P3796R1](https://wg21.link/p3796r1). Dietmar K&uuml;hl. "Coroutine Task Issues." 2025. https://wg21.link/p3796r1
 7. [P3826R3](https://wg21.link/p3826r3). Eric Niebler. "Fix Sender Algorithm Customization." 2026. https://wg21.link/p3826r3
 8. [D3980R0](https://isocpp.org/files/papers/D3980R0.html). Dietmar K&uuml;hl. "Task's Allocator Use." 2026. https://isocpp.org/files/papers/D3980R0.html
-9. [P4007R0](https://wg21.link/p4007r0). Vinnie Falco, Mungo Gill. "Senders and C++." 2026. https://wg21.link/p4007r0
+9. [P4007R0](https://wg21.link/p4007r0). Vinnie Falco, Mungo Gill. "Senders and Coroutines." 2026. https://wg21.link/p4007r0
 
 ### Blog Posts
 
@@ -704,6 +703,7 @@ and Dietmar K&uuml;hl for their valuable feedback in the development of this pap
 18. Timothy Griffin. ["A Formulae-as-Types Notion of Control"](https://doi.org/10.1145/96709.96714). *POPL*, 1990. https://doi.org/10.1145/96709.96714
 19. Simon Marlow (ed.). [*Haskell 2010 Language Report*](https://www.haskell.org/onlinereport/haskell2010/). 2010. https://www.haskell.org/onlinereport/haskell2010/
 20. Bartosz Milewski. [*Category Theory for Programmers*](https://github.com/hmemcpy/milewski-ctfp-pdf). 2019. https://github.com/hmemcpy/milewski-ctfp-pdf
+58. Gordon Plotkin. ["Call-by-name, call-by-value and the lambda-calculus"](https://doi.org/10.1016/0304-3975(75)90017-1). *Theoretical Computer Science*, 1(2):125-159, 1975. https://doi.org/10.1016/0304-3975(75)90017-1
 
 ### Books
 
@@ -715,7 +715,7 @@ and Dietmar K&uuml;hl for their valuable feedback in the development of this pap
 23. [stdexec](https://github.com/NVIDIA/stdexec). NVIDIA's reference implementation of `std::execution`. https://github.com/NVIDIA/stdexec
 24. [`any_sender_of.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp). Type-erased sender facility in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp
 25. [`variant_sender.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp). Variant sender facility in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp
-26. [`repeat_effect_until.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp). Iteration algorithm in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_effect_until.hpp
+26. [`repeat_until.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp). Iteration algorithm in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp
 27. [`retry.hpp`](https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp). Retry algorithm example in stdexec. https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp
 28. [sender-examples](https://github.com/steve-downey/sender-examples). Example code for C++Now talk (Steve Downey). https://github.com/steve-downey/sender-examples
 29. [`loop.cpp`](https://github.com/steve-downey/sender-examples/blob/main/src/examples/loop.cpp). Iteration example in sender-examples. https://github.com/steve-downey/sender-examples/blob/main/src/examples/loop.cpp

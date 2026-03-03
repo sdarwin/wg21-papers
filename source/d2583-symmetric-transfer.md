@@ -92,7 +92,7 @@ Every major C++ coroutine library the authors surveyed uses symmetric transfer i
 | [folly::coro](https://github.com/facebook/folly/tree/main/folly/coro) | `coroutine_handle<>`   | Returns `continuation_.getHandle()`            |
 | [Boost.Cobalt](https://github.com/boostorg/cobalt)                    | `coroutine_handle<>`   | Returns `awaited_from` or `noop_coroutine()`   |
 | [libcoro](https://github.com/jbaldwin/libcoro)                        | `coroutine_handle<>`   | Returns `m_continuation` or `noop_coroutine()` |
-| [Boost.Capy](https://github.com/cppalliance/capy)                     | `coroutine_handle<>`   | Returns `p_->continuation()`                   |
+| [Capy](https://github.com/cppalliance/capy)                           | `coroutine_handle<>`   | Returns `p_->continuation()`                   |
 | [asyncpp](https://github.com/petiaccja/asyncpp)                       | `void`                 | Event-based notification                       |
 
 Five of six libraries converge on the same mechanism: `await_suspend` returns a `coroutine_handle<>`. This is independent replication. The libraries were developed by different authors, for different platforms, with different design goals. They converged on symmetric transfer because it is the only guaranteed zero-overhead mechanism C++20 provides for preventing stack overflow in coroutine chains.
@@ -103,7 +103,7 @@ Five of six libraries converge on the same mechanism: `await_suspend` returns a 
 
 ### 4.1 Coroutine Completing as Sender
 
-When an awaitable is used where a sender is expected, P2300R10 bridges it via `connect-awaitable`. The completion uses `suspend-complete`:
+When an awaitable is used where a sender is expected, [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> bridges it via `connect-awaitable`. The completion uses `suspend-complete`:
 
 ```cpp
 template<class Fun, class... Ts>
@@ -125,9 +125,10 @@ auto suspend-complete(Fun fun, Ts&&... as) noexcept {
 
 ### 4.2 Sender Co-Awaited by Coroutine
 
-When a coroutine `co_await`s a sender, P2300R10 bridges it via `sender-awaitable`:
+When a coroutine `co_await`s a sender, [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> bridges it via `sender-awaitable`:
 
 ```cpp
+template<class Sndr, class Promise>
 class sender-awaitable {
     // ...
     connect_result_t<Sndr, awaitable-receiver> state;
@@ -319,7 +320,7 @@ Both entry points route through sender algorithms. Both use void-returning compl
 
 ### 8.4 Implementation Experience
 
-A coroutine-native launcher avoids the sender pipeline entirely. [Boost.Capy](https://github.com/cppalliance/capy)<sup>[13]</sup> starts a task directly on an executor:
+A coroutine-native launcher avoids the sender pipeline entirely. [Capy](https://github.com/cppalliance/capy)<sup>[13]</sup> starts a task directly on an executor:
 
 ```cpp
 corosio::io_context ioc;
@@ -413,13 +414,13 @@ If `start()` completes synchronously and the downstream receiver returns a handl
 A `then` receiver calls its callable, then forwards the result to the next receiver. The handle originates downstream and propagates upward:
 
 ```cpp
-// current then_receiver
+// current then_receiver (adapted from P2300R10's _send_receiver)
 void set_value(Args&&... args) noexcept {
     auto result = invoke(f_, std::forward<Args>(args)...);
     execution::set_value(next_, std::move(result));
 }
 
-// proposed then_receiver (exception handling elided)
+// proposed then_receiver (adapted; exception handling elided)
 coroutine_handle<> set_value(Args&&... args) noexcept {
     auto result = invoke(f_, std::forward<Args>(args)...);
     return execution::set_value(next_, std::move(result));
@@ -688,7 +689,7 @@ and Jonathan M&uuml;ller for documenting the limitation in
 10. [folly::coro](https://github.com/facebook/folly/tree/main/folly/coro) - Facebook's coroutine library. https://github.com/facebook/folly/tree/main/folly/coro
 11. [Boost.Cobalt](https://github.com/boostorg/cobalt) - Coroutine task types for Boost (Klemens Morgenstern). https://github.com/boostorg/cobalt
 12. [libcoro](https://github.com/jbaldwin/libcoro) - C++20 coroutine library (Josh Baldwin). https://github.com/jbaldwin/libcoro
-13. [Boost.Capy](https://github.com/cppalliance/capy) - Coroutines for I/O (Vinnie Falco). https://github.com/cppalliance/capy
+13. [Capy](https://github.com/cppalliance/capy) - Coroutines for I/O (Vinnie Falco). https://github.com/cppalliance/capy
 14. [asyncpp](https://github.com/petiaccja/asyncpp) - Async coroutine library (P&eacute;ter Kardos). https://github.com/petiaccja/asyncpp
 15. [stdexec](https://github.com/NVIDIA/stdexec) - NVIDIA's reference implementation of std::execution. https://github.com/NVIDIA/stdexec
 

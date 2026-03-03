@@ -2822,7 +2822,7 @@ capabilities, and principled design.</p>
 <p>The paper’s vulnerabilities are political and social. It enters a
 space where SG4 has already reached consensus that networking should use
 sender/receiver, and asks the committee to reconsider. All
-implementations (Capy, Corosio, Boost.Http) originate from a single
+implementations (Capy, Corosio, Http) originate from a single
 organization (C++ Alliance). While respected WG21 contributors (Peter
 Dimov, Mateusz Pusz) provided feedback, the core design was not shaped
 by cross-organizational collaboration. Independent adoption outside the
@@ -2885,8 +2885,8 @@ code:</p>
 IoAwaitable protocol</li>
 <li><strong>Corosio</strong> (github.com/cppalliance/corosio): sockets,
 timers, TLS, DNS on multiple platforms</li>
-<li><strong>Boost.Http</strong> (github.com/cppalliance/http): HTTP
-library built on Capy with type-erased streams</li>
+<li><strong>Http</strong> (github.com/cppalliance/http): HTTP library
+built on Capy with type-erased streams</li>
 <li>Performance benchmarks: recycling frame allocator 3.1x faster than
 std::allocator (MSVC), 1.55x (Apple Clang)</li>
 <li>Self-contained Compiler Explorer demonstration</li>
@@ -2982,8 +2982,8 @@ outweighs committee speculation.</p>
 <p><strong>Evidence from paper:</strong> The paper is explicitly
 structured as a research report from implementation:</p>
 <ul>
-<li>Three implementations: Capy (protocol), Corosio (networking),
-Boost.Http (application layer)</li>
+<li>Three implementations: Capy (protocol), Corosio (networking), Http
+(application layer)</li>
 <li>Cross-platform: Windows (IOCP), Linux (epoll/io_uring), macOS
 (kqueue)</li>
 <li>Benchmarks: recycling frame allocator vs. mimalloc
@@ -3019,8 +3019,8 @@ developed entirely outside the standard:</p>
 <ul>
 <li>Capy and Corosio libraries were built and used before this paper was
 written</li>
-<li>Boost.Http demonstrates that higher-level libraries can be built on
-the protocol</li>
+<li>Http demonstrates that higher-level libraries can be built on the
+protocol</li>
 <li>The design iterated through real networking use cases (HTTP servers,
 TLS connections, DNS resolution)</li>
 <li>The incubation produced concrete lessons: TLS for frame allocators
