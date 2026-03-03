@@ -13,6 +13,8 @@ audience: WG21
 
 WG21 participants have accumulated deep expertise over three decades of C++ standardization. This expertise includes not just technical knowledge but judgment - the ability to evaluate proposals, recognize patterns, and make good decisions in novel situations. Much of this judgment is tacit: easier to demonstrate than to write down.
 
+[P4023R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf)<sup>[18]</sup> (Directions Group, "Strategic Direction for AI in C++") identifies a critical gap in AI training data and calls on the ecosystem to build an "ImageNet for C++." That paper focuses on code quality. This paper addresses a complementary dimension: the institutional judgment that experienced practitioners apply when evaluating whether a proposal belongs in the standard at all.
+
 This paper presents a method for capturing expert judgment through structured interviews, AI-assisted transcription, and knowledge synthesis. We conducted interviews with experienced committee members and processed the results through an agentic workflow. The output is a structured collection of principles and experiences that can be shared, reviewed, and applied.
 
 The technology exists. The methodology is demonstrated. Participation is voluntary.
@@ -31,7 +33,9 @@ The technology exists. The methodology is demonstrated. Participation is volunta
 
 ## 1. Disclosure
 
-**This paper uses AI at every stage.** Interview transcripts were produced by AI transcription. Knowledge synthesis was produced by AI processing. The paper itself was drafted with AI assistance. Every stage involves machine output.
+**The author is the intelligence of record.** P4023R0<sup>[18]</sup> establishes that "the ultimate responsibility for accuracy, logic, and normative quality rests entirely with the human author." This paper follows that principle. AI tools assist with transcription, synthesis, and drafting. The author curates, verifies, and takes responsibility for every claim.
+
+**This paper uses AI at every stage.** Interview transcripts were produced by AI transcription. Knowledge synthesis was produced by AI processing. The paper itself was drafted with AI assistance. Every stage involves machine output. P4023R0 identifies research, summarization, and consistency checking as permitted uses of AI in the committee process<sup>[18]</sup>. This paper's use of AI falls within that scope.
 
 **Human curation is required at every stage.** AI transcription introduces errors. AI synthesis can misattribute, compress, or distort meaning. No output in this paper should be treated as a faithful representation of any interviewee's views without that interviewee's explicit review and approval.
 
@@ -106,7 +110,7 @@ Consider SD-9, which says things like "use `[[nodiscard]]` for functions where i
 
 SD-10 comes closest to real knowledge transfer by referencing "Design and Evolution of C++" principles. But the references are brief, newcomers may not have read D&E, and there is no explanation of how to apply principles to novel cases.
 
-P2000 articulates the right philosophy and goals. The methodology presented in this paper complements that work by capturing the evaluative judgment that experienced participants apply when assessing whether a proposal meets those goals.
+P2000 articulates the right philosophy and goals. The Directions Group's P4023R0<sup>[18]</sup> identifies the same gap from the AI perspective: current models are trained on legacy code and unsafe patterns, and the ecosystem needs "a curated, human validated collection" of high-quality C++ knowledge. P4023R0 focuses on code; the methodology presented in this paper addresses the complementary dimension - the evaluative judgment that experienced participants apply when assessing whether a proposal meets those goals.
 
 The generating principles - how to *think* about API design, how to recognize patterns of failure, how to evaluate whether a proposal belongs in the standard at all - are held by experienced participants. These principles can be captured. The next sections describe a method for doing so.
 
@@ -345,7 +349,7 @@ Start with a general question, then use the response to drill down into a relata
 
 ### 4.4 How AI Enables This Now
 
-Modern AI capabilities make this project feasible in ways that were not possible even a few years ago:
+Modern AI capabilities make this project feasible in ways that were not possible even a few years ago. P4023R0<sup>[18]</sup> identifies research, summarizing unfamiliar domains, and checking consistency as appropriate uses of AI within the committee process. The methodology described here uses AI for exactly those purposes - transcription, synthesis, and structured extraction - with human experts providing the source material and reviewing the output:
 
 - **High-quality transcription**: Accurate speech-to-text for technical conversations
 - **Synthesis across interviews**: Identifying common themes and principles from multiple sources
@@ -376,7 +380,7 @@ The inversion reframes any concern about displacement:
 - **Comparative advantage shifts**: Experts focus on judgment rather than production. Howard Hinnant's value lies in knowing which library proposals lack sufficient field experience, not in typing out his reasoning. The AI handles transcription and synthesis; the expert provides the irreplaceable judgment.
 - **Capability expansion**: More people can contribute meaningfully. An expert who might never write a paper can share insights through a one-hour interview. The total knowledge captured increases even as individual time requirements decrease.
 
-The economics are clear: judgment is the bottleneck owned by experts. This methodology amplifies their role.
+The economics are clear: judgment is the bottleneck owned by experts. This methodology amplifies their role. P4023R0's governance principle - "the author is the intelligence of record" - arrives at the same conclusion from the policy direction: human judgment is irreplaceable, and AI is a tool in its service<sup>[18]</sup>.
 
 ---
 
@@ -497,9 +501,9 @@ They describe carrying these lessons forward to Swift. Chris Lattner deliberatel
 
 **References:** [Full transcript](https://github.com/cppalliance/wg21-sage/blob/master/inputs/abrahams-gregor.md) | [Synthesized knowledge](https://github.com/cppalliance/wg21-sage/blob/master/knowledge/abrahams-gregor.know.md)<sup>[16]</sup>
 
-### 5.6 From Interviews to Evaluation Model
+### 5.6 From Interviews to Corroborated Principles
 
-Individual knowledge files capture one expert's perspective. Greater value emerges when these files are combined and distilled into an evaluation instrument. We built a three-stage agentic pipeline that transforms interview transcripts into a paper-scoring model. Each stage is driven by a rule file - an AI prompt that defines the transformation. All three rule files were themselves generated by prompting an AI agent.
+Individual knowledge files capture one expert's perspective. Greater value emerges when these files are combined and distilled into a shared set of corroborated principles - statements that multiple independent experts arrived at from different experiences. We built a three-stage agentic pipeline that transforms interview transcripts into structured principles. Each stage is driven by a rule file - an AI prompt that defines the transformation. All three rule files were themselves generated by prompting an AI agent.
 
 ```mermaid
 flowchart TD
@@ -510,7 +514,7 @@ flowchart TD
     MRG --> MF["merged.know.md\n11 corroborated principles"]
     MF --> JDG["WG21_JUDGE"]
     JDG --> EV["WG21_EVAL_GENERAL.md\n11 scoring criteria"]
-    EV --> P["Applied to Papers"]
+    EV --> P["Illustrative Application\n(Section 6)"]
 ```
 
 **Stage 1 - Capture.** [WG21_CAPTURE.md](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_CAPTURE.md)<sup>[16]</sup> is a knowledge extraction agent. Given an interview transcript, it produces a structured knowledge file containing principles (actionable rules with "When to Apply" conditions and "Red Flags" for violations) and experiences (supporting stories that illustrate and validate the principles). Each principle carries metadata: category, confidence level, and whether it applies to library proposals, language proposals, or both. We applied `WG21_CAPTURE` to each of the five transcripts in `inputs/`, producing five knowledge files in `knowledge/`.
@@ -527,6 +531,8 @@ flowchart TD
 | [`WG21_MERGE.md`](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_MERGE.md)       | Multiple `*.know.md` files | `merged.know.md`        | Retain only principles corroborated by 2+ independent sources |
 | [`WG21_JUDGE.md`](https://github.com/cppalliance/wg21-sage/blob/master/rules/WG21_JUDGE.md)       | `merged.know.md` + focus   | `WG21_EVAL_*.md`        | Generate a paper-scoring model from merged principles         |
 
+The primary contribution of this pipeline is the merged knowledge file - 11 principles corroborated by two or more independent experts. The evaluation model generated in Stage 3 is one illustrative downstream application, presented in Section 6 as a demonstration. It is experimental, requires human judgment to apply, and is not intended as an automated scoring system for committee papers.
+
 ---
 
 ## 6. Application: Self-Evaluation
@@ -535,7 +541,7 @@ To demonstrate the evaluation model in practice, the lead author applied `WG21_E
 
 The paper scored **17/22** (passing threshold: 14/22). Six criteria received full marks: complexity awareness, implementation validation, external incubation, knowledge capture, enabling previously-impossible capabilities, and principled design. Five criteria scored partial: political fragility, proven practice (limited independent adoption), consensus collaboration (single-organization development), language-library boundary tensions, and licensing documentation.
 
-Self-evaluation is inherently limited - the author cannot be objective about his own work. The purpose here is not to claim objectivity but to demonstrate the tool's operation. The evaluation model surfaces specific, actionable feedback (e.g., "document independent adoption", "state the license explicitly") that a self-evaluating author can act on before committee review. The real value of the tool will emerge when it is applied by others.
+Self-evaluation is inherently limited - the author cannot be objective about his own work. The purpose here is not to claim objectivity but to demonstrate the tool's operation and, crucially, to show that the model identifies weaknesses in its creator's own paper. The evaluation model surfaces specific, actionable feedback (e.g., "document independent adoption", "state the license explicitly") that a self-evaluating author can act on before committee review. Consistent with P4023R0's governance principle, the model assists human judgment - the author remains the intelligence of record who decides which feedback to act on<sup>[18]</sup>. The real value of the tool will emerge when it is applied by others.
 
 ### 6.1 Reproducibility and Iteration
 
@@ -610,6 +616,8 @@ WG21 is a voluntary organization. No one can compel participation, enforce paper
 
 Every institution accumulates tacit knowledge in the minds of experienced practitioners. Every institution benefits from making that knowledge explicit. WG21 is not unusual in facing this challenge. It is unusual in the depth of expertise available to capture.
 
+The Directions Group's P4023R0<sup>[18]</sup> calls on the ecosystem to build an "ImageNet for C++" - a curated, human-validated knowledge base. That paper focuses on code quality. This paper demonstrates that the same approach applies to institutional judgment: the principles experienced practitioners use to evaluate proposals, recognize patterns of failure, and make good decisions in novel situations. The knowledge capture workflow presented here is one answer to the Directions Group's challenge.
+
 **What you can do:**
 
 - **Experienced WG21 participants**: Contact the paper authors to share your knowledge through an interview. Your insights about design principles, historical decisions, and evaluation frameworks are the raw material.
@@ -657,10 +665,13 @@ Thanks to all interview participants for sharing their expertise.
 15. Nea&#x021B;u, Darius; Sankel, David. P3201R1: LEWG [[nodiscard]] policy. https://wg21.link/p3201r1
 16. WG21-SAGE: Transcripts, knowledge files, and agentic rules. https://github.com/cppalliance/wg21-sage
 17. Falco, Gerbino, Gill. P4003R0: Coroutines for I/O. https://wg21.link/p4003r0
+18. Garland, McKenney, Orr, Stroustrup, Vandevoorde, Wong. [P4023R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf): "Strategic Direction for AI in C++: Governance, and Ecosystem" (Directions Group, 2026). https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf
 
 ---
 
 ## Appendix A: WG21 General Evaluation Model
+
+> **Note:** This model is presented as an illustrative output of the knowledge capture methodology. It is experimental, reflects one run of a preliminary pipeline, and requires human judgment to apply. It is not a recommendation that the committee adopt automated paper scoring.
 
 This model evaluates C++ standardization proposals against principles of proven practice, political viability, design coherence, implementation validation, complexity control, institutional knowledge, and ecosystem fit derived from experienced WG21 practitioners.
 
@@ -943,6 +954,8 @@ Scoring: PASS = 2 (compliant), PARTIAL = 1 (partial), FAIL = 0 (non-compliant)
 ---
 
 ## Appendix B: Evaluation of P4003R0 "Coroutines for I/O"
+
+> **Note:** This evaluation demonstrates the model's operation on the lead author's own paper. The model identified weaknesses (political fragility, single-organization development, missing license documentation) that the author can act on. The evaluation is illustrative. The author is the intelligence of record.
 
 **Model**: `rules/WG21_EVAL_GENERAL.md`
 **Paper**: P4003R0 (D4003, 2026-02-22)
