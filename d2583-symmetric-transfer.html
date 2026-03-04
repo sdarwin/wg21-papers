@@ -943,9 +943,8 @@ constant stack space. <code>std::execution</code> (<a href="https://wg21.link/p2
 asynchronous operations through sender algorithms. These algorithms
 create receivers that are structs, not coroutines. No
 <code>coroutine_handle&lt;&gt;</code> exists at any intermediate point
-in a sender pipeline. When a coroutine <code>co_await</code>s a sender
-that completes synchronously, the stack grows by one frame per
-completion. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>’s
+in a sender pipeline. When a coroutine co_awaits a sender that completes
+synchronously, the stack grows by one frame per completion. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>’s
 <code>std::execution::task</code> inherits this property. A
 protocol-level fix exists: completion functions and <code>start()</code>
 return <code>coroutine_handle&lt;&gt;</code> instead of
@@ -1056,49 +1055,39 @@ transfer in its task type. The following table shows the
 <code>final_suspend</code> awaiter:</p>
 <table>
 <colgroup>
-<col style="width: 49%" />
-<col style="width: 16%" />
-<col style="width: 33%" />
+<col style="width: 74%" />
+<col style="width: 25%" />
 </colgroup>
 <thead>
 <tr>
 <th>Library</th>
 <th><code>await_suspend</code> Return</th>
-<th>Mechanism</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><a href="https://github.com/lewissbaker/cppcoro">cppcoro</a></td>
 <td><code>coroutine_handle&lt;&gt;</code></td>
-<td>Returns <code>m_continuation</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/facebook/folly/tree/main/folly/coro">folly::coro</a></td>
 <td><code>coroutine_handle&lt;&gt;</code></td>
-<td>Returns <code>continuation_.getHandle()</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/boostorg/cobalt">Boost.Cobalt</a></td>
 <td><code>coroutine_handle&lt;&gt;</code></td>
-<td>Returns <code>awaited_from</code> or
-<code>noop_coroutine()</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/jbaldwin/libcoro">libcoro</a></td>
 <td><code>coroutine_handle&lt;&gt;</code></td>
-<td>Returns <code>m_continuation</code> or
-<code>noop_coroutine()</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/cppalliance/capy">Capy</a></td>
 <td><code>coroutine_handle&lt;&gt;</code></td>
-<td>Returns <code>p_-&gt;continuation()</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/petiaccja/asyncpp">asyncpp</a></td>
 <td><code>void</code></td>
-<td>Event-based notification</td>
 </tr>
 </tbody>
 </table>
@@ -1141,7 +1130,7 @@ is unconditionally suspended. The completion function <code>fn()</code>
 call on the current stack. This is not symmetric transfer.</p>
 <h3 id="sender-co-awaited-by-coroutine">4.2 Sender Co-Awaited by
 Coroutine</h3>
-<p>When a coroutine <code>co_await</code>s a sender, <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[5]</sup> bridges it
+<p>When a coroutine co_awaits a sender, <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[5]</sup> bridges it
 via <code>sender-awaitable</code>:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Sndr<span class="op">,</span> <span class="kw">class</span> Promise<span class="op">&gt;</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> sender<span class="op">-</span>awaitable <span class="op">{</span></span>
@@ -1242,11 +1231,11 @@ protocol, no such return channel exists. <code>set_value</code> returns
 <code>await_transform</code> is defined in <a href="https://eel.is/c++draft/exec#task.promise-9">[task.promise]
 p9</a><sup>[16]</sup>:</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>as_awaitable<span class="op">(</span>affine_on<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Sender<span class="op">&gt;(</span>sndr<span class="op">),</span> SCHED<span class="op">(*</span><span class="kw">this</span><span class="op">)),</span> <span class="op">*</span><span class="kw">this</span><span class="op">)</span></span></code></pre></div>
-<p>Even when one <code>task</code> <code>co_await</code>s another
-<code>task</code>, the inner task is wrapped in <code>affine_on</code>,
-producing a different sender type. Dietmar Kühl, a co-author of P3552R3,
-documented this in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[6]</sup> (“Coroutine
-Task Issues”), Section 3.2.3:</p>
+<p>Even when one <code>task</code> co_awaits another <code>task</code>,
+the inner task is wrapped in <code>affine_on</code>, producing a
+different sender type. Dietmar Kühl, a co-author of P3552R3, documented
+this in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[6]</sup>
+(“Coroutine Task Issues”), Section 3.2.3:</p>
 <blockquote>
 <p>“The specification doesn’t mention any use of symmetric transfer.
 Further, the <code>task</code> gets adapted by <code>affine_on</code> in
@@ -1288,7 +1277,7 @@ may be reasonable to mandate that <code>task</code> customises
 <code>affine_on</code> and that the result of this customisation also
 customises <code>as_awaitable</code>.”</p>
 </blockquote>
-<p>This would allow a <code>task</code> <code>co_await</code>ing another
+<p>This would allow a <code>task</code> co_awaiting another
 <code>task</code> to bypass the sender machinery and use a direct
 awaiter with symmetric transfer. The fix addresses one case:
 task-to-task.</p>
@@ -1305,12 +1294,12 @@ calls.”</p>
 </blockquote>
 <p>Three cases remain after the proposed fix:</p>
 <ol type="1">
-<li><p>A <code>task</code> <code>co_await</code>ing a sender that is not
-a <code>task</code> - no symmetric transfer. The sender completes
-through the receiver, which calls <code>.resume()</code> as a function
+<li><p>A <code>task</code> co_awaiting a sender that is not a
+<code>task</code> - no symmetric transfer. The sender completes through
+the receiver, which calls <code>.resume()</code> as a function
 call.</p></li>
-<li><p>A <code>task</code> <code>co_await</code>ing a <code>task</code>
-whose body <code>co_await</code>s a synchronously completing sender
+<li><p>A <code>task</code> co_awaiting a <code>task</code> whose body
+co_awaits a synchronously completing sender
 (e.g. <code>co_await just()</code>) - the inner task’s
 <code>co_await</code> goes through the <code>sender-awaitable</code>
 bridge, which uses <code>void await_suspend</code>. Stack frames
@@ -1339,10 +1328,10 @@ transfer control without growing the stack, potentially closing the gap
 without changing the receiver abstraction. No such feature exists in
 C++.</p>
 <h3 id="the-cost">7.1 The Cost</h3>
-<p>A coroutine that <code>co_await</code>s N synchronously-completing
-senders in a loop accumulates O(N) stack frames. With symmetric
-transfer, the same loop executes in O(1) stack space. The difference is
-the composition mechanism.</p>
+<p>A coroutine that co_awaits N synchronously-completing senders in a
+loop accumulates O(N) stack frames. With symmetric transfer, the same
+loop executes in O(1) stack space. The difference is the composition
+mechanism.</p>
 <p>The stack growth is not specific to <code>inline_scheduler</code>.
 Any sender that completes synchronously grows the stack:
 <code>just()</code>, <code>then()</code> on a ready value, a cached
@@ -1388,8 +1377,8 @@ creates exactly this case.</p>
 <hr />
 <h2 id="failure-to-launch">8. Failure To Launch</h2>
 <p>Section 7 showed that the proposed task-to-task fix does not reach
-the general case of <code>co_await</code>ing arbitrary senders. This
-section shows that the gap extends further: no launch mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> avoids the
+the general case of co_awaiting arbitrary senders. This section shows
+that the gap extends further: no launch mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> avoids the
 sender composition layer.</p>
 <h3 id="two-entry-points">8.1 Two Entry Points</h3>
 <p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>
@@ -1810,47 +1799,28 @@ the receiver’s completion function returns.</p>
 <span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>coroutine_handle<span class="op">&lt;&gt;</span> start<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
 <span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> execution<span class="op">::</span>set_value<span class="op">(</span><span class="va">rcvr_</span><span class="op">,</span> <span class="va">values_</span><span class="op">...);</span></span>
 <span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Affected factories:</p>
-<ul>
-<li><code>just</code></li>
-<li><code>just_error</code></li>
-<li><code>just_stopped</code></li>
-<li><code>read_env</code></li>
-</ul>
+<p>Affected factories: <code>just</code>, <code>just_error</code>,
+<code>just_stopped</code>, <code>read_env</code>.</p>
 <h3 id="sender-adaptor-algorithms">11.3 Sender Adaptor Algorithms</h3>
 <p>Sender adaptors create internal receivers that forward completions to
 the next receiver. Every internal receiver’s <code>set_value</code>,
 <code>set_error</code>, and <code>set_stopped</code> must change return
 type. Every operation state’s <code>start()</code> must change return
 type.</p>
-<p>Affected adaptors:</p>
-<ul>
-<li><code>then</code></li>
-<li><code>upon_error</code></li>
-<li><code>upon_stopped</code></li>
-<li><code>let_value</code></li>
-<li><code>let_error</code></li>
-<li><code>let_stopped</code></li>
-<li><code>bulk</code></li>
-<li><code>split</code></li>
-<li><code>ensure_started</code></li>
-<li><code>into_variant</code></li>
-<li><code>stopped_as_optional</code></li>
-<li><code>stopped_as_error</code></li>
-</ul>
+<p>Affected adaptors: <code>then</code>, <code>upon_error</code>,
+<code>upon_stopped</code>, <code>let_value</code>,
+<code>let_error</code>, <code>let_stopped</code>, <code>bulk</code>,
+<code>split</code>, <code>ensure_started</code>,
+<code>into_variant</code>, <code>stopped_as_optional</code>,
+<code>stopped_as_error</code>.</p>
 <h3 id="scheduler-algorithms">11.4 Scheduler Algorithms</h3>
 <p>Scheduler algorithms create internal receivers that manage
 transitions between execution contexts. Every internal receiver’s
 completion functions and every operation state’s <code>start()</code>
 must change return type.</p>
-<p>Affected algorithms:</p>
-<ul>
-<li><code>starts_on</code></li>
-<li><code>continues_on</code></li>
-<li><code>on</code></li>
-<li><code>schedule_from</code></li>
-<li><code>affine_on</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>)</li>
-</ul>
+<p>Affected algorithms: <code>starts_on</code>,
+<code>continues_on</code>, <code>on</code>, <code>schedule_from</code>,
+<code>affine_on</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>).</p>
 <h3 id="multi-sender-algorithms">11.5 Multi-Sender Algorithms</h3>
 <p>Multi-sender algorithms create per-sub-sender receivers with
 counter-based fan-in logic. Every per-sub-sender receiver’s completion

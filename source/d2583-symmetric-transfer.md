@@ -10,7 +10,7 @@ audience: LEWG
 
 ## Abstract
 
-C++20 provides symmetric transfer ([P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup>) - a mechanism where `await_suspend` returns a `coroutine_handle<>` and the compiler resumes the designated coroutine as a tail call. Coroutine chains execute in constant stack space. `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>) composes asynchronous operations through sender algorithms. These algorithms create receivers that are structs, not coroutines. No `coroutine_handle<>` exists at any intermediate point in a sender pipeline. When a coroutine `co_await`s a sender that completes synchronously, the stack grows by one frame per completion. [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>'s `std::execution::task` inherits this property. A protocol-level fix exists: completion functions and `start()` return `coroutine_handle<>` instead of `void`, enabling struct receivers to propagate handles from downstream without becoming coroutines. The fix preserves zero-allocation composition but requires changing the return type of every completion function, every `start()`, and every sender algorithm in [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>. This paper documents the gap, describes the fix, and enumerates the changes required.
+C++20 provides symmetric transfer ([P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup>) - a mechanism where `await_suspend` returns a `coroutine_handle<>` and the compiler resumes the designated coroutine as a tail call. Coroutine chains execute in constant stack space. `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>) composes asynchronous operations through sender algorithms. These algorithms create receivers that are structs, not coroutines. No `coroutine_handle<>` exists at any intermediate point in a sender pipeline. When a coroutine co_awaits a sender that completes synchronously, the stack grows by one frame per completion. [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>'s `std::execution::task` inherits this property. A protocol-level fix exists: completion functions and `start()` return `coroutine_handle<>` instead of `void`, enabling struct receivers to propagate handles from downstream without becoming coroutines. The fix preserves zero-allocation composition but requires changing the return type of every completion function, every `start()`, and every sender algorithm in [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>. This paper documents the gap, describes the fix, and enumerates the changes required.
 
 ---
 
@@ -86,14 +86,14 @@ When the coroutine reaches `final_suspend`, `await_suspend` returns the continua
 
 Every major C++ coroutine library the authors surveyed uses symmetric transfer in its task type. The following table shows the `await_suspend` return type in each library's `final_suspend` awaiter:
 
-| Library                                                               | `await_suspend` Return | Mechanism                                      |
-|-----------------------------------------------------------------------|------------------------|------------------------------------------------|
-| [cppcoro](https://github.com/lewissbaker/cppcoro)                     | `coroutine_handle<>`   | Returns `m_continuation`                       |
-| [folly::coro](https://github.com/facebook/folly/tree/main/folly/coro) | `coroutine_handle<>`   | Returns `continuation_.getHandle()`            |
-| [Boost.Cobalt](https://github.com/boostorg/cobalt)                    | `coroutine_handle<>`   | Returns `awaited_from` or `noop_coroutine()`   |
-| [libcoro](https://github.com/jbaldwin/libcoro)                        | `coroutine_handle<>`   | Returns `m_continuation` or `noop_coroutine()` |
-| [Capy](https://github.com/cppalliance/capy)                           | `coroutine_handle<>`   | Returns `p_->continuation()`                   |
-| [asyncpp](https://github.com/petiaccja/asyncpp)                       | `void`                 | Event-based notification                       |
+| Library                                                               | `await_suspend` Return |
+|-----------------------------------------------------------------------|------------------------|
+| [cppcoro](https://github.com/lewissbaker/cppcoro)                     | `coroutine_handle<>`   |
+| [folly::coro](https://github.com/facebook/folly/tree/main/folly/coro) | `coroutine_handle<>`   |
+| [Boost.Cobalt](https://github.com/boostorg/cobalt)                    | `coroutine_handle<>`   |
+| [libcoro](https://github.com/jbaldwin/libcoro)                        | `coroutine_handle<>`   |
+| [Capy](https://github.com/cppalliance/capy)                           | `coroutine_handle<>`   |
+| [asyncpp](https://github.com/petiaccja/asyncpp)                       | `void`                 |
 
 Five of six libraries converge on the same mechanism: `await_suspend` returns a `coroutine_handle<>`. This is independent replication. The libraries were developed by different authors, for different platforms, with different design goals. They converged on symmetric transfer because it is the only guaranteed zero-overhead mechanism C++20 provides for preventing stack overflow in coroutine chains.
 
@@ -125,7 +125,7 @@ auto suspend-complete(Fun fun, Ts&&... as) noexcept {
 
 ### 4.2 Sender Co-Awaited by Coroutine
 
-When a coroutine `co_await`s a sender, [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> bridges it via `sender-awaitable`:
+When a coroutine co_awaits a sender, [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> bridges it via `sender-awaitable`:
 
 ```cpp
 template<class Sndr, class Promise>
@@ -199,7 +199,7 @@ Could the protocol be changed? A struct receiver cannot produce a `coroutine_han
 as_awaitable(affine_on(std::forward<Sender>(sndr), SCHED(*this)), *this)
 ```
 
-Even when one `task` `co_await`s another `task`, the inner task is wrapped in `affine_on`, producing a different sender type. Dietmar K&uuml;hl, a co-author of P3552R3, documented this in [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> ("Coroutine Task Issues"), Section 3.2.3:
+Even when one `task` co_awaits another `task`, the inner task is wrapped in `affine_on`, producing a different sender type. Dietmar K&uuml;hl, a co-author of P3552R3, documented this in [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> ("Coroutine Task Issues"), Section 3.2.3:
 
 > "The specification doesn't mention any use of symmetric transfer. Further, the `task` gets adapted by `affine_on` in `await_transform` ([[task.promise] p10](https://eel.is/c++draft/exec#task.promise-10)<sup>[16]</sup>) which produces a different sender than `task` which needs special treatment to use symmetric transfer."
 
@@ -227,7 +227,7 @@ K&uuml;hl suggested a fix direction in [P3796R1](https://wg21.link/p3796r1)<sup>
 
 > "To address the different scheduling problems (schedule on `start`, schedule on completion, and symmetric transfer) it may be reasonable to mandate that `task` customises `affine_on` and that the result of this customisation also customises `as_awaitable`."
 
-This would allow a `task` `co_await`ing another `task` to bypass the sender machinery and use a direct awaiter with symmetric transfer. The fix addresses one case: task-to-task.
+This would allow a `task` co_awaiting another `task` to bypass the sender machinery and use a direct awaiter with symmetric transfer. The fix addresses one case: task-to-task.
 
 It does not address the general case. M&uuml;ller stated this directly in [P3801R0](https://wg21.link/p3801r0)<sup>[7]</sup>, Section 3.1:
 
@@ -235,9 +235,9 @@ It does not address the general case. M&uuml;ller stated this directly in [P3801
 
 Three cases remain after the proposed fix:
 
-1. A `task` `co_await`ing a sender that is not a `task` - no symmetric transfer. The sender completes through the receiver, which calls `.resume()` as a function call.
+1. A `task` co_awaiting a sender that is not a `task` - no symmetric transfer. The sender completes through the receiver, which calls `.resume()` as a function call.
 
-2. A `task` `co_await`ing a `task` whose body `co_await`s a synchronously completing sender (e.g. `co_await just()`) - the inner task's `co_await` goes through the `sender-awaitable` bridge, which uses `void await_suspend`. Stack frames accumulate inside the inner task.
+2. A `task` co_awaiting a `task` whose body co_awaits a synchronously completing sender (e.g. `co_await just()`) - the inner task's `co_await` goes through the `sender-awaitable` bridge, which uses `void await_suspend`. Stack frames accumulate inside the inner task.
 
 3. Any sender chain where coroutines are composed through sender algorithms (`then`, `let_value`, `when_all`) - each sender algorithm is not a coroutine. It is a struct with `set_value` member functions. No coroutine handle exists as a transfer target.
 
@@ -251,7 +251,7 @@ M&uuml;ller identifies a language-level alternative: guaranteed tail calls. If C
 
 ### 7.1 The Cost
 
-A coroutine that `co_await`s N synchronously-completing senders in a loop accumulates O(N) stack frames. With symmetric transfer, the same loop executes in O(1) stack space. The difference is the composition mechanism.
+A coroutine that co_awaits N synchronously-completing senders in a loop accumulates O(N) stack frames. With symmetric transfer, the same loop executes in O(1) stack space. The difference is the composition mechanism.
 
 The stack growth is not specific to `inline_scheduler`. Any sender that completes synchronously grows the stack: `just()`, `then()` on a ready value, a cached result, an in-memory lookup.
 
@@ -270,7 +270,7 @@ Symmetric transfer does not prevent all stack overflow. Infinite recursion exhau
 
 ## 8. Failure To Launch
 
-Section 7 showed that the proposed task-to-task fix does not reach the general case of `co_await`ing arbitrary senders. This section shows that the gap extends further: no launch mechanism in [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> avoids the sender composition layer.
+Section 7 showed that the proposed task-to-task fix does not reach the general case of co_awaiting arbitrary senders. This section shows that the gap extends further: no launch mechanism in [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> avoids the sender composition layer.
 
 ### 8.1 Two Entry Points
 
@@ -540,43 +540,19 @@ coroutine_handle<> start() noexcept {
 }
 ```
 
-Affected factories:
-
-- `just`
-- `just_error`
-- `just_stopped`
-- `read_env`
+Affected factories: `just`, `just_error`, `just_stopped`, `read_env`.
 
 ### 11.3 Sender Adaptor Algorithms
 
 Sender adaptors create internal receivers that forward completions to the next receiver. Every internal receiver's `set_value`, `set_error`, and `set_stopped` must change return type. Every operation state's `start()` must change return type.
 
-Affected adaptors:
-
-- `then`
-- `upon_error`
-- `upon_stopped`
-- `let_value`
-- `let_error`
-- `let_stopped`
-- `bulk`
-- `split`
-- `ensure_started`
-- `into_variant`
-- `stopped_as_optional`
-- `stopped_as_error`
+Affected adaptors: `then`, `upon_error`, `upon_stopped`, `let_value`, `let_error`, `let_stopped`, `bulk`, `split`, `ensure_started`, `into_variant`, `stopped_as_optional`, `stopped_as_error`.
 
 ### 11.4 Scheduler Algorithms
 
 Scheduler algorithms create internal receivers that manage transitions between execution contexts. Every internal receiver's completion functions and every operation state's `start()` must change return type.
 
-Affected algorithms:
-
-- `starts_on`
-- `continues_on`
-- `on`
-- `schedule_from`
-- `affine_on` ([P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>)
+Affected algorithms: `starts_on`, `continues_on`, `on`, `schedule_from`, `affine_on` ([P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>).
 
 ### 11.5 Multi-Sender Algorithms
 
