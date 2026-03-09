@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>D4007R1: Senders and Coroutines</title>
+  <title>P4047R0: CRYSTAL BALL: Checking Predictions Against the
+Record</title>
   <style type="text/css">
 
 @font-face {
@@ -819,2017 +820,629 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>Senders and Coroutines</h1>
+<h1>CRYSTAL BALL: Checking Predictions Against the Record</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> D4007R1</p>
-  <p><strong>Date:</strong> 2026-02-22</p>
-  <p><strong>Audience:</strong> LEWG</p>
-  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Mungo Gill
-<a href="mailto:mungo.gill@me.com" class="email">mungo.gill@me.com</a></p>
+  <p><strong>Document Number:</strong> P4047R0</p>
+  <p><strong>Date:</strong> 2026-03-08</p>
+  <p><strong>Audience:</strong> All of WG21</p>
+  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a></p>
 </div>
 
 <!-- Table of Contents -->
 <nav class="toc">
   <h2 class="toc-title">Table of Contents</h2>
   <ul>
+  <li><a href="#crystal-ball-checking-predictions-against-the-record" id="toc-crystal-ball-checking-predictions-against-the-record">CRYSTAL
+  BALL: Checking Predictions Against the Record</a>
+  <ul>
   <li><a href="#abstract" id="toc-abstract">Abstract</a></li>
   <li><a href="#revision-history" id="toc-revision-history">Revision
   History</a>
   <ul>
-  <li><a href="#r1-march-2026-pre-croydon-mailing" id="toc-r1-march-2026-pre-croydon-mailing">R1: March 2026 (pre-Croydon
-  mailing)</a></li>
-  <li><a href="#r0-february-2026-pre-croydon-mailing" id="toc-r0-february-2026-pre-croydon-mailing">R0: February 2026
-  (pre-Croydon mailing)</a></li>
+  <li><a href="#r0-march-2026" id="toc-r0-march-2026">R0: March
+  2026</a></li>
   </ul></li>
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#coroutine-native-io" id="toc-coroutine-native-io">2.
-  Coroutine-Native I/O</a>
+  <li><a href="#method" id="toc-method">2. Method</a></li>
+  <li><a href="#the-predictions" id="toc-the-predictions">3. The
+  Predictions</a>
   <ul>
-  <li><a href="#partial-results" id="toc-partial-results">2.1 Partial
-  Results</a></li>
-  <li><a href="#error-returns" id="toc-error-returns">2.2 Error
-  Returns</a></li>
-  <li><a href="#cancellation" id="toc-cancellation">2.3
-  Cancellation</a></li>
-  <li><a href="#frame-allocator-propagation" id="toc-frame-allocator-propagation">2.4 Frame Allocator
-  Propagation</a></li>
-  <li><a href="#two-models-of-computation" id="toc-two-models-of-computation">2.5 Two Models of
-  Computation</a></li>
+  <li><a href="#timeline" id="toc-timeline">Timeline</a></li>
+  <li><a href="#safety-and-correctness" id="toc-safety-and-correctness">Safety and Correctness</a></li>
+  <li><a href="#customization-mechanism" id="toc-customization-mechanism">Customization Mechanism</a></li>
+  <li><a href="#universality-and-scope" id="toc-universality-and-scope">Universality and Scope</a></li>
+  <li><a href="#domain-viability" id="toc-domain-viability">Domain
+  Viability</a></li>
+  <li><a href="#networking" id="toc-networking">Networking</a></li>
+  <li><a href="#implementation-maturity" id="toc-implementation-maturity">Implementation Maturity</a></li>
   </ul></li>
-  <li><a href="#where-do-errors-go" id="toc-where-do-errors-go">3. Where
-  Do Errors Go?</a>
-  <ul>
-  <li><a href="#senders-use-channels" id="toc-senders-use-channels">3.1
-  Senders Use Channels</a></li>
-  <li><a href="#io-works-with-tuples" id="toc-io-works-with-tuples">3.2
-  I/O works with tuples</a></li>
-  <li><a href="#published-sender-code-loses-data" id="toc-published-sender-code-loses-data">3.3 Published Sender Code
-  Loses Data</a></li>
-  <li><a href="#everything-through-set_value" id="toc-everything-through-set_value">3.4 Everything Through
-  <code>set_value</code></a></li>
-  <li><a href="#the-classification-problem" id="toc-the-classification-problem">3.5 The Classification
-  Problem</a></li>
-  <li><a href="#dimovs-mapping" id="toc-dimovs-mapping">3.6 Dimov’s
-  Mapping</a></li>
-  <li><a href="#routine-errors-become-exceptions" id="toc-routine-errors-become-exceptions">3.7 Routine Errors Become
-  Exceptions</a></li>
-  <li><a href="#coroutines-always-pay" id="toc-coroutines-always-pay">3.8 Coroutines Always Pay</a></li>
-  <li><a href="#the-paper-not-polled" id="toc-the-paper-not-polled">3.9
-  The Paper Not Polled</a></li>
-  <li><a href="#lewg-background" id="toc-lewg-background">3.10 LEWG
-  Background</a></li>
-  </ul></li>
-  <li><a href="#where-is-the-co_return" id="toc-where-is-the-co_return">4. Where Is the
-  <code>co_return</code>?</a>
-  <ul>
-  <li><a href="#the-mechanism" id="toc-the-mechanism">4.1 The
-  Mechanism</a></li>
-  <li><a href="#the-consequence" id="toc-the-consequence">4.2 The
-  Consequence</a></li>
-  <li><a href="#established-practice" id="toc-established-practice">4.3
-  Established Practice</a></li>
-  <li><a href="#the-language-change" id="toc-the-language-change">4.4
-  The Language Change</a></li>
-  </ul></li>
-  <li><a href="#where-is-the-allocator" id="toc-where-is-the-allocator">5. Where Is the Allocator?</a>
-  <ul>
-  <li><a href="#senders" id="toc-senders">5.1 Senders</a></li>
-  <li><a href="#coroutines" id="toc-coroutines">5.2 Coroutines</a></li>
-  <li><a href="#coroutines-work-for-what-senders-get-free" id="toc-coroutines-work-for-what-senders-get-free">5.3 Coroutines Work
-  for What Senders Get Free</a></li>
-  <li><a href="#does-performance-matter" id="toc-does-performance-matter">5.4 Does Performance Matter?</a></li>
-  <li><a href="#will-halo-save-us" id="toc-will-halo-save-us">5.5 Will
-  HALO Save Us?</a></li>
-  <li><a href="#a-viral-signature" id="toc-a-viral-signature">5.6 A
-  Viral Signature?</a></li>
-  <li><a href="#domain-freedom" id="toc-domain-freedom">5.7 Domain
-  Freedom?</a></li>
-  </ul></li>
-  <li><a href="#where-is-the-tail-call" id="toc-where-is-the-tail-call">6. Where Is the Tail Call?</a></li>
-  <li><a href="#the-gaps-are-the-tradeoff" id="toc-the-gaps-are-the-tradeoff">7. The Gaps Are The Tradeoff</a>
-  <ul>
-  <li><a href="#the-channel-tradeoff" id="toc-the-channel-tradeoff">7.1
-  The Channel Tradeoff</a></li>
-  <li><a href="#the-co_yield-tradeoff" id="toc-the-co_yield-tradeoff">7.2 The <code>co_yield</code>
-  Tradeoff</a></li>
-  <li><a href="#the-frame-allocator-tradeoff" id="toc-the-frame-allocator-tradeoff">7.3 The Frame Allocator
-  Tradeoff</a></li>
-  <li><a href="#the-symmetric-transfer-tradeoff" id="toc-the-symmetric-transfer-tradeoff">7.4 The Symmetric Transfer
-  Tradeoff</a></li>
-  <li><a href="#abi-makes-the-choice-permanent" id="toc-abi-makes-the-choice-permanent">7.5 ABI Makes the Choice
-  Permanent</a></li>
-  </ul></li>
-  <li><a href="#faq" id="toc-faq">8. FAQ</a></li>
-  <li><a href="#maturity-of-the-coroutine-integration" id="toc-maturity-of-the-coroutine-integration">9. Maturity of the
-  Coroutine Integration</a></li>
-  <li><a href="#conclusion" id="toc-conclusion">10. Conclusion</a></li>
-  <li><a href="#suggested-straw-polls" id="toc-suggested-straw-polls">11. Suggested Straw Polls</a></li>
-  <li><a href="#appendix-a---the-three-channel-model" id="toc-appendix-a---the-three-channel-model">Appendix A - The
-  Three-Channel Model</a>
-  <ul>
-  <li><a href="#a.1-why-the-three-channel-model-exists" id="toc-a.1-why-the-three-channel-model-exists">A.1 Why the
-  Three-Channel Model Exists</a></li>
-  <li><a href="#a.2-async_read-as-a-sender" id="toc-a.2-async_read-as-a-sender">A.2 <code>async_read</code> as a
-  Sender</a></li>
-  <li><a href="#a.3-timeline-of-the-error-channel-question" id="toc-a.3-timeline-of-the-error-channel-question">A.3 Timeline of
-  the Error Channel Question</a></li>
-  </ul></li>
-  <li><a href="#appendix-b---the-frame-allocator-gap" id="toc-appendix-b---the-frame-allocator-gap">Appendix B - The Frame
-  Allocator Gap</a>
-  <ul>
-  <li><a href="#b.1-the-full-ceremony-for-frame-allocator-aware-coroutines" id="toc-b.1-the-full-ceremony-for-frame-allocator-aware-coroutines">B.1
-  The Full Ceremony for Frame-Allocator-Aware Coroutines</a></li>
-  </ul></li>
-  <li><a href="#appendix-c---direction-of-change" id="toc-appendix-c---direction-of-change">Appendix C - Direction of
-  Change</a></li>
-  <li><a href="#acknowledgements" id="toc-acknowledgements">Acknowledgements</a>
-  <ul>
-  <li><a href="#references" id="toc-references">References</a>
-  <ul>
-  <li><a href="#wg21-papers" id="toc-wg21-papers">WG21 Papers</a></li>
-  <li><a href="#lwg-issues" id="toc-lwg-issues">LWG Issues</a></li>
-  <li><a href="#blog-posts" id="toc-blog-posts">Blog Posts</a></li>
-  <li><a href="#libraries" id="toc-libraries">Libraries</a></li>
-  <li><a href="#other" id="toc-other">Other</a></li>
-  </ul></li>
+  <li><a href="#scorecard" id="toc-scorecard">4. Scorecard</a></li>
+  <li><a href="#conclusion" id="toc-conclusion">5. Conclusion</a></li>
+  <li><a href="#references" id="toc-references">References</a></li>
   </ul></li>
   </ul>
 </nav>
 
+<h1 id="crystal-ball-checking-predictions-against-the-record">CRYSTAL
+BALL: Checking Predictions Against the Record</h1>
 <h2 id="abstract">Abstract</h2>
-<p><code>std::execution</code> serves its domain well. Different
-asynchronous domains have different costs, and a single model cannot
-minimize all of them simultaneously. This paper identifies four
-structural gaps where the sender model meets coroutines: three at the
-boundary - error reporting, error returns, and frame allocator
-propagation - and one inside the composition mechanism - the symmetric
-transfer gap documented in <a href="https://wg21.link/p2583r0">P2583R0</a><sup>[63]</sup>. Each gap is
-the cost of a property the sender model requires for compile-time
-analysis (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://wg21.link/p4014r0">P4014R0</a><sup>[26]</sup>). They are
-not design defects, they are tradeoffs. Mandating that standard
-networking be built on the sender model would force coroutine I/O users
-to pay these costs. A coroutine-native I/O research report (<a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup>) made the
-gaps visible by showing that partial results, error returns,
-cancellation, and frame allocator propagation emerge naturally when I/O
-is designed for coroutines. The findings hold regardless of that
-report’s specific design. This paper recommends: ship
-<code>std::execution</code> for C++26, defer <code>task</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>, “Add a
-Coroutine Task Type”) to C++29, and explore coroutine-native I/O designs
-alongside sender-based designs.</p>
+<p>This paper collects dated, public, falsifiable predictions about
+<code>std::execution</code> from proponents and critics alike, and
+checks each against the record.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
-<h3 id="r1-march-2026-pre-croydon-mailing">R1: March 2026 (pre-Croydon
-mailing)</h3>
+<h3 id="r0-march-2026">R0: March 2026</h3>
 <ul>
-<li>Replaced Section 8 with FAQ: twelve questions, hardest first.</li>
-</ul>
-<h3 id="r0-february-2026-pre-croydon-mailing">R0: February 2026
-(pre-Croydon mailing)</h3>
-<ul>
-<li>Initial version.</li>
+<li>Initial revision.</li>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The authors developed <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup> (“Coroutines
-for I/O”). A coroutine-only design cannot express compile-time work
-graphs, does not support heterogeneous dispatch, and assumes a
-cooperative runtime. Those are real costs.</p>
-<p>The structural gaps documented in Sections 3-5 exist at the boundary
-where <code>std::execution</code> meets coroutines. Section 6 summarizes
-a fourth gap - inside the composition mechanism - documented in full by
-<a href="https://wg21.link/p2583r0">P2583R0</a><sup>[63]</sup>. All four
-gaps hold regardless of whether P4003 is the right design or any design
-at all. Code examples in Section 2 are drawn from P4003 - not to propose
-it as the only way forward.</p>
-<hr />
-<h2 id="coroutine-native-io">2. Coroutine-Native I/O</h2>
-<p>Eric Niebler wrote in <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">“Structured
-Concurrency”</a><sup>[33]</sup> (2020): <em>“I think that 90% of all
-async code in the future should be coroutines simply for
-maintainability.”</em></p>
-<p>If coroutines are the primary tool, what does I/O look like when
-designed for them? <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup> (“Coroutines
-for I/O”) is a research report drawn from a working implementation
-compiled on three toolchains, with benchmarks and unit tests. It
-produced a minimal protocol - two concepts, a type-erased executor, and
-thread-local frame allocator propagation - and identified four
-properties of the coroutine-native approach.</p>
-<h3 id="partial-results">2.1 Partial Results</h3>
-<p>A composed I/O completion returns an error code and a result
-together:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> read<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span></span></code></pre></div>
-<p>As Peter Dimov observes, <code>(error_code, size_t)</code> is
-semantically equivalent to two consecutive calls: the first returning
-<code>({}, n)</code>, the second returning <code>(ec, 0)</code>. The
-tuple carries the full history of the operation. A <code>read</code>
-that transferred 47 bytes before EOF gives the caller 47 bytes and
-<code>eof</code>. Error and byte count travel together. The coroutine
-decides what to do with both.</p>
-<h3 id="error-returns">2.2 Error Returns</h3>
-<p><code>co_return</code> handles success and failure uniformly:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>route_task https_redirect<span class="op">(</span>route_params<span class="op">&amp;</span> rp<span class="op">)</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string url <span class="op">=</span> <span class="st">&quot;https://&quot;</span><span class="op">;</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    url <span class="op">+=</span> rp<span class="op">.</span>req<span class="op">.</span>at<span class="op">(</span>field<span class="op">::</span>host<span class="op">)</span> <span class="op">+</span> rp<span class="op">.</span>url<span class="op">.</span>encoded_path<span class="op">();</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    rp<span class="op">.</span>res<span class="op">.</span>set<span class="op">(</span>field<span class="op">::</span>location<span class="op">,</span> url<span class="op">);</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> rp<span class="op">.</span>status<span class="op">(</span>status<span class="op">::</span>found<span class="op">).</span>send<span class="op">(</span><span class="st">&quot;redirect&quot;</span><span class="op">);</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span> route_error<span class="op">(</span>ec<span class="op">);</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> route_done<span class="op">;</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>cppcoro, folly::coro, Boost.Cobalt, Boost.Asio, libcoro, and asyncpp
-use the same convention.</p>
-<h3 id="cancellation">2.3 Cancellation</h3>
-<p>On Windows, <code>CancelIoEx</code> completes the pending operation
-with <code>ERROR_OPERATION_ABORTED</code>. On POSIX, cancellation
-produces <code>ECANCELED</code>. The error code arrives through the same
-field as every other error, accompanied by the same byte count. Code
-that checks <code>ec</code> handles cancellation without additional
-logic.</p>
-<h3 id="frame-allocator-propagation">2.4 Frame Allocator
-Propagation</h3>
-<p>Coroutine frame allocation overhead is measurable at high request
-rates. A recycling frame allocator eliminates it (Section 5 benchmarks a
-3.1x speedup on MSVC). The frame allocator is set once at the launch
-site:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>run_async<span class="op">(</span> <span class="op">&amp;</span>pool <span class="op">)(</span> do_connection<span class="op">(</span>sock<span class="op">)</span> <span class="op">);</span></span></code></pre></div>
-<p>Thread-local propagation delivers the frame allocator to every
-coroutine in the chain without polluting signatures. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup> Section 5
-provides the complete mechanism: the <code>operator new</code> hook, the
-resume-time restore, and the timing guarantee from C++17 evaluation
-order. Coroutine signatures do not mention the frame allocator:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>route_task serve_api<span class="op">(</span>route_params<span class="op">&amp;</span> rp<span class="op">)</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> result <span class="op">=</span> <span class="cf">co_await</span> db<span class="op">.</span>query<span class="op">(</span><span class="st">&quot;SELECT ...&quot;</span><span class="op">);</span>  <span class="co">// uses frame allocator here</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> json <span class="op">=</span> serialize<span class="op">(</span>result<span class="op">);</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> rp<span class="op">.</span>send<span class="op">(</span>json<span class="op">);</span>             <span class="co">// and here</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="cf">co_return</span> route_error<span class="op">(</span>ec<span class="op">);</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> route_done<span class="op">;</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The frame allocator is set once at the launch site and reaches every
-coroutine automatically. We would welcome the opportunity to work with
-the <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup> and
-<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup> authors
-to explore whether <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup>’s
-thread-local propagation mechanism could deliver automatic frame
-allocator propagation to <code>std::execution::task</code>.</p>
-<h3 id="two-models-of-computation">2.5 Two Models of Computation</h3>
-<p>The Sender Sub-Language expresses the same logic differently:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> sndr <span class="op">=</span> just<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>socket<span class="op">))</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>          <span class="op">|</span> let_value<span class="op">([](</span>tcp_socket<span class="op">&amp;</span> s<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> async_read<span class="op">(</span>s<span class="op">,</span> buf<span class="op">)</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                     <span class="op">|</span> then<span class="op">([](</span><span class="kw">auto</span> data<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                           <span class="cf">return</span> parse<span class="op">(</span>data<span class="op">);</span>   <span class="co">// VALUE -&gt; success path</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>                       <span class="op">});</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>            <span class="op">})</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>          <span class="op">|</span> upon_error<span class="op">([](</span><span class="kw">auto</span> e<span class="op">)</span> <span class="op">{</span>              <span class="co">// ERROR -&gt; error path</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>                log<span class="op">(</span>e<span class="op">);</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            <span class="op">})</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>          <span class="op">|</span> upon_stopped<span class="op">([]</span> <span class="op">{</span>                    <span class="co">// STOPPED -&gt; cancellation path</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>                log<span class="op">(</span><span class="st">&quot;cancelled&quot;</span><span class="op">);</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>            <span class="op">});</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> op <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>sndr<span class="op">),</span> rcvr<span class="op">);</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>start<span class="op">(</span>op<span class="op">);</span></span></code></pre></div>
-<p>Niebler <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">asked
-the question himself</a><sup>[33]</sup>: <em>“Why would anybody write
-that when we have coroutines? You would certainly need a good
-reason.”</em></p>
-<p>This is <a href="https://en.wikipedia.org/wiki/Continuation-passing_style">continuation-passing
-style</a><sup>[39]</sup> expressed as composable value types. <a href="https://wg21.link/p4014r0">P4014R0</a><sup>[26]</sup> (“The Sender
-Sub-Language”) provides the full treatment. Coroutines inhabit
-direct-style C++ - values return to callers, errors propagate through
-the call stack, resources scope to lexical lifetimes. This paper calls
-that <em>regular C++</em>.</p>
-<p>SG4 polled at Kona (November 2023) on <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[4]</sup>
-(“Sender/Receiver Interface For Networking”):</p>
-<blockquote>
-<p><em>“Networking should support only a sender/receiver model for
-asynchronous operations; the Networking TS’s executor model should be
-removed”</em></p>
-<table>
-<thead>
-<tr>
-<th>SF</th>
-<th>F</th>
-<th>N</th>
-<th>A</th>
-<th>SA</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>5</td>
-<td>1</td>
-<td>0</td>
-<td>1</td>
-</tr>
-</tbody>
-</table>
-<p>Consensus.</p>
-</blockquote>
-<p>The poll presented two alternatives: the Networking TS’s executor
-model and the sender model. A coroutine-native approach was not among
-the choices. This paper introduces a third option.</p>
-<p>This paper recommends: ship <code>std::execution</code> for C++26,
-defer <code>task</code> to C++29, and explore coroutine-native I/O
-designs alongside sender-based designs. The following four sections
-explain why.</p>
-<hr />
-<h2 id="where-do-errors-go">3. Where Do Errors Go?</h2>
-<p>How should an asynchronous operation report its outcome? The sender
-model has an elegant answer.</p>
-<h3 id="senders-use-channels">3.1 Senders Use Channels</h3>
-<p>The committee adopted three Sender completion channels:
-<code>set_value</code>, <code>set_error</code>, and
-<code>set_stopped</code>. These channels are the sender model’s type
-system. Type-level routing is a requirement of CPS reification (Appendix
-A.1). From <a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html">P2300R10
-Section 1.3.1</a><sup>[1]</sup>:</p>
-<blockquote>
-<p><em>“A sender describes asynchronous work and sends a signal (value,
-error, or stopped) to some recipient(s) when that work
-completes.”</em></p>
-</blockquote>
-<p>The three channels enable compile-time routing:
-<code>upon_error</code> attaches to the error path at the type level,
-<code>let_value</code> chains successes, and algorithms like <a href="https://eel.is/c++draft/exec.when.all"><code>when_all</code></a><sup>[50]</sup>
-cancel siblings when a child completes through the error or stopped
-channel - all without runtime inspection of the payload.</p>
-<p>Each channel has a fixed signature shape:</p>
-<ul>
-<li><code>set_value(receiver, Ts...)</code> carries the success
-payload.</li>
-<li><code>set_error(receiver, E)</code> carries a single, strongly-typed
-error.</li>
-<li><code>set_stopped(receiver)</code> is a stateless signal.</li>
-</ul>
-<h3 id="io-works-with-tuples">3.2 I/O works with tuples</h3>
-<p>A composed read accumulates bytes across multiple receives. In a
-coroutine, this is expressed naturally as a tuple (here,
-<code>pair</code>):</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="bu">std::</span>pair<span class="op">&lt;</span><span class="bu">std::</span>error_code<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;&gt;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>read<span class="op">(</span>tcp<span class="op">::</span>socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string result<span class="op">;</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span>buf<span class="op">);</span>   <span class="co">// also a tuple</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        result<span class="op">.</span>append<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span>                         <span class="co">// n bytes arrived regardless of ec</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_return</span> <span class="op">{</span>ec<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>result<span class="op">)};</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The caller always receives both the error and the accumulated data.
-Composed I/O operations produce tuples because partial progress is the
-norm. A <code>read</code> that fills 47 bytes before the connection
-resets returns both the error code and the partial data, with no loss.
-<a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a><sup>[40]</sup>
-codified this as <code>void(error_code, size_t)</code> twenty-five years
-ago. <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[4]</sup>
-(“Sender/Receiver Interface for Networking”) preserves it.</p>
-<p>I/O completions are <em>complicated success</em>: EOF with complete
-data, connection reset with accumulated progress, a missing TLS
-shutdown; these are not failures, they are outcomes the caller must
-inspect. Even cancellation is an error code
-(<code>ERROR_OPERATION_ABORTED</code> on Windows, <code>ECANCELED</code>
-on POSIX): code that handles errors already handles cancellation for
-free.</p>
-<p>The sender model offers three <em>simple channels</em>: one value,
-one error, one stop signal.</p>
-<p><strong>Complicated success does not fit in a simple
-channel.</strong></p>
-<h3 id="published-sender-code-loses-data">3.3 Published Sender Code
-Loses Data</h3>
-<p>Every published sender implementation of I/O that the authors could
-find loses partial results on the error path.</p>
-<p><a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html#example-async-dynamically-sized-read">P2300R10
-Section 1.3.3</a><sup>[1]</sup> presents a composed read in its
-motivating examples. The operation reads a length-prefixed byte array:
-first the size, then the data.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> <span class="bu">std::</span>execution<span class="op">;</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>sender_of<span class="op">&lt;</span><span class="bu">std::</span>size_t<span class="op">&gt;</span> <span class="kw">auto</span> async_read<span class="op">(</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    sender_of<span class="op">&lt;</span><span class="bu">std::</span>span<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">&gt;&gt;</span> <span class="kw">auto</span> buffer<span class="op">,</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> handle<span class="op">);</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> dynamic_buffer <span class="op">{</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">std::</span>unique_ptr<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">[]&gt;</span> data<span class="op">;</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="bu">std::</span>size_t size<span class="op">;</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>sender_of<span class="op">&lt;</span>dynamic_buffer<span class="op">&gt;</span> <span class="kw">auto</span> async_read_array<span class="op">(</span><span class="kw">auto</span> handle<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> just<span class="op">(</span>dynamic_buffer<span class="op">{})</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>       <span class="op">|</span> let_value<span class="op">([</span>handle<span class="op">]</span> <span class="op">(</span>dynamic_buffer<span class="op">&amp;</span> buf<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>           <span class="co">// P2300R10 writes as_writeable_bytes.</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>           <span class="co">// The standard library function is std::as_writable_bytes</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>           <span class="cf">return</span> just<span class="op">(</span><span class="bu">std::</span>as_writeable_bytes<span class="op">(</span><span class="bu">std::</span>span<span class="op">(&amp;</span>buf<span class="op">.</span>size<span class="op">,</span> <span class="dv">1</span><span class="op">)))</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> async_read<span class="op">(</span>handle<span class="op">)</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> then<span class="op">(</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span>           <span class="co">// from set_value</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>                      <span class="ot">assert</span><span class="op">(</span>bytes_read <span class="op">==</span> <span class="kw">sizeof</span><span class="op">(</span>buf<span class="op">.</span>size<span class="op">));</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>                      buf<span class="op">.</span>data <span class="op">=</span> <span class="bu">std::</span>make_unique<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">[]&gt;(</span>buf<span class="op">.</span>size<span class="op">);</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>                      <span class="cf">return</span> <span class="bu">std::</span>span<span class="op">(</span>buf<span class="op">.</span>data<span class="op">.</span>get<span class="op">(),</span> buf<span class="op">.</span>size<span class="op">);</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>                    <span class="op">})</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> async_read<span class="op">(</span>handle<span class="op">)</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>                <span class="op">|</span> then<span class="op">(</span></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[&amp;</span>buf<span class="op">]</span> <span class="op">(</span><span class="bu">std::</span>size_t bytes_read<span class="op">)</span> <span class="op">{</span>           <span class="co">// from set_value</span></span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>                      <span class="ot">assert</span><span class="op">(</span>bytes_read <span class="op">==</span> buf<span class="op">.</span>size<span class="op">);</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>                      <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>                    <span class="op">});</span></span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>       <span class="op">});</span></span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>No coroutines appear in this example. The data loss occurs in the
-sender pipeline itself.</p>
-<p><code>async_read</code> completes through <code>set_value</code> with
-the byte count, or through <code>set_error</code> with the error code.
-Consider the second <code>async_read</code> failing partway through.
-Some bytes transfer. The connection resets. <code>set_error</code>
-fires. The byte count - how far the second read got - has no channel.
-<code>then</code> handles only <code>set_value</code>. The error
-propagates past it, exits <code>let_value</code>, and the
-<code>dynamic_buffer</code> with its valid <code>size</code>, allocated
-<code>data</code>, and partial contents is destroyed.</p>
-<p>This is <a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html#example-async-dynamically-sized-read">P2300R10
-Section 1.3.3</a><sup>[1]</sup>’s motivating example of sender
-composition.</p>
-<p>The <a href="https://github.com/NVIDIA/stdexec">stdexec</a><sup>[52]</sup>
-repository contains a production adaptor for this problem. Robert
-Leahy’s <a href="https://github.com/NVIDIA/stdexec/blob/9d5836a634a21ecb06d17352905d04f99f635be6/include/asioexec/use_sender.hpp"><code>use_sender</code></a><sup>[60]</sup>
-(February 2026) bridges Asio’s
-<code>(error_code, Args&amp;&amp;...)</code> completions into the
-three-channel model. Leahy is the author of <a href="https://wg21.link/p3373r2">P3373R2</a><sup>[12]</sup> and <a href="https://wg21.link/p3950r0">P3950R0</a><sup>[23]</sup>, a
-contributor to the stdexec reference implementation, and an experienced
-sender/receiver practitioner. The adaptor receives the error code and
-byte count together from Asio. In its <code>set_error</code> path, the
-error code is transmitted and the remaining arguments - including the
-byte count - are discarded.</p>
-<p>To our knowledge, no published sender code - <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://github.com/NVIDIA/stdexec">stdexec</a><sup>[52]</sup>,
-Leahy’s adaptor - discriminates the channel based on bytes
-transferred.</p>
-<h3 id="everything-through-set_value">3.4 Everything Through
-<code>set_value</code></h3>
-<p>The natural response to the data loss in Section 3.3 is to route
-every I/O completion through <code>set_value(rcvr, ec, n)</code>. No
-data is lost. Both values travel together. The coroutine receives them
-as a pair:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>do_read<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">)</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> then<span class="op">([](</span><span class="bu">std::</span>error_code ec<span class="op">,</span> <span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ec and n both available - no loss</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">})</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> upon_error<span class="op">([](</span><span class="kw">auto</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">// never called - I/O errors travel in the pair</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">})</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> upon_stopped<span class="op">([]</span> <span class="op">{</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// never called - cancellation is in the pair</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span></code></pre></div>
-<p>The consequence is that <code>let_error</code>,
-<code>upon_error</code>, <code>let_stopped</code>,
-<code>upon_stopped</code>, <code>stopped_as_optional</code>, and
-<code>stopped_as_error</code> become inaccessible to I/O and thus cannot
-participate in the composition promised by the Sender Sub-Language.
-These are framework primitives; a retry combinator built on
-<code>let_error</code> silently does nothing for I/O senders.</p>
-<h4 id="a-note-on-when_all-and-when_any">A Note on <code>when_all</code>
-and <code>when_any</code></h4>
-<p>The combinators <code>when_all</code> and <code>when_any</code>
-present a different challenge: they must decide whether a partial result
-constitutes success or failure, and that decision is domain-specific.
-I/O is the domain where partial success is pervasive, and no combinator
-can make that classification without domain knowledge. This paper does
-not claim those combinators should work differently for I/O. The cost
-documented here is narrower: six standard algorithms that are
-unconditionally unreachable.</p>
-<p>The generic composition that justifies having three channels cannot
-serve I/O under this mapping.</p>
-<h3 id="the-classification-problem">3.5 The Classification Problem</h3>
-<p>Andrzej Krzemieński observes that I/O completions flow through a
-pipeline with a classification step between the I/O layer and the
-program logic:</p>
-<pre><code>Level:      I/O        Composed I/O     Classification      Program Logic
-
-success:    [read] ----&gt; [process] -----&gt; [classify]  -----&gt; [handle success]
-error:     (unused)      (unused)          (unused)    \---&gt; [handle error  ]
-cancel:    (unused)      (unused)          (unused)     \--&gt; [handle cancel ]</code></pre>
-<p>At the I/O level, there is only success. The error and cancellation
-channels become relevant only after the application classifies the I/O
-status - and that classification requires context the I/O layer does not
-have. For example, <code>ECONNRESET</code> means “fatal, abort the
-transaction” in an HTTP request handler, but “done, expected closure” in
-a long-polling connection that the server intentionally drops. The same
-error code, classified differently depending on the protocol state the
-coroutine holds. <code>std::execution</code> does not provide a standard
-classification adaptor that maps I/O status tuples into the three
-channels. Sections 3.6 through 3.8 examine what happens when the mapping
-is attempted.</p>
-<h3 id="dimovs-mapping">3.6 Dimov’s Mapping</h3>
-<p>Peter Dimov proposes a refined convention that avoids data loss on
-partial success by discriminating the channel based on the byte count
-and error code category:</p>
-<table>
-<thead>
-<tr>
-<th>Completion</th>
-<th>Channel</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>(eof, n)</code> for any n</td>
-<td><code>set_value(eof, n)</code></td>
-</tr>
-<tr>
-<td><code>(canceled, n)</code> for any n</td>
-<td><code>set_stopped()</code></td>
-</tr>
-<tr>
-<td><code>(ec, 0)</code> where ec is not eof</td>
-<td><code>set_error(ec)</code></td>
-</tr>
-<tr>
-<td><code>(ec, n)</code> where n &gt; 0</td>
-<td><code>set_value(ec, n)</code></td>
-</tr>
-</tbody>
-</table>
-<p>This is the only mapping the authors are aware of that preserves
-partial results on the error path. Dimov argues that cancellation means
-the result is no longer needed, so discarding bytes on the stopped path
-is correct by design. This paper accepts that characterization. EOF is
-routed through <code>set_value</code> regardless of n, consistent with
-I/O’s treatment of EOF as a normal outcome rather than a failure.</p>
-<p>The mapping requires semantic knowledge of specific error conditions:
-EOF is distinguished from cancellation, which is distinguished from all
-other errors. It is not a generic transformation, it is domain-specific
-I/O logic embedded in the channel routing. Dimov characterized the
-convention as “ad hoc.”</p>
-<h3 id="routine-errors-become-exceptions">3.7 Routine Errors Become
-Exceptions</h3>
-<p>Under Dimov’s mapping, any I/O error with zero bytes transferred goes
-through <code>set_error</code>. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>’s
-<code>task</code> delivers <code>set_error</code> to the coroutine as a
-thrown exception. Three design decisions chain together:</p>
-<ol type="1">
-<li><strong>SG4 mandate (Kona 2023):</strong> Networking operations must
-be senders. <code>s.async_read_some(buf)</code> returns a sender.</li>
-<li><strong>Dimov’s mapping:</strong> <code>(ec, 0)</code> where ec is
-not EOF completes through <code>set_error(ec)</code>.</li>
-<li><strong>P3552R3’s <code>task</code>:</strong> When a coroutine
-<code>co_await</code>s a sender, <code>await_transform</code> calls
-<code>as_awaitable</code>, which creates a receiver. The receiver’s
-<code>set_error</code> handler stores the error as
-<code>exception_ptr</code>. On resume, <code>await_resume</code>
-rethrows. There is no other delivery mechanism - <code>co_await</code>
-can only return a value or throw.</li>
-</ol>
-<p>Common transient I/O errors that routinely arrive with zero bytes on
-a given call:</p>
-<ul>
-<li><code>ECONNRESET</code> - client disconnected</li>
-<li><code>ECONNABORTED</code> - connection aborted</li>
-<li><code>ETIMEDOUT</code> - connection timed out</li>
-<li><code>EPIPE</code> - broken pipe on write</li>
-<li><code>ECONNREFUSED</code> - connection refused</li>
-<li><code>ENETUNREACH</code> - network unreachable</li>
-</ul>
-<p>A server handling thousands of connections sees
-<code>ECONNRESET</code> constantly - clients disconnect, networks flap,
-load balancers probe, mobile users lose signal. Under this model, every
-routine disconnection that transfers zero bytes on the final call
-becomes an exception with stack unwinding.</p>
-<p>This contradicts twenty-five years of established I/O practice.
-Kohlhoff designed <a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a><sup>[40]</sup>
-with error codes precisely because I/O errors are not exceptional - they
-are the normal texture of network programming. The C++ I/O ecosystem is
-built on <code>if (ec)</code>. The combination of the SG4 mandate,
-Dimov’s mapping, and P3552R3’s <code>task</code> reverses this for every
-error that arrives with zero bytes transferred.</p>
-<p>In a coroutine-native design, these same errors arrive as error
-codes:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> s<span class="op">.</span>read_some<span class="op">(</span>buf<span class="op">);</span>   <span class="co">// ec == ECONNRESET, n == 0</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="cf">co_return</span> <span class="op">{</span>ec<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>body<span class="op">)};</span>    <span class="co">// no exception, no stack unwinding</span></span></code></pre></div>
-<h3 id="coroutines-always-pay">3.8 Coroutines Always Pay</h3>
-<p>Three solutions have been presented. Each improves on the last. None
-is free:</p>
-<table>
+<p>The author has papers before the committee proposing coroutine-based
+I/O (<a href="https://wg21.link/p4003">P4003</a>) and analyzing
+<code>std::execution</code> (<a href="https://wg21.link/p2583">P2583</a>, <a href="https://wg21.link/p4007">P4007</a>, <a href="https://wg21.link/p4014">P4014</a>). Every prediction and outcome
+cited below is sourced to public committee records, published blog
+posts, or recorded conference talks.</p>
+<p><strong>The author is the intelligence of record.</strong> <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf">P4023R0</a><sup>[21]</sup>
+(Directions Group, “Strategic Direction for AI in C++”) establishes that
+“the ultimate responsibility for accuracy, logic, and normative quality
+rests entirely with the human author.” This paper follows that
+principle. AI tools assist with research, compilation, and drafting. The
+author curates, verifies, and takes responsibility for every claim.</p>
+<p><strong>This paper uses AI at every stage.</strong> Prediction
+discovery, outcome verification, scorecard organization, and paper
+drafting were all AI-assisted. Every stage involves machine output.
+P4023R0 identifies research, summarization, and consistency checking as
+permitted uses of AI in the committee process<sup>[21]</sup>. This
+paper’s use of AI falls within that scope.</p>
+<p><strong>Human curation is required at every stage.</strong> AI can
+misidentify predictions, misclassify outcomes, or miss relevant public
+statements. The author verified every prediction-outcome pair against
+the cited source.</p>
+<p><strong>Outcome classifications reflect the author’s assessment of
+the cited evidence.</strong> The scorecard is one systematic reading of
+the public record. Each entry cites its source. Readers who disagree
+with a classification can verify against the cited source and reach
+their own conclusion.</p>
+<h2 id="method">2. Method</h2>
+<p>A prediction qualifies if it is (a) dated, (b) public, and (c)
+falsifiable - a claim about a future outcome that can be checked.
+Outcomes are graded: <strong>Confirmed</strong>,
+<strong>Unconfirmed</strong>, <strong>Partially Confirmed</strong>, or
+<strong>Overtaken by Events</strong>. Both sides miss. Both sides hit.
+The table includes all of them.</p>
+<h2 id="the-predictions">3. The Predictions</h2>
+<h3 id="timeline">Timeline</h3>
+<table style="width:100%;">
 <colgroup>
-<col style="width: 15%" />
-<col style="width: 84%" />
+<col style="width: 2%" />
+<col style="width: 40%" />
+<col style="width: 48%" />
+<col style="width: 3%" />
+<col style="width: 4%" />
 </colgroup>
 <thead>
 <tr>
-<th>Solution</th>
-<th>Cost</th>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>set_error</code> on error</td>
-<td>Partial results destroyed</td>
+<td>T1</td>
+<td>P2300 unlikely for C++23 given size of the proposal</td>
+<td>Adelstein Lelbach, CppCon 2021<sup>[1]</sup></td>
+<td>2021</td>
+<td>Confirmed</td>
 </tr>
 <tr>
-<td><code>set_value</code> always</td>
-<td>Reduced composition surface</td>
+<td>T2</td>
+<td>“merge most of the foundational bits [P2300] early in the C++26
+cycle”</td>
+<td>Voutilainen <a href="https://wg21.link/p0592r5">P0592R5</a><sup>[2]</sup></td>
+<td>2022</td>
+<td>Confirmed</td>
 </tr>
 <tr>
-<td>Dimov’s mapping</td>
-<td><code>co_yield with_error</code> required <br> Routine errors become
-exceptions (Section 3.7) <br> Same error bifurcates on n</td>
+<td>T3</td>
+<td>“not going to be in a timeframe conducive to inclusion in C++23”
+(re: language changes P2300 needs)</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed</td>
+</tr>
+<tr>
+<td>T4</td>
+<td>Networking TS should ship for C++23</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Unconfirmed - neither Net TS nor any networking shipped</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>Stop Networking TS for C++23, focus on P2300</td>
+<td>Voutilainen <a href="https://wg21.link/p2464">P2464R0</a><sup>[4]</sup></td>
+<td>2021</td>
+<td>Confirmed - Net TS stopped; P2300 proceeded</td>
 </tr>
 </tbody>
 </table>
-<p>Under Dimov’s mapping - the best known convention - consider the same
-<code>read_body</code> from Section 3.2, written with
-<code>std::execution::task</code>. Preserving accumulated data on the
-n==0 error path requires try/catch in a normal I/O loop for errors that
-are not exceptional:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>read_body<span class="op">(</span> tcp_socket<span class="op">&amp;</span> sock <span class="op">)</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string body<span class="op">;</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>async_read_some<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span>append<span class="op">(</span> buf<span class="op">,</span> n <span class="op">);</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>ec <span class="op">==</span> eof<span class="op">)</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>                <span class="cf">co_return</span> body<span class="op">;</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>                <span class="co">/* signal error to sender pipeline (Section 4) */</span><span class="op">;</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_return</span> body<span class="op">;</span></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>The coroutine-native invocation:</strong></p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> body<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> read_body<span class="op">(</span>sock<span class="op">);</span>  <span class="co">// no exceptions, no data loss</span></span></code></pre></div>
-<p>In a sender pipeline, these costs do not exist. The channels route
-completions at the type level, and the pipeline pays nothing. At the
-coroutine boundary, the same channels impose
-<code>co_yield with_error</code>, exception handling for routine I/O
-errors, and bifurcation of the same error depending on bytes
-transferred.</p>
-<p><em>For senders, no cost. For coroutines, everything.</em></p>
-<h3 id="the-paper-not-polled">3.9 The Paper Not Polled</h3>
-<p>Chris Kohlhoff identified this tension in 2021 in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[3]</sup> (“Partial
-success scenarios with P2300”):</p>
-<blockquote>
-<p><em>“Due to the limitations of the set_error channel (which has a
-single ‘error’ argument) and set_done channel (which takes no
-arguments), partial results must be communicated down the set_value
-channel.”</em></p>
-</blockquote>
-<p>Kohlhoff presented these observations during the P2300 review and
-published the slides as P2430R0. It was not a standalone proposal, and
-there were no polls to find. But the observation was right. Five years
-and ten revisions later, the tension Kohlhoff identified remains
-unresolved. Appendix A.3 traces why.</p>
-<h3 id="lewg-background">3.10 LEWG Background</h3>
-<p>A <a href="https://github.com/cppalliance/capy/blob/eb1de34a93b64b49e2c8826ca5088bdf72e1e1eb/doc/sender-channels-rationale.md">companion
-document</a><sup>[61]</sup> captures the design space and trade-offs
-around how asynchronous I/O completion results interact with the
-three-channel model of <code>std::execution</code> (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>). It is
-intended for LEWG consumption as background for decisions concerning
-<code>std::execution::task</code>, the SG4 networking mandate, and the
-relationship between senders and coroutines.</p>
-<hr />
-<h2 id="where-is-the-co_return">4. Where Is the
-<code>co_return</code>?</h2>
-<p>The three-channel completion model requires coroutines to deliver
-errors through a path that C++ coroutines do not provide. The workaround
-requires a language change.</p>
-<h3 id="the-mechanism">4.1 The Mechanism</h3>
-<p>In a sender’s operation state, signaling an error is direct:
-<code>set_error(std::move(rcvr), ec)</code>.</p>
-<p>In a coroutine, <code>co_return expr</code> calls
-<code>promise.return_value(expr)</code>, which <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup> routes to
-<code>set_value</code>. There is no way to make <code>co_return</code>
-call <code>set_error</code>.</p>
-<p>A coroutine promise can define <code>return_void</code> or
-<code>return_value</code>, not both (<a href="https://eel.is/c++draft/dcl.fct.def.coroutine">[dcl.fct.def.coroutine]</a><sup>[50]</sup>).
-<code>task&lt;void&gt;</code> needs <code>return_void</code>. The
-<code>return_void</code>/<code>return_value</code> mutual exclusion
-blocks any <code>return_value</code> overload that could route to
-<code>set_error</code>.</p>
-<p><code>co_yield</code> is the only coroutine keyword that accepts an
-expression and passes it to the promise. Dietmar Kühl’s
-<code>yield_value</code> overload for <code>with_error&lt;E&gt;</code>
-(<a href="https://eel.is/c++draft/task.promise#7">[task.promise]/7</a><sup>[50]</sup>)
-is the best solution the language permits - and that is the problem. The
-constraints the sender model imposes are so narrow that even one of the
-most experienced C++ library engineers is left with a mechanism that
-reverses the established meaning of <code>co_yield</code> and requires a
-core language change to regularize. In every other coroutine context,
-<code>co_yield</code> means “produce a value and continue.” Here it
-means “fail and terminate.”</p>
-<h3 id="the-consequence">4.2 The Consequence</h3>
-<p>In regular C++, <code>co_return</code> delivers errors:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>my_task<span class="op">&lt;</span> <span class="bu">std::</span>pair<span class="op">&lt;</span><span class="bu">std::</span>error_code<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;</span> <span class="op">&gt;</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>read_body<span class="op">(</span> tcp_socket<span class="op">&amp;</span> sock <span class="op">)</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string body<span class="op">;</span></span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(;;)</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>async_read_some<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        body<span class="op">.</span>append<span class="op">(</span> buf<span class="op">,</span> n <span class="op">);</span></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span><span class="op">(</span> ec <span class="op">)</span></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_return</span> <span class="op">{</span> ec<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>body<span class="op">)</span> <span class="op">};</span></span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>
-introduces a different mechanism:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="bu">std::</span>size_t<span class="op">&gt;</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>do_read<span class="op">(</span>tcp_socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> s<span class="op">.</span>async_read<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_yield</span> with_error<span class="op">(</span>ec<span class="op">);</span>        <span class="co">// unfortunately, terminates the coroutine</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> n<span class="op">;</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>For six years, every C++ coroutine library has taught the same two
-conventions: <code>co_return</code> for final values,
-<code>co_yield</code> for intermediate values that the coroutine
-continues to produce. The second example breaks both:
-<code>co_yield</code> does not produce a value, and the coroutine does
-not continue.</p>
-<h3 id="established-practice">4.3 Established Practice</h3>
-<p>No production C++ coroutine library uses <code>co_yield</code> for
-error signaling:</p>
-<ul>
-<li><strong>cppcoro</strong> (Lewis Baker),
-<strong>Boost.Cobalt</strong> (Klemens Morgenstern),
-<strong>libcoro</strong> (Josh Baldwin): errors are exceptions or
-<code>co_return</code> values.</li>
-<li><strong>folly::coro::Task</strong> (Facebook/Meta): errors are
-exceptions, propagated via <code>co_await</code>.</li>
-<li><strong>Boost.Asio awaitable</strong> (Chris Kohlhoff): errors
-delivered as return values via
-<code>as_tuple(use_awaitable)</code>.</li>
-</ul>
-<p>There is no third path. <code>std::execution::task</code> introduces
-one.</p>
-<h3 id="the-language-change">4.4 The Language Change</h3>
-<p>The <code>return_void</code>/<code>return_value</code> mutual
-exclusion has been part of the coroutine specification since N4499
-(2015). In the decade since, cppcoro, folly::coro, Boost.Cobalt,
-Boost.Asio, libcoro, and asyncpp have shipped coroutine task types. None
-required the restriction to be lifted. All deliver errors through
-<code>co_return</code> or exceptions.</p>
-<p><a href="https://wg21.link/p1713r0">P1713R0</a><sup>[59]</sup>
-(Baker, 2019) proposed removing this restriction. It had no consensus in
-Cologne.</p>
-<p><a href="https://wg21.link/p3950r0">P3950R0</a><sup>[23]</sup>
-(Leahy, 2025) proposes the same change. The motivation is
-<code>std::execution</code>. The paper states: <em>“Disallowing it
-either disadvantages coroutines vis-a-vis std::execution or necessitates
-library workarounds.”</em> The paper targets EWG - a core language
-change - to serve a library adopted by LEWG.</p>
-<p>Müller’s <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[19]</sup> (“Concerns
-about the design of <code>std::execution::task</code>,” 2025) confirms
-the cause: <em>“The reason <code>co_yield</code> is used, is that a
-coroutine promise can only specify <code>return_void</code> or
-<code>return_value</code>, but not both. If we want to allow
-<code>co_return;</code>, we cannot have
-<code>co_return with_error(error_code);</code>. This is unfortunate, but
-could be fixed by changing the language to drop that
-restriction.”</em></p>
-<p>A language rule that has served every coroutine library for a decade,
-and whose removal the committee previously declined, must now be
-reconsidered because one library requires it. The rule is not the
-problem.</p>
-<hr />
-<h2 id="where-is-the-allocator">5. Where Is the Allocator?</h2>
-<p>Coroutines dynamically allocate their frames. For I/O operations, the
-frame must outlive the launching function, so HALO cannot elide the
-allocation (Section 5.5). Niebler <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">identified
-the cost</a><sup>[33]</sup> in 2020:</p>
-<blockquote>
-<p><em>“With coroutines, you have an allocation when a coroutine is
-first called, and an indirect function call each time it is resumed. The
-compiler can sometimes eliminate that overhead, but sometimes
-not.”</em></p>
-</blockquote>
-<p>This is a real cost and a real source of resistance to coroutines in
-performance-sensitive code. But the allocator that matters here is not a
-general-purpose allocator. It is the <em>frame allocator</em> - an
-allocator whose sole purpose is to allocate and deallocate coroutine
-frames. Control and timing of the frame allocator is crucial:
-<code>promise_type::operator new</code> fires at the call site, before
-any sender machinery runs. With the right frame allocator, the overhead
-disappears. The resistance stems partly from the allocation model, not
-from coroutines themselves.</p>
-<p>Each <code>task&lt;T&gt;</code> call invokes
-<code>promise_type::operator new</code>. At high request rates, frame
-allocations reach millions per second. A recycling frame allocator makes
-a measurable difference. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup> (“Coroutines
-for I/O”) benchmarks a 4-deep coroutine call chain (2 million
-iterations):</p>
-<table>
-<thead>
-<tr>
-<th>Platform</th>
-<th>Frame Allocator</th>
-<th style="text-align: right;">Time (ms)</th>
-<th style="text-align: right;">Speedup</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MSVC</td>
-<td>Recycling</td>
-<td style="text-align: right;">1265.2</td>
-<td style="text-align: right;">3.1x</td>
-</tr>
-<tr>
-<td>MSVC</td>
-<td>mimalloc</td>
-<td style="text-align: right;">1622.2</td>
-<td style="text-align: right;">2.4x</td>
-</tr>
-<tr>
-<td>MSVC</td>
-<td><code>std::allocator</code></td>
-<td style="text-align: right;">3926.9</td>
-<td style="text-align: right;">-</td>
-</tr>
-<tr>
-<td>Apple clang</td>
-<td>Recycling</td>
-<td style="text-align: right;">2297.08</td>
-<td style="text-align: right;">1.6x</td>
-</tr>
-<tr>
-<td>Apple clang</td>
-<td><code>std::allocator</code></td>
-<td style="text-align: right;">3565.49</td>
-<td style="text-align: right;">-</td>
-</tr>
-</tbody>
-</table>
-<p>In the sender model, <code>connect</code>/<code>start</code> binds
-the continuation after the frame is already allocated. The frame
-allocator arrives too late.</p>
-<h3 id="senders">5.1 Senders</h3>
-<p>The <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>
-authors solved the allocator propagation problem for senders with care
-and precision. The receiver’s environment carries the allocator via
-<code>get_allocator(get_env(rcvr))</code>, and the sender algorithms
-propagate it automatically through every level of nesting:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> work <span class="op">=</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    just<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>socket<span class="op">))</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> let_value<span class="op">([](</span>tcp_socket<span class="op">&amp;</span> s<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> async_read<span class="op">(</span>s<span class="op">,</span> buf<span class="op">)</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>             <span class="op">|</span> let_value<span class="op">([&amp;](</span><span class="kw">auto</span> data<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>                   <span class="cf">return</span> parse<span class="op">(</span>data<span class="op">)</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>                        <span class="op">|</span> let_value<span class="op">([&amp;](</span><span class="kw">auto</span> doc<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                              <span class="cf">return</span> async_write<span class="op">(</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                                  s<span class="op">,</span> build_response<span class="op">(</span>doc<span class="op">));</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                          <span class="op">});</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>               <span class="op">});</span></span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>recycling_allocator<span class="op">&lt;&gt;</span> alloc<span class="op">;</span>                          <span class="co">// set once here</span></span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> op <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>    write_env<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>work<span class="op">),</span></span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        prop<span class="op">(</span>get_allocator<span class="op">,</span> alloc<span class="op">)),</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">);</span></span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>start<span class="op">(</span>op<span class="op">);</span></span></code></pre></div>
-<p>The frame allocator is set once at the launch site and reaches every
-operation automatically.</p>
-<p>However…</p>
-<p>Nothing here allocates. Used as intended, the operation state is a
-single concrete type with no heap allocation. The allocator propagates
-through a pipeline that does not need it.</p>
-<h3 id="coroutines">5.2 Coroutines</h3>
-<p>A coroutine connection handler:</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;&gt;</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>handle_connection<span class="op">(</span>tcp_socket conn<span class="op">)</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> conn<span class="op">.</span>async_read<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ...</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Spawned in the standard way:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>ex<span class="op">::</span>spawn<span class="op">(</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    ex<span class="op">::</span>on<span class="op">(</span>sch<span class="op">,</span> handle_connection<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>conn<span class="op">))),</span>  <span class="co">// operator new fires here</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    scope<span class="op">.</span>get_token<span class="op">());</span></span></code></pre></div>
-<p><code>handle_connection(std::move(conn))</code> evaluates before
-<code>spawn</code> or <code>on</code>. No frame allocator can reach
-it.</p>
-<p>The P2300 propagation mechanism is <code>write_env</code> with
-<code>get_allocator</code>:</p>
-<div class="sourceCode" id="cb18"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>recycling_allocator<span class="op">&lt;&gt;</span> alloc<span class="op">;</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> op <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span></span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    write_env<span class="op">(</span></span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        ex<span class="op">::</span>on<span class="op">(</span>sch<span class="op">,</span></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>            handle_connection<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>conn<span class="op">))),</span>   <span class="co">// operator new allocates here...</span></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        prop<span class="op">(</span>get_allocator<span class="op">,</span> alloc<span class="op">)),</span>               <span class="co">// ...but allocator arrives here</span></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">);</span></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>start<span class="op">(</span>op<span class="op">);</span></span></code></pre></div>
-<p>The receiver’s environment carries the allocator after
-<code>connect</code>. The frame was allocated before.</p>
-<p>The only way to get the frame allocator into the coroutine frame is
-through the parameter list:</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;&gt;</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>handle_connection<span class="op">(</span> <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Allocator alloc<span class="op">,</span> tcp_socket conn <span class="op">);</span></span></code></pre></div>
-<p>P2300’s elegant environment propagation is structurally unreachable
-for coroutine frames.</p>
-<p><strong>Senders get the allocator they do not need. Coroutines need
-the frame allocator they do not get.</strong></p>
-<h3 id="coroutines-work-for-what-senders-get-free">5.3 Coroutines Work
-for What Senders Get Free</h3>
-<p>While Kühl’s <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup> provides
-<code>std::allocator_arg_t</code> for the initial allocation,
-propagation remains unsolved. The child’s <code>operator new</code>
-fires before the parent can intervene. The only workaround is manual
-forwarding. Three properties distinguish this from a minor
-inconvenience:</p>
-<ol type="1">
-<li><p><strong>Composability loss.</strong> Generic sender algorithms
-like <code>let_value</code> and <code>when_all</code> launch child
-operations without knowledge of the caller’s frame allocator. Manual
-forwarding cannot cross algorithm boundaries.</p></li>
-<li><p><strong>Silent fallback.</strong> Omitting
-<code>allocator_arg</code> from one call does not produce a compile
-error. The child silently falls back to the default heap allocator with
-no diagnostic.</p></li>
-<li><p><strong>Protocol asymmetry.</strong> Schedulers and stop tokens
-propagate automatically through the receiver environment. Frame
-allocators are the only execution resource that the sender model forces
-coroutine users to propagate by hand.</p></li>
-</ol>
-<p><a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines.html#Rf-smart">C++
-Core Guidelines F.7</a><sup>[37]</sup>: a function should not be coupled
-to the caller’s ownership policy. Lampson (1983): <em>“An interface
-should capture the minimum essentials of an abstraction.”</em></p>
-<p>Senders receive the frame allocator through the environment,
-automatically, at every level of nesting, with no signature pollution.
-Coroutines receive it through <code>allocator_arg</code>, manually, at
-every call site, with silent fallback on any mistake. <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup> Section
-3.5.11 identifies the absence of a TLS capture/restore hook in
-<code>task</code>. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[25]</sup> Section 5
-demonstrates a working mechanism.</p>
-<h3 id="does-performance-matter">5.4 Does Performance Matter?</h3>
-<p>The recycling frame allocator eliminates coroutine frame allocation
-overhead. It requires <code>allocator_arg</code> at every call site. One
-missed site falls back to <code>std::allocator</code> with no
-diagnostic. In production code, sites will be missed. Users profile, see
-heap allocation cost, and conclude coroutines are slow. Coroutines are
-not slow. The fast path is too hard to use.</p>
-<h3 id="will-halo-save-us">5.5 Will HALO Save Us?</h3>
-<p>HALO allows compilers to elide coroutine frame allocation when the
-frame’s lifetime is provably bounded by its caller. When an I/O
-coroutine is launched onto an execution context, the frame must outlive
-the launching function:</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> ex <span class="op">=</span> <span class="bu">std::</span>execution<span class="op">;</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>ex<span class="op">::</span>task<span class="op">&lt;&gt;</span> read_data<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> s<span class="op">.</span>async_read<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> start_read<span class="op">(</span>ex<span class="op">::</span>counting_scope<span class="op">&amp;</span> scope<span class="op">,</span> <span class="kw">auto</span> sch<span class="op">,</span> socket<span class="op">&amp;</span> sock<span class="op">,</span> buffer<span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    ex<span class="op">::</span>spawn<span class="op">(</span></span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>        ex<span class="op">::</span>on<span class="op">(</span>sch<span class="op">,</span> read_data<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">)),</span></span>
-<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>        scope<span class="op">.</span>get_token<span class="op">());</span></span>
-<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The compiler cannot prove bounded lifetime, so HALO cannot apply and
-allocation is mandatory.</p>
-<h3 id="a-viral-signature">5.6 A Viral Signature?</h3>
-<p>Here is what frame allocator propagation looks like in a coroutine
-call chain under <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> level_three<span class="op">(</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    Allocator alloc<span class="op">)</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> level_two<span class="op">(</span></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">,</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    Allocator alloc<span class="op">)</span></span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> level_three<span class="op">(</span><span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">);</span></span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> level_one<span class="op">(</span></span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> v<span class="op">,</span></span>
-<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>    Allocator alloc<span class="op">)</span></span>
-<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> level_two<span class="op">(</span><span class="dv">42</span><span class="op">,</span> <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">);</span></span>
-<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> v<span class="op">;</span></span>
-<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="domain-freedom">5.7 Domain Freedom?</h3>
-<p>No workaround, global PMR, thread-local registries, or otherwise, can
-bypass the promise. Every allocated coroutine frame must run through
-<code>promise_type::operator new</code>. If the promise does not
-cooperate, the frame allocator does not reach the frame.</p>
-<p>The escape hatch is to stop searching for a universal frame allocator
-model in one promise type. Let each domain’s task type cooperate with
-its own frame allocator strategy. A networking task type can use
-thread-local propagation. A GPU task type can use device memory APIs.
-Solutions exist when the promise is free to serve its domain rather than
-forced to serve a model it does not participate in.</p>
-<hr />
-<h2 id="where-is-the-tail-call">6. Where Is the Tail Call?</h2>
-<p>C++20 provides symmetric transfer (<a href="https://wg21.link/p0913r1">P0913R1</a><sup>[62]</sup>):
-<code>await_suspend</code> returns a
-<code>coroutine_handle&lt;&gt;</code> and the compiler resumes the
-designated coroutine as a tail call. The stack does not grow. One
-coroutine suspends and another resumes in constant space. This is the
-mechanism C++20 provides to prevent stack overflow in coroutine chains.
-<a href="https://wg21.link/p2583r0">P2583R0</a><sup>[63]</sup>
-(“Symmetric Transfer and Sender Composition”) surveys six major
-production coroutine libraries. Five of six use symmetric transfer. The
-convergence is independent: different authors, different platforms,
-different design goals, the same mechanism.</p>
-<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>’s
-bridges between coroutines and the sender model use
-<code>void await_suspend</code>. When a coroutine co_awaits a sender,
-the <code>sender-awaitable</code> starts the sender inside
-<code>await_suspend</code>:</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> await_suspend<span class="op">(</span>coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;)</span> <span class="kw">noexcept</span> <span class="op">{</span> start<span class="op">(</span>state<span class="op">);</span> <span class="op">}</span></span></code></pre></div>
-<p>When the sender completes synchronously, the receiver calls
-<code>.resume()</code> as a function call within <code>set_value</code>.
-The stack grows by one frame per synchronous completion. Sender
-algorithms (<code>then</code>, <code>let_value</code>,
-<code>when_all</code>) compose operations by wrapping one receiver in
-another. The wrapping receiver is a struct. It is not a coroutine. It
-has no <code>coroutine_handle&lt;&gt;</code>. No handle exists at any
-intermediate point in a sender pipeline. There is nothing to
-symmetric-transfer to.</p>
-<p>Kühl documented this in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup>, Section
-3.2.3:</p>
-<blockquote>
-<p><em>“The specification doesn’t mention any use of symmetric transfer.
-Further, the <code>task</code> gets adapted by <code>affine_on</code> in
-<code>await_transform</code> (<a href="https://eel.is/c++draft/exec#task.promise-10">[task.promise]
-p10</a>) which produces a different sender than <code>task</code> which
-needs special treatment to use symmetric transfer.”</em></p>
-</blockquote>
-<p>Kühl suggested domain customization of <code>affine_on</code> as a
-partial fix for the task-to-task case. Müller confirmed in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[19]</sup>, Section
-3.1, that the partial fix does not reach the general case:</p>
-<blockquote>
-<p><em>“while this would solve the example above, it would not solve the
-general problem of stack overflow when awaiting other senders. A
-thorough fix is non-trivial and requires support for guaranteed tail
-calls.”</em></p>
-</blockquote>
-<p>The only runtime mitigation is a trampoline scheduler that detects
-stack depth and reschedules. This is the queue-and-scheduler approach
-that <a href="https://wg21.link/p0913r1">P0913R1</a><sup>[62]</sup> was
-specifically adopted to eliminate. <a href="https://wg21.link/p2583r0">P2583R0</a><sup>[63]</sup> documents
-the full mechanism, surveys production practice, and argues the gap is
-architectural: sender algorithms are structs with void-returning
-completions. These are not boundary properties. They are what sender
-algorithms are. No launch mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup> avoids the
-sender composition layer - neither <code>sync_wait</code> nor
-<code>spawn(on(sch, task()), token)</code> - so the gap is inescapable
-from the entry point. The gap cannot be closed without removing the
-property it trades against - non-coroutine composition through sender
-algorithms - or by a language feature that does not exist. This is a
-tradeoff, not a defect. <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup> was
-designed for GPU dispatch and heterogeneous computing - domains where
-symmetric transfer provides no benefit.</p>
-<p><strong>Symmetric transfer requires a handle. The sender model
-provides a function call.</strong></p>
-<hr />
-<h2 id="the-gaps-are-the-tradeoff">7. The Gaps Are The Tradeoff</h2>
-<p>Niebler wrote in 2024: <em><a href="https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/">“If
-your library exposes asynchrony, then returning a sender is a great
-choice: your users can await the sender in a coroutine if they
-like.”</a></em><sup>[34]</sup> The phrase “if they like” implies this is
-straightforward. Niebler himself <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">characterized</a><sup>[33]</sup>
-the sender style as <em>“far harder to write and read than the
-equivalent coroutine.”</em> The previous three sections suggest the cost
-is structural.</p>
-<p>Each gap has the same shape. The sender model requires a property for
-compile-time analysis. That property forces a cost on coroutines at the
-boundary or inside the composition mechanism. The committee standardized
-the sender model for specific properties: compile-time routing,
-zero-allocation reification, type-level dispatch. Each gap documented in
-Sections 3-6 is the cost of one of those properties. Closing any gap
-requires removing the property it pays for.</p>
-<h3 id="the-channel-tradeoff">7.1 The Channel Tradeoff</h3>
-<p>Section 3 showed the cost of compile-time channel routing. Choose
-one:</p>
+<h3 id="safety-and-correctness">Safety and Correctness</h3>
 <table>
 <colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
+<col style="width: 2%" />
+<col style="width: 53%" />
+<col style="width: 33%" />
+<col style="width: 4%" />
+<col style="width: 5%" />
 </colgroup>
 <thead>
 <tr>
-<th>Compile-time channel routing</th>
-<th>I/O tuple completion</th>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>upon_error</code>, <code>let_error</code>,
-<code>upon_stopped</code> attach at the type level; algorithms dispatch
-on channel without runtime inspection</td>
-<td><code>(error_code, size_t)</code> returned together; error,
-cancellation, and byte count are all meaningful and inseparable</td>
+<td>S1</td>
+<td>Stack overflow from reentrant completion without executors is
+“user-hostile default behaviour”</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - Müller <a href="https://wg21.link/p3801">P3801R0</a><sup>[5]</sup> (2025), Kühl <a href="https://wg21.link/p3796">P3796R0</a><sup>[6]</sup></td>
+</tr>
+<tr>
+<td>S2</td>
+<td>P2300 design “insufficiently paranoid to be suited to
+internet-facing software development”</td>
+<td><a href="https://wg21.link/p2480">P2480R0</a><sup>[7]</sup></td>
+<td>2021-10</td>
+<td>Partially confirmed - networking deferred to C++29</td>
+</tr>
+<tr>
+<td>S3</td>
+<td><code>set_error</code> channel confusion - scheduling errors vs. I/O
+errors</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - still unresolved</td>
+</tr>
+<tr>
+<td>S4</td>
+<td>“P2300 will likely require language changes to work effectively” -
+tail calls, trampolines</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - <a href="https://wg21.link/p2583">P2583R1</a><sup>[8]</sup> documents
+symmetric transfer gap (2026)</td>
+</tr>
+<tr>
+<td>S5</td>
+<td>Tail call concerns documented before P2300</td>
+<td>Nishanov <a href="https://wg21.link/p1362">P1362R0</a><sup>[9]</sup></td>
+<td>2019</td>
+<td>Confirmed - still open</td>
 </tr>
 </tbody>
 </table>
-<h3 id="the-co_yield-tradeoff">7.2 The <code>co_yield</code>
-Tradeoff</h3>
-<p>Section 4 showed the cost of a separate error channel for coroutines.
-The alternative, lifting the
-<code>return_void</code>/<code>return_value</code> mutual exclusion, is
-not part of C++26. Choose one:</p>
+<h3 id="customization-mechanism">Customization Mechanism</h3>
 <table>
 <colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Separate error channel from coroutines</th>
-<th>Established <code>co_return</code> semantics</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>co_yield with_error(ec);</code></td>
-<td><code>co_return std::unexpected(ec);</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="the-frame-allocator-tradeoff">7.3 The Frame Allocator
-Tradeoff</h3>
-<p>Section 5 showed the cost of deferred execution. Choose one:</p>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Deferred execution via <code>connect</code>/<code>start</code></th>
-<th>Frame allocator reaches coroutine frames</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Receiver environment available after <code>connect()</code>;
-zero-allocation sender pipelines</td>
-<td><code>promise_type::operator new</code> fires at the call site with
-the right frame allocator</td>
-</tr>
-</tbody>
-</table>
-<p><code>await_transform</code> cannot help: the child’s
-<code>operator new</code> fires before <code>co_await</code> processing
-begins. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>
-offers <code>allocator_arg</code> for the initial allocation, but
-propagation remains unsolved. <a href="https://wg21.link/p3826r3">P3826R3</a><sup>[20]</sup> offers five
-solutions for algorithm dispatch; none changes when the frame allocator
-becomes available.</p>
-<h3 id="the-symmetric-transfer-tradeoff">7.4 The Symmetric Transfer
-Tradeoff</h3>
-<p>Section 6 showed the cost of composing coroutines through sender
-algorithms. Choose one:</p>
-<table>
-<colgroup>
-<col style="width: 56%" />
+<col style="width: 2%" />
 <col style="width: 44%" />
+<col style="width: 40%" />
+<col style="width: 6%" />
+<col style="width: 6%" />
 </colgroup>
 <thead>
 <tr>
-<th>Coroutine composition through sender algorithms</th>
-<th>Symmetric transfer</th>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Sender algorithms are structs with void-returning completions;
-zero-allocation sender pipelines</td>
-<td><code>await_suspend</code> returns
-<code>coroutine_handle&lt;&gt;</code>; constant-stack coroutine
-chains</td>
+<td>C1</td>
+<td><code>tag_invoke</code> as the customization mechanism for sender
+algorithms</td>
+<td><a href="https://wg21.link/p2300">P2300R0</a>-R5, <a href="https://wg21.link/p2403">P2403R0</a><sup>[10]</sup></td>
+<td>2020-2022</td>
+<td>Unconfirmed - abandoned; replaced by <code>transform_sender</code>
+(<a href="https://wg21.link/p2999">P2999</a><sup>[11]</sup>)</td>
+</tr>
+<tr>
+<td>C2</td>
+<td><code>transform_sender</code> as the customization mechanism</td>
+<td><a href="https://wg21.link/p2999">P2999R3</a><sup>[11]</sup></td>
+<td>2024</td>
+<td>Unconfirmed - <a href="https://wg21.link/p3303">P3303</a><sup>[12]</sup> “Fixing,” <a href="https://wg21.link/p3718">P3718</a><sup>[13]</sup> “Fixing Again,”
+then <a href="https://wg21.link/p3826">P3826</a><sup>[14]</sup> proposes
+removal</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>“the customization mechanism has seen a fair bit of recent churn” -
+remove for C++26, restore in C++29</td>
+<td>Niebler <a href="https://wg21.link/p3826">P3826R0</a><sup>[14]</sup></td>
+<td>2025-10</td>
+<td>Pending - proposed</td>
 </tr>
 </tbody>
 </table>
-<h3 id="abi-makes-the-choice-permanent">7.5 ABI Makes the Choice
-Permanent</h3>
-<p>The first four tradeoffs are structural. This subsection is about
-timing.</p>
-<p>Once shipped, the three-channel model, the
-<code>connect</code>/<code>start</code> protocol, and the
-<code>void await_suspend</code> bridge become ABI. Every sender
-algorithm’s behavior is defined in terms of which channel fires. The
-relationship between the promise’s <code>operator new</code> and
-<code>connect()</code> becomes fixed. The void-returning
-<code>await_suspend</code> in <code>sender-awaitable</code> becomes
-fixed. Closing any of the four gaps after standardization requires
-changing these relationships - a breaking change to the sender
-protocol.</p>
-<p>Choose one:</p>
-<table>
-<thead>
-<tr>
-<th>Ship <code>task</code> in C++26</th>
-<th>Iterate the coroutine integration</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>The four tradeoffs above become ABI</td>
-<td>The four tradeoffs remain open</td>
-</tr>
-</tbody>
-</table>
-<p>The natural compromise, ship <code>task</code> with known limitations
-and fix via DR or C++29 addendum, assumes the fix is a minor adjustment.
-Sections 7.1 through 7.4 show it is not. Each gap is the cost of a
-specific design property. Closing the gap means removing the
-property.</p>
-<p>Shipping <code>task</code> is the risky choice, not the safe one.
-Four structural gaps locked in by ABI. A language change proposed to fix
-<code>co_yield with_error</code> for a channel I/O never uses. Frame
-allocator propagation still unsolved six months after adoption.
-Symmetric transfer structurally unreachable through the sender pipeline.
-Kühl himself filed a catalogue of open concerns (Section 9). The sender
-model’s environment leaks into the coroutine’s public type: <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup> defines
-<code>task</code> with two template parameters where every production
-coroutine library has independently converged on one:</p>
+<h3 id="universality-and-scope">Universality and Scope</h3>
 <table>
 <colgroup>
+<col style="width: 2%" />
+<col style="width: 43%" />
+<col style="width: 44%" />
+<col style="width: 4%" />
+<col style="width: 5%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U1</td>
+<td>“&gt;90% of all async code in the future should be coroutines”</td>
+<td>Niebler, “Structured Concurrency”<sup>[15]</sup></td>
+<td>2020-11</td>
+<td>Shifted - by 2024: “returning a sender is a great
+choice”<sup>[16]</sup></td>
+</tr>
+<tr>
+<td>U2</td>
+<td>“senders are like iterators when STL emerged” - universal adoption
+predicted</td>
+<td>Kühl, quoted in <a href="https://wg21.link/p2300">P2300R3</a>-R10</td>
+<td>2021-25</td>
+<td>Unconfirmed - no equivalent adoption curve</td>
+</tr>
+<tr>
+<td>U3</td>
+<td>SG1 “no consensus” that one grand unified model is needed
+(4-9-5-5-1)</td>
+<td><a href="https://wg21.link/p2453">P2453R0</a><sup>[17]</sup></td>
+<td>2021-09</td>
+<td>Confirmed - poll happened; direction proceeded regardless</td>
+</tr>
+<tr>
+<td>U4</td>
+<td>“Networking should be based on sender/receiver model” - weak
+consensus (17-11-10-4-6)</td>
+<td><a href="https://wg21.link/p2453">P2453R0</a><sup>[17]</sup></td>
+<td>2021-10</td>
+<td>Unconfirmed - no sender-based networking exists; deferred to
+C++29</td>
+</tr>
+<tr>
+<td>U5</td>
+<td>Production library chose awaitables over senders for usability</td>
+<td>Prokoptsev, CppCon 2024<sup>[18]</sup></td>
+<td>2024</td>
+<td>Confirmed</td>
+</tr>
+<tr>
+<td>U6</td>
+<td>“C++26 will <em>still</em> not have a standard coroutine task
+type”</td>
+<td>Niebler <a href="https://wg21.link/p3826">P3826R0</a><sup>[14]</sup></td>
+<td>2025-10</td>
+<td>Pending</td>
+</tr>
+</tbody>
+</table>
+<h3 id="domain-viability">Domain Viability</h3>
+<table>
+<colgroup>
+<col style="width: 2%" />
+<col style="width: 50%" />
+<col style="width: 36%" />
+<col style="width: 4%" />
+<col style="width: 5%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td>Sender/receiver deployed in shipping Facebook products, “monthly
+users number in the billions”</td>
+<td>Niebler <a href="https://wg21.link/p2470">P2470R0</a><sup>[19]</sup></td>
+<td>2021</td>
+<td>Confirmed</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>NVIDIA “fully invested in P2300… we plan to ship in production
+sometime next year”</td>
+<td>NVIDIA statement in <a href="https://wg21.link/p2470">P2470R0</a><sup>[19]</sup></td>
+<td>2021</td>
+<td>Confirmed - nvexec shipped</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>Bloomberg experimentation with sender/receiver</td>
+<td><a href="https://wg21.link/p2470">P2470R0</a><sup>[19]</sup></td>
+<td>2021</td>
+<td>Confirmed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="networking">Networking</h3>
+<table>
+<colgroup>
+<col style="width: 2%" />
+<col style="width: 48%" />
+<col style="width: 37%" />
+<col style="width: 4%" />
+<col style="width: 5%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>N1</td>
+<td>“The C++ Standard can’t access the Internet. This is embarrassing
+and long overdue.”</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - still true</td>
+</tr>
+<tr>
+<td>N2</td>
+<td>“We don’t have a composable approach proposal [for networking] at
+this point”</td>
+<td>Voutilainen <a href="https://wg21.link/p0592r5">P0592R5</a><sup>[2]</sup></td>
+<td>2022</td>
+<td>Confirmed - still true</td>
+</tr>
+<tr>
+<td>N3</td>
+<td>Chair’s note: “In the short term, this poll result doesn’t mean
+much. We don’t have a paper in hand that proposes networking based on
+the P2300 model.”</td>
+<td><a href="https://wg21.link/p2453">P2453R0</a><sup>[17]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - still no such paper</td>
+</tr>
+</tbody>
+</table>
+<h3 id="implementation-maturity">Implementation Maturity</h3>
+<table>
+<colgroup>
+<col style="width: 2%" />
+<col style="width: 45%" />
+<col style="width: 41%" />
+<col style="width: 4%" />
+<col style="width: 5%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Prediction</th>
+<th>Source</th>
+<th>Date</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1</td>
+<td>“many algorithms clearly labeled ‘Not yet implemented’ in
+libunifex”</td>
+<td><a href="https://wg21.link/p2469">P2469R0</a><sup>[3]</sup></td>
+<td>2021-10</td>
+<td>Confirmed - libunifex archived; 50+ post-approval items in C++26
+WD<sup>[20]</sup></td>
+</tr>
+<tr>
+<td>M2</td>
+<td>P2300 task type concerns: stack overflow, allocator, error
+handling</td>
+<td>Müller <a href="https://wg21.link/p3801">P3801R0</a><sup>[5]</sup>,
+Kühl <a href="https://wg21.link/p3796">P3796R1</a><sup>[6]</sup></td>
+<td>2025</td>
+<td>Confirmed - 16 open issues documented by task author</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scorecard">4. Scorecard</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 13%" />
+<col style="width: 11%" />
+<col style="width: 13%" />
 <col style="width: 20%" />
-<col style="width: 68%" />
-<col style="width: 12%" />
+<col style="width: 9%" />
 </colgroup>
 <thead>
 <tr>
-<th>Library</th>
-<th>Declaration</th>
-<th style="text-align: center;">Params</th>
+<th>Category</th>
+<th>Predictions</th>
+<th>Confirmed</th>
+<th>Unconfirmed</th>
+<th>Shifted / Partial</th>
+<th>Pending</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>asyncpp</td>
-<td><code>template&lt;class T&gt; class task</code></td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr>
-<td>Boost.Cobalt</td>
-<td><code>template&lt;class T&gt; class task</code></td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr>
-<td>cppcoro</td>
-<td><code>template&lt;typename T&gt; class task</code></td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr>
-<td>aiopp</td>
-<td><code>template&lt;typename Result&gt; class Task</code></td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr>
-<td>libcoro</td>
-<td><code>template&lt;typename return_type&gt; class task</code></td>
-<td style="text-align: center;">1</td>
-</tr>
-<tr>
-<td>P3552R3 (std)</td>
-<td><code>template&lt;class T, class Environment&gt; class task</code></td>
-<td style="text-align: center;"><strong>2</strong></td>
-</tr>
-</tbody>
-</table>
-<p>Sources: <a href="https://github.com/lewissbaker/cppcoro/blob/master/include/cppcoro/task.hpp#L233">cppcoro</a><sup>[42]</sup>,
-<a href="https://github.com/jbaldwin/libcoro/blob/main/include/coro/task.hpp#L200">libcoro</a><sup>[47]</sup>,
-<a href="https://github.com/petiaccja/asyncpp/blob/master/include/asyncpp/task.hpp#L88">asyncpp</a><sup>[46]</sup>,
-<a href="https://github.com/pfirsich/aiopp/blob/main/include/aiopp/task.hpp#L10">aiopp</a><sup>[48]</sup>,
-<a href="https://github.com/bemanproject/task/blob/main/include/beman/task/detail/task.hpp">P3552R3
-ref. impl.</a><sup>[49]</sup></p>
-<p>Deferring <code>task</code> to C++29 costs nothing: no production
-user depends on it, every networking library already ships its own task
-type, and C++29 forwarding was unanimous.</p>
-<p>The narrowest remedy is to ship <code>std::execution</code> without
-<code>task</code>. The sender pipeline is valuable and ready. The four
-gaps exist at the coroutine boundary and inside the composition
-mechanism. Remove <code>task</code> from C++26, and no production user
-is affected. The cost falls on no one.</p>
-<hr />
-<h2 id="faq">8. FAQ</h2>
-<ol type="1">
-<li><p><strong>Q</strong> The authors developed P4003. Every gap favors
-that design. Disclosure names bias. It does not remove it.</p>
-<p><strong>A</strong> Correct. Disclosure is necessary but not
-sufficient. Every gap in this paper is a compiler output, a
-specification excerpt, or a benchmark number that any reader can
-independently verify. Bias selects which questions to ask. It cannot
-fabricate the answers. Every gap is independently verifiable; we welcome
-corrections.</p></li>
-<li><p><strong>Q</strong> P4003: no work graphs, no heterogeneous
-dispatch, cooperative-only, zero users. Senders have Citadel and
-stdexec. Why P4003?</p>
-<p><strong>A</strong> This paper does not propose P4003 for
-standardization (Section 1). The gaps hold regardless of whether P4003
-is the right design or any design at all. P4003 made the gaps visible;
-it does not need to be the remedy.</p></li>
-<li><p><strong>Q</strong> D4041: empty rows for sender I/O. P4003: zero
-deployments, 1/2 on this paper’s own adoption rubric. The empty rows
-indict async C++, not senders.</p>
-<p><strong>A</strong> The empty rows illustrate the argument: neither
-approach has production I/O deployments through the standard. When
-neither path has proven the design, the reversible choice is to
-wait.</p></li>
-<li><p><strong>Q</strong> Name four I/O scenarios where three-channel
-routing beats tuple returns. If none exist, the evidence is
-selected.</p>
-<p><strong>A</strong> This paper documents where three-channel routing
-costs I/O users data (Section 3). Scenarios where three-channel routing
-serves I/O better would strengthen the case for the current design; we
-are not aware of published examples.</p></li>
-<li><p><strong>Q</strong> “Explore alongside” is not a plan. Who writes
-it? When? With what experience beyond P4003? What does not shipping
-cost, and who pays?</p>
-<p><strong>A</strong> Not shipping <code>task</code> costs no one - no
-production user depends on it, every networking library ships its own
-task type, and C++29 forwarding was unanimous (Section 9). Shipping
-costs everyone who hits the four gaps, locked in by ABI. The cost
-asymmetry favors deferral.</p></li>
-<li><p><strong>Q</strong> Awaitable protocol interop requires agreement
-on errors, cancellation, allocators - the unsolved problems. Deferring
-task: interop or fragmentation?</p>
-<p><strong>A</strong> Shipping <code>task</code> with unsolved allocator
-propagation, unconventional error delivery, and unreachable symmetric
-transfer does not produce interop - it produces a standard type
-applications cannot rely upon for I/O. Deferral preserves the design
-space; shipping a type with known open issues risks the fragmentation it
-aims to prevent.</p></li>
-<li><p><strong>Q</strong> The gaps are tradeoffs, not defects. This
-paper’s words. Ship the tradeoffs. Let users decide.</p>
-<p><strong>A</strong> Once shipped, ABI commitments are permanent.
-Section 7.5 documents what becomes fixed: the three-channel model, the
-<code>connect</code>/<code>start</code> protocol, the
-<code>void await_suspend</code> bridge. Tradeoffs that remain open can
-be revisited; tradeoffs locked in by ABI cannot.</p></li>
-<li><p><strong>Q</strong> Name one case where sender ABI prevented a
-fix. Theoretical permanence is not evidence.</p>
-<p><strong>A</strong> <code>std::execution</code> has not shipped, so
-post-shipping ABI evidence cannot exist. Section 7.5 identifies what
-becomes permanent. The time to evaluate that risk is before it is
-irreversible, not after.</p></li>
-<li><p><strong>Q</strong> 3.1x: recycling vs
-<code>std::allocator</code>, MSVC. Mimalloc: 1.3x over recycling.
-jemalloc on Linux: what? If the answer is “use a good allocator,” the
-gap is academic.</p>
-<p><strong>A</strong> The gap is not which allocator is fastest. The gap
-is that <code>task</code> has no mechanism to propagate any frame
-allocator through nested coroutine calls (Section 5.3). Recycling beats
-mimalloc by 1.3x on the same platform because frame-specific allocation
-has structural advantages no general-purpose allocator can
-match.</p></li>
-<li><p><strong>Q</strong> Composed reads are this paper’s strongest
-case. Show fire-and-forget. Show fan-out. Show retry-with-backoff.</p>
-<p><strong>A</strong> Those are sender pipeline strengths, and this
-paper says so (Section 10). The recommendation is to ship
-<code>std::execution</code> for those patterns. The gaps appear at
-sequential connection handlers, composed reads, and request processing -
-the patterns that dominate I/O.</p></li>
-<li><p><strong>Q</strong> Niebler, 2020. Six years ago. Ten revisions
-ago. When does quoting old blog posts become a device?</p>
-<p><strong>A</strong> This paper also quotes Niebler 2024 (Section 7).
-The 2020 assessment and the 2024 assessment say the same thing. Six
-years of iteration did not change the characterization.</p></li>
-<li><p><strong>Q</strong> <code>co_yield with_error</code> breaks
-convention. Error codes instead of exceptions break convention. Show
-user confusion in practice, not in theory.</p>
-<p><strong>A</strong> Six production coroutine libraries independently
-converged on <code>co_return</code> for error delivery (Section 4.3).
-Zero use <code>co_yield</code>. That consistency suggests the convention
-is well-established.</p></li>
-</ol>
-<hr />
-<h2 id="maturity-of-the-coroutine-integration">9. Maturity of the
-Coroutine Integration</h2>
-<p>The coroutine integration is not ready for C++26. Three data
-points:</p>
-<p>LEWG polled the frame allocator question directly (<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup>, September
-2025):</p>
-<blockquote>
-<p>“We would like to use the allocator provided by the receivers env
-instead of the one from the coroutine frame”</p>
-<table>
-<thead>
-<tr>
-<th>SF</th>
-<th>F</th>
-<th>N</th>
-<th>A</th>
-<th>SA</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>0</td>
+<td>Timeline</td>
 <td>5</td>
+<td>4</td>
+<td>1</td>
 <td>0</td>
 <td>0</td>
 </tr>
+<tr>
+<td>Safety / Correctness</td>
+<td>5</td>
+<td>4</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Customization Mechanism</td>
+<td>3</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Universality / Scope</td>
+<td>6</td>
+<td>2</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Domain Viability</td>
+<td>3</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Networking</td>
+<td>3</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Implementation Maturity</td>
+<td>2</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>27</strong></td>
+<td><strong>18</strong></td>
+<td><strong>5</strong></td>
+<td><strong>2</strong></td>
+<td><strong>2</strong></td>
+</tr>
 </tbody>
 </table>
-<p>Attendance: 14. Outcome: strictly neutral.</p>
-</blockquote>
-<p>The entire room abstained. Without a mechanism to propagate frame
-allocator context through nested coroutine calls, the committee had no
-direction to endorse. Kühl himself identified the need for further
-iteration, reworking the frame allocator propagation model in <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[24]</sup>
-(2026-01-25), six months after <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[13]</sup>’s adoption
-at Sofia. LWG 4356 confirms the gap has been filed as a specification
-defect.</p>
-<p>The task type’s forwarding polls (LEWG, 2025-05-06):</p>
-<blockquote>
-<p>“Forward P3552R1 to LWG for C++29”</p>
-<p>SF:5 / F:7 / N:0 / A:0 / SA:0 - unanimous.</p>
-<p>“Forward P3552R1 to LWG with a recommendation to apply for C++26 (if
-possible).”</p>
-<p>SF:5 / F:3 / N:4 / A:1 / SA:0 - weak consensus, with “if possible”
-qualifier.</p>
-</blockquote>
-<p>C++29 forwarding was unanimous. C++26 was conditional and weak. With
-the thoroughness that has defined his stewardship of <code>task</code>,
-Kühl cataloged sixteen open concerns in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup> (“Coroutine
-Task Issues”).</p>
-<hr />
-<h2 id="conclusion">10. Conclusion</h2>
-<p>This paper recommends: ship <code>std::execution</code> for C++26,
-defer <code>task</code> to C++29, and explore coroutine-native I/O
-designs alongside sender-based designs.</p>
-<p><code>std::execution</code> has earned its place. Herb Sutter
-reported that Citadel Securities uses it in production: <em><a href="https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work">“We
-already use C++26’s <code>std::execution</code> in production for an
-entire asset class, and as the foundation of our new messaging
-infrastructure.”</a></em><sup>[36]</sup> Senders work well in their
-domain: compile-time work graph construction, GPU dispatch,
-high-frequency trading pipelines. Even GPU cloud APIs are accessed
-through HTTP. The finding is not that <code>std::execution</code>
-failed. It is that its scope is specific, not universal. Narrowing the
-scope is not admitting failure - it is recognizing success where it
-exists and clearing the path where it does not.</p>
-<p>The four gaps documented in Sections 3-6 are the cost of treating the
-sender model as the universal model of asynchronous computation. Each
-gap is the cost of a property the sender model requires. They are not
-design defects. They are tradeoffs - and coroutine I/O should not be
-forced to pay them.</p>
-<ol type="1">
-<li><p><strong>Is the sender model a universal model of asynchronous
-computation, or a domain-specific one?</strong> The evidence suggests it
-serves GPU dispatch, high-frequency trading, and heterogeneous
-computing, but not I/O.</p></li>
-<li><p><strong>Are coroutines the primary tool for asynchronous
-C++?</strong> If yes, the coroutine integration deserves the same design
-investment as the sender pipeline itself.</p></li>
-<li><p><strong>Should <code>task&lt;T&gt;</code> ship in C++26 with
-these costs?</strong> Ship <code>std::execution</code> for the domains
-it serves. Let the coroutine integration iterate independently.</p></li>
-</ol>
-<p>The SG4 poll (Kona 2023, SF:5/F:5/N:1/A:0/SA:1) presented two
-alternatives. A coroutine-native approach was not among the choices. The
-straw polls in Section 11 ask the committee whether the choice should
-remain binary.</p>
-<hr />
-<h2 id="suggested-straw-polls">11. Suggested Straw Polls</h2>
-<ol type="1">
-<li><p>“I/O completions that carry both an error code and a byte count
-present a design challenge for the three-channel completion
-model.”</p></li>
-<li><p>“The coroutine integration in <code>std::execution</code> has
-open design questions that would benefit from further
-iteration.”</p></li>
-<li><p>“WG21 should explore coroutine-native I/O designs alongside
-sender-based designs.”</p></li>
-</ol>
-<hr />
-<h2 id="appendix-a---the-three-channel-model">Appendix A - The
-Three-Channel Model</h2>
-<h3 id="a.1-why-the-three-channel-model-exists">A.1 Why the
-Three-Channel Model Exists</h3>
-<p>The sender model constructs the entire work graph at compile time as
-a deeply-nested template type. <a href="https://eel.is/c++draft/exec.connect"><code>connect(sndr, rcvr)</code></a><sup>[50]</sup>
-collapses the pipeline into a single concrete type. For this to work,
-every control flow path must be distinguishable at the type level, not
-the value level.</p>
-<p>The three completion channels provide exactly this. <a href="https://eel.is/c++draft/exec.getcomplsigs">Completion
-signatures</a><sup>[50]</sup> declare three distinct type-level
-paths:</p>
-<div class="sourceCode" id="cb23"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> completion_signatures <span class="op">=</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>execution::completion_signatures<span class="op">&lt;</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">set_value_t</span><span class="op">(</span><span class="dt">int</span><span class="op">),</span>                                 <span class="co">// value path</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">set_error_t</span><span class="op">(</span><span class="bu">std::</span>error_code<span class="op">),</span>                     <span class="co">// error path</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">set_stopped_t</span><span class="op">()&gt;;</span>                                 <span class="co">// stopped path</span></span></code></pre></div>
-<p>Algorithms dispatch on which channel fired without inspecting
-payloads. <code>upon_error</code> attaches to the error path at the type
-level. <code>let_value</code> attaches to the value path at the type
-level. <code>upon_stopped</code> attaches to the stopped path. The
-routing is in the types, not in the values.</p>
-<p>If errors were delivered as values (for example,
-<code>expected&lt;int, error_code&gt;</code> through
-<code>set_value</code>), the compiler would see one path carrying one
-type. Algorithms could not dispatch on error without runtime inspection
-of the payload. Every algorithm would need runtime branching logic to
-inspect the expected and route accordingly.</p>
-<p>The three channels exist because the sender model is a compile-time
-language.</p>
-<p>Compile-time languages route on types. Runtime languages route on
-values. A coroutine returns
-<code>auto [ec, n] = co_await read(buf)</code> and branches with
-<code>if (ec)</code> at runtime. The sender model encodes
-<code>set_value</code> and <code>set_error</code> as separate types in
-the completion signature and routes at compile time. The three-channel
-model is not an arbitrary design choice. It is a structural requirement
-of the compile-time work graph.</p>
-<p>A compile-time language cannot express partial success. I/O
-operations return <code>(error_code, size_t)</code> together because
-partial success is normal. The three-channel model demands that the
-sender author choose one channel. No choice is correct because the
-compile-time type system cannot represent “both at once.”</p>
-<p>Eliminating the three-channel model would remove the type-level
-routing that makes the compile-time work graph possible. The three
-channels are not a design flaw. They are the price of compile-time
-analysis. I/O cannot pay that price because I/O’s completion semantics
-are inherently runtime.</p>
-<h3 id="a.2-async_read-as-a-sender">A.2 <code>async_read</code> as a
-Sender</h3>
-<p>Section 3.3 shows that published sender code loses partial results.
-Here is the complete sender implementation using <a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html#example-async-windows-socket-recv">P2300R10
-Section 1.4</a><sup>[1]</sup>’s <code>recv_sender</code> and
-<code>async_recv</code>:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Rcvr<span class="op">&gt;</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> read_op</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> recv_rcvr <span class="op">{</span></span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>        read_op<span class="op">*</span> <span class="va">self_</span><span class="op">;</span></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_value<span class="op">(</span><span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">({},</span> n<span class="op">);</span> <span class="op">}</span></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_error<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="va">self_</span><span class="op">-&gt;</span>completed<span class="op">(</span>ec<span class="op">,</span> <span class="dv">0</span><span class="op">);</span> <span class="op">}</span></span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> set_stopped<span class="op">()</span> <span class="op">&amp;&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>            execution<span class="op">::</span>set_stopped<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">self_</span><span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">));</span></span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    Rcvr <span class="va">rcvr_</span><span class="op">;</span></span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>    SOCKET <span class="va">sock_</span><span class="op">;</span></span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>byte<span class="op">*</span> <span class="va">data_</span><span class="op">;</span></span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">len_</span><span class="op">;</span></span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">bytes_read_</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>optional<span class="op">&lt;</span><span class="dt">connect_result_t</span><span class="op">&lt;</span>recv_sender<span class="op">,</span> recv_rcvr<span class="op">&gt;&gt;</span> <span class="va">child_</span><span class="op">;</span></span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="op">&amp;</span> <span class="kw">noexcept</span> <span class="op">{</span> start_recv<span class="op">();</span> <span class="op">}</span></span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start_recv<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">child_</span><span class="op">.</span>emplace<span class="op">(</span>execution<span class="op">::</span><span class="fu">connect</span><span class="op">(</span></span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>            async_recv<span class="op">(</span><span class="va">sock_</span><span class="op">,</span> <span class="va">data_</span> <span class="op">+</span> <span class="va">bytes_read_</span><span class="op">,</span> <span class="va">len_</span> <span class="op">-</span> <span class="va">bytes_read_</span><span class="op">),</span></span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>            recv_rcvr<span class="op">{</span><span class="kw">this</span><span class="op">}));</span></span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>start<span class="op">(*</span><span class="va">child_</span><span class="op">);</span></span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> completed<span class="op">(</span><span class="bu">std::</span>error_code ec<span class="op">,</span> <span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>        <span class="va">bytes_read_</span> <span class="op">+=</span> n<span class="op">;</span></span>
-<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">bytes_read_</span> <span class="op">==</span> <span class="va">len_</span><span class="op">)</span></span>
-<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> execution<span class="op">::</span>set_value<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> <span class="va">bytes_read_</span><span class="op">);</span></span>
-<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>ec<span class="op">)</span></span>
-<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> start_recv<span class="op">();</span></span>
-<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>        execution<span class="op">::</span>set_error<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span> ec<span class="op">);</span>   <span class="co">// bytes_read_ bytes are lost</span></span>
-<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
-<p>Every name is from P2300R10: <code>recv_sender</code>,
-<code>async_recv</code>, <code>connect</code>, <code>start</code>,
-<code>set_value</code>, <code>set_error</code>,
-<code>set_stopped</code>, <code>connect_result_t</code>. The
-<code>recv_rcvr</code> is the standard pattern for wiring a child sender
-back to a parent operation state.</p>
-<h3 id="a.3-timeline-of-the-error-channel-question">A.3 Timeline of the
-Error Channel Question</h3>
-<p>The partial success problem was raised independently, across multiple
-groups, by participants with different domain backgrounds, over a span
-of five years. Every proposed resolution carried real costs. The
-question was never resolved - not for lack of attention, but because the
-three-channel model may not admit a solution that preserves both
-compile-time routing and I/O’s tuple semantics.</p>
-<ul>
-<li><p><strong>2020 (Nov):</strong> Niebler’s <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">“Structured
-Concurrency”</a><sup>[33]</sup> blog post establishes the three-channel
-model publicly. Acknowledges CPS is harder to write and read than
-coroutines.</p></li>
-<li><p><strong>2020 (Feb, Prague):</strong> During review of <a href="https://wg21.link/p1678r2">P1678R2</a><sup>[56]</sup> (“Callbacks
-and Composition”), a participant raised that asynchronous operations
-need not fail completely or succeed completely, and that no pattern in
-the proposal supports partial success. The response was that nothing
-would be different. LEWG polled to encourage more work
-(SF:7/F:14/N:9/A:3/SA:0). No resolution on partial success
-emerged.</p></li>
-<li><p><strong>2021 (Feb, SG4 telecon):</strong> During review of
-P0958R3, a participant stated that sender/receivers have a loss because
-they do not have success/partial-success. Another suggested adapting
-from success/error; the response was that the error does not carry
-information. No poll on the error channel design.</p></li>
-<li><p><strong>2021 (Jul-Oct, LEWG telecon series):</strong> The partial
-success question was debated across at least five LEWG telecons during
-the P2300 review. Multiple participants raised incompatible positions.
-One argued that partial success calling <code>set_value</code> does not
-work for generic retry algorithms. Others described
-<code>set_error</code> as effectively <code>set_exception</code> - an
-error channel that does not serve error conditions. The August 17, 2021
-LEWG outcome document explicitly listed “Better explain how partial
-success works with senders/receivers” as open guidance to the P2300
-authors - an acknowledgment that the question was unresolved. During the
-October 4, 2021 LEWG telecon, a participant (who gave the authors
-permission to anonymously quote what they said) indicated that partial
-success could be addressed through async streams once the initial
-sender/receiver facilities were in place, with the expectation that such
-streams could then be standardized. The async streams facility was never
-proposed, never standardized, and is not in the C++26 working
-draft.</p></li>
-<li><p><strong>2021 (Aug):</strong> Kohlhoff published <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[3]</sup> (“Partial
-success scenarios with P2300”), slides from a presentation during the
-P2300 review, identifying that partial results must be communicated down
-the <code>set_value</code> channel due to limitations of
-<code>set_error</code> and <code>set_done</code>. Independent
-confirmation of the same tension the preceding telecons debated, from
-the author of Asio.</p></li>
-<li><p><strong>2022-2024:</strong> <a href="https://wg21.link/p2300r4">P2300R4</a><sup>[2]</sup> through <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup> published.
-Three-channel model unchanged across all revisions.</p></li>
-<li><p><strong>2023:</strong> <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[4]</sup> (Dietmar
-Kühl, “Sender/Receiver Interface for Networking”) preserves the proven
-<code>(error_code, size_t)</code> convention from Asio - implicitly
-acknowledging I/O needs both values together.</p></li>
-<li><p><strong>2023 (Nov, Kona):</strong> SG4 polls that networking must
-use the sender model (SF:5/F:5/N:1/A:0/SA:1). Every future I/O operation
-must now navigate the channel mismatch.</p></li>
-<li><p><strong>2024 (Nov, Wroclaw):</strong> The same three-channel
-question resurfaced during design of P0260 (“C++ Concurrent Queues”).
-LEWG debated whether a closed queue should complete through
-<code>set_error</code>, <code>set_value</code>, or
-<code>set_stopped</code>. One participant asked how popping from a
-closed queue could be an error when it represents the ultimate success
-of processing all items. Another noted that POSIX does not model EOF
-this way - reading from a socket at EOF succeeds with zero bytes. The
-debate consumed portions of two face-to-face meetings.</p></li>
-<li><p><strong>2025 (Feb, Hagenberg):</strong> The concurrent queue
-channel question remained open. A poll to reopen the channel choice was
-withdrawn. A new problem was discovered: <code>try_push</code> cannot
-safely schedule an <code>async_pop</code> continuation because
-<code>std::execution</code> provides no way to express that a schedule
-operation is non-blocking - a concrete manifestation of the
-architectural mismatch in a producer-consumer API.</p></li>
-<li><p><strong>2025-2026:</strong> P2300 adopted into the C++26 working
-draft. <a href="https://wg21.link/p3570r2">P3570R2</a><sup>[15]</sup>
-(Fracassi, “Optional variants in sender/receiver”) documents the
-interface mismatch between <code>optional&lt;T&gt;</code> and the
-channel model. The error channel / partial success question remains
-open. No paper in the published record proposes a resolution that
-preserves compile-time channel routing.</p></li>
-</ul>
-<p>The question has been open for five years. This duration is not due
-to neglect - some of the most capable engineers in the C++ community
-have worked on P2300 across ten revisions and dozens of follow-on
-papers. Every proposed fix involves a tradeoff with real downsides
-(Sections 3.3 through 3.8 document the costs). The three-channel model
-is a property of the sender model, not a bug. When the best people in
-the field iterate for five years on a well-understood problem and every
-solution trades one cost for another, the evidence points toward a
-structural constraint rather than a missing insight.</p>
-<hr />
-<h2 id="appendix-b---the-frame-allocator-gap">Appendix B - The Frame
-Allocator Gap</h2>
-<h3 id="b.1-the-full-ceremony-for-frame-allocator-aware-coroutines">B.1
-The Full Ceremony for Frame-Allocator-Aware Coroutines</h3>
-<p>The sender model requires five layers of machinery to propagate a
-custom frame allocator through a coroutine call chain:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> ex <span class="op">=</span> <span class="bu">std::</span>execution<span class="op">;</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Define a custom environment that answers get_allocator</span></span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_env</span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">allocator_type</span> <span class="op">=</span> recycling_allocator<span class="op">&lt;&gt;;</span></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">allocator_type</span> alloc<span class="op">;</span></span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">allocator_type</span> query<span class="op">(</span>ex<span class="op">::</span><span class="dt">get_allocator_t</span><span class="op">)</span> <span class="at">const</span> <span class="kw">noexcept</span></span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> alloc<span class="op">;</span></span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Alias the task type with the custom environment</span></span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> my_task <span class="op">=</span> ex<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> my_env<span class="op">&gt;;</span></span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Every coroutine accepts and forwards the frame allocator</span></span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>my_task level_two<span class="op">(</span></span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">,</span></span>
-<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>    Allocator alloc<span class="op">)</span></span>
-<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-28"><a href="#cb25-28" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Allocator<span class="op">&gt;</span></span>
-<span id="cb25-29"><a href="#cb25-29" aria-hidden="true" tabindex="-1"></a>my_task level_one<span class="op">(</span></span>
-<span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> v<span class="op">,</span></span>
-<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a>    Allocator alloc<span class="op">)</span></span>
-<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> level_two<span class="op">(</span><span class="dv">42</span><span class="op">,</span> <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">);</span></span>
-<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Construct the environment at the launch site</span></span>
-<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a><span class="co">// 5. Inject it via write_env</span></span>
-<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> launch<span class="op">(</span>ex<span class="op">::</span>counting_scope<span class="op">&amp;</span> scope<span class="op">,</span> <span class="kw">auto</span> sch<span class="op">)</span></span>
-<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>    recycling_allocator<span class="op">&lt;&gt;</span> alloc<span class="op">;</span>                            <span class="co">// step 4</span></span>
-<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>    my_env env<span class="op">{</span>alloc<span class="op">};</span></span>
-<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> sndr <span class="op">=</span></span>
-<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>        ex<span class="op">::</span>write_env<span class="op">(</span></span>
-<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>            level_one<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">),</span> env<span class="op">)</span>   <span class="co">// step 5</span></span>
-<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>      <span class="op">|</span> ex<span class="op">::</span>continues_on<span class="op">(</span>sch<span class="op">);</span></span>
-<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>    ex<span class="op">::</span>spawn<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>sndr<span class="op">),</span> scope<span class="op">.</span>get_token<span class="op">());</span></span>
-<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Forgetting any one of the five steps silently falls back to the
-default allocator. The compiler provides no diagnostic.</p>
-<hr />
-<h2 id="appendix-c---direction-of-change">Appendix C - Direction of
-Change</h2>
-<p>The claim is not that the volume of changes is abnormal; it is that
-the direction is uniform. Every paper, LWG issue, and NB comment
-modifying <code>std::execution</code> since Tokyo (March 2024) falls
-into one of two categories.</p>
-<p><strong>Sender Sub-Language</strong> items address the CPS model’s
-own machinery: algorithm customization, operation state lifetimes,
-completion signature constraints, removals of primitives that violated
-structured concurrency.</p>
-<p><strong>Sender Integration</strong> items address the boundary where
-the CPS model meets coroutines: the <code>task</code> type, frame
-allocator propagation into coroutine frames,
-<code>co_yield with_error</code> semantics.</p>
-<p><strong>Coroutine-Intrinsic</strong> items are specific to
-coroutines. There are none.</p>
+<h2 id="conclusion">5. Conclusion</h2>
 <table>
-<colgroup>
-<col style="width: 75%" />
-<col style="width: 25%" />
-</colgroup>
 <thead>
 <tr>
-<th>Origin</th>
-<th>Items</th>
+<th>Predictive</th>
+<th>Not Predictive</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Sender Sub-Language</td>
-<td><a href="https://wg21.link/p2855r1">P2855R1</a>, <a href="https://wg21.link/p2999r3">P2999R3</a>, <a href="https://wg21.link/p3175r3">P3175R3</a>, <a href="https://wg21.link/p3187r1">P3187R1</a>, <a href="https://wg21.link/p3303r1">P3303R1</a>, <br> <a href="https://wg21.link/p3373r2">P3373R2</a>, <a href="https://wg21.link/p3557r3">P3557R3</a>, <a href="https://wg21.link/p3570r2">P3570R2</a>, <a href="https://wg21.link/p3682r0">P3682R0</a>, <a href="https://wg21.link/p3718r0">P3718R0</a>, <br> <a href="https://wg21.link/p3826r3">P3826R3</a>, <a href="https://wg21.link/p3941r1">P3941R1</a>, <a href="https://cplusplus.github.io/LWG/issue4190">LWG 4190</a>, <a href="https://cplusplus.github.io/LWG/issue4206">LWG 4206</a>, <a href="https://cplusplus.github.io/LWG/issue4215">LWG 4215</a>, <br> <a href="https://cplusplus.github.io/LWG/issue4368">LWG 4368</a></td>
+<td>Safety and correctness concerns</td>
+<td>Universality claims</td>
 </tr>
 <tr>
-<td>Sender Integration</td>
-<td><a href="https://wg21.link/p3927r0">P3927R0</a>, <a href="https://wg21.link/p3950r0">P3950R0</a>, <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a>, <a href="https://cplusplus.github.io/LWG/issue4356">LWG 4356</a>, <a href="https://github.com/cplusplus/nbballot/issues/959">US 255-384</a>,
-<br> <a href="https://github.com/cplusplus/nbballot/issues/961">US
-253-386</a>, <a href="https://github.com/cplusplus/nbballot/issues/960">US 254-385</a>,
-<a href="https://github.com/cplusplus/nbballot/issues/966">US
-261-391</a></td>
+<td>Domain viability (where deployed)</td>
+<td>Customization mechanism design</td>
 </tr>
 <tr>
-<td>Coroutine-Intrinsic</td>
-<td>-</td>
+<td>Networking gap</td>
+<td>Timeline estimates (all sides)</td>
+</tr>
+<tr>
+<td>Implementation maturity concerns</td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<p>All data is gathered from the published <a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/">WG21 paper
-mailings</a><sup>[54]</sup>, the <a href="https://cplusplus.github.io/LWG/lwg-toc.html">LWG issues
-list</a><sup>[55]</sup>, and the <a href="https://github.com/cplusplus/nbballot">C++26 national body ballot
-comments</a><sup>[53]</sup>.</p>
-<hr />
-<h1 id="acknowledgements">Acknowledgements</h1>
-<p>This document is written in Markdown and depends on the extensions in
-<a href="https://pandoc.org/MANUAL.html#pandocs-markdown"><code>pandoc</code></a>
-and <a href="https://github.com/mermaid-js/mermaid"><code>mermaid</code></a>,
-and we would like to thank the authors of those extensions and
-associated libraries.</p>
-<p>The authors would also like to thank John Lakos, Joshua Berne, Pablo
-Halpern, Peter Dimov, Andrzej Krzemieński, Dietmar Kühl, Klemens
-Morgenstern, Mohammad Nejati, and Michael Vandeberg for their valuable
-feedback in the development of this paper.</p>
 <hr />
 <h2 id="references">References</h2>
-<h3 id="wg21-papers">WG21 Papers</h3>
 <ol type="1">
-<li><a href="https://wg21.link/p2300r10">P2300R10</a> - “std::execution”
-(Michał Dominiak, Georgy Evtushenko, Lewis Baker, Lucian Radu
-Teodorescu, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce
-Adelstein Lelbach, 2024). https://wg21.link/p2300r10</li>
-<li><a href="https://wg21.link/p2300r4">P2300R4</a> - “std::execution”
-(Michał Dominiak, et al., 2022). https://wg21.link/p2300r4</li>
-<li><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial success
-scenarios with P2300” (Chris Kohlhoff, 2021).
-https://wg21.link/p2430r0</li>
-<li><a href="https://wg21.link/p2762r2">P2762R2</a> - “Sender/Receiver
-Interface For Networking” (Dietmar Kühl, 2023).
-https://wg21.link/p2762r2</li>
-<li><a href="https://wg21.link/p2855r1">P2855R1</a> - “Member
-customization points for Senders and Receivers” (Ville Voutilainen,
-2024). https://wg21.link/p2855r1</li>
-<li><a href="https://wg21.link/p2999r3">P2999R3</a> - “Sender Algorithm
-Customization” (Eric Niebler, 2024). https://wg21.link/p2999r3</li>
-<li><a href="https://wg21.link/p3149r11">P3149R11</a> - “async_scope”
-(Ian Petersen, Jessica Wong, Kirk Shoop, et al., 2025).
-https://wg21.link/p3149r11</li>
-<li><a href="https://wg21.link/p3164r4">P3164R4</a> - “Improving
-Diagnostics for Sender Expressions” (Eric Niebler, 2024).
-https://wg21.link/p3164r4</li>
-<li><a href="https://wg21.link/p3175r3">P3175R3</a> - “Reconsidering the
-std::execution::on algorithm” (Eric Niebler, 2024).
-https://wg21.link/p3175r3</li>
-<li><a href="https://wg21.link/p3187r1">P3187R1</a> - “Remove
-ensure_started and start_detached from P2300” (Kirk Shoop, Lewis Baker,
-2024). https://wg21.link/p3187r1</li>
-<li><a href="https://wg21.link/p3303r1">P3303R1</a> - “Fixing Lazy
-Sender Algorithm Customization” (Eric Niebler, 2024).
-https://wg21.link/p3303r1</li>
-<li><a href="https://wg21.link/p3373r2">P3373R2</a> - “Of Operation
-States and Their Lifetimes” (Robert Leahy, 2025).
-https://wg21.link/p3373r2</li>
-<li><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a Coroutine
-Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
-https://wg21.link/p3552r3</li>
-<li><a href="https://wg21.link/p3557r3">P3557R3</a> - “High-Quality
-Sender Diagnostics with Constexpr Exceptions” (Eric Niebler, 2025).
-https://wg21.link/p3557r3</li>
-<li><a href="https://wg21.link/p3570r2">P3570R2</a> - “Optional variants
-in sender/receiver” (Fabio Fracassi, 2025).
-https://wg21.link/p3570r2</li>
-<li><a href="https://wg21.link/p3682r0">P3682R0</a> - “Remove
-std::execution::split” (Robert Leahy, 2025).
-https://wg21.link/p3682r0</li>
-<li><a href="https://wg21.link/p3718r0">P3718R0</a> - “Fixing Lazy
-Sender Algorithm Customization, Again” (Eric Niebler, 2025).
-https://wg21.link/p3718r0</li>
-<li><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
-Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
-<li><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
-the design of std::execution::task” (Jonathan Müller, 2025).
-https://wg21.link/p3801r0</li>
-<li><a href="https://wg21.link/p3826r3">P3826R3</a> - “Fix Sender
-Algorithm Customization” (Eric Niebler, 2026).
-https://wg21.link/p3826r3</li>
-<li><a href="https://wg21.link/p3927r0">P3927R0</a> - “task_scheduler
-Support for Parallel Bulk Execution” (Lee Howes, 2026).
-https://wg21.link/p3927r0</li>
-<li><a href="https://wg21.link/p3941r1">P3941R1</a> - “Scheduler
-Affinity” (Dietmar Kühl, 2026). https://wg21.link/p3941r1</li>
-<li><a href="https://wg21.link/p3950r0">P3950R0</a> - “return_value
-&amp; return_void Are Not Mutually Exclusive” (Robert Leahy, 2025).
-https://wg21.link/p3950r0</li>
-<li><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a> -
-“Task’s Allocator Use” (Dietmar Kühl, 2026).
-https://isocpp.org/files/papers/D3980R0.html</li>
-<li><a href="https://wg21.link/p4003r0">P4003R0</a> - “Coroutines for
-I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
-https://wg21.link/p4003r0</li>
-<li><a href="https://wg21.link/p4014r0">P4014R0</a> - “The Sender
-Sub-Language” (Vinnie Falco, 2026). https://wg21.link/p4014r0</li>
-<li><a href="https://wg21.link/n5028">N5028</a> - “Result of voting on
-ISO/IEC CD 14882” (2025). https://wg21.link/n5028</li>
-</ol>
-<h3 id="lwg-issues">LWG Issues</h3>
-<ol start="28" type="1">
-<li><a href="https://cplusplus.github.io/LWG/issue4368">LWG 4368</a> -
-“Potential dangling reference from <code>transform_sender</code>”
-(Priority 1). https://cplusplus.github.io/LWG/issue4368</li>
-<li><a href="https://cplusplus.github.io/LWG/issue4206">LWG 4206</a> -
-“<code>connect_result_t</code> should be constrained with
-<code>sender_to</code>” (Priority 1).
-https://cplusplus.github.io/LWG/issue4206</li>
-<li><a href="https://cplusplus.github.io/LWG/issue4190">LWG 4190</a> -
-“<code>completion-signatures-for</code> specification is recursive”
-(Priority 2). https://cplusplus.github.io/LWG/issue4190</li>
-<li><a href="https://cplusplus.github.io/LWG/issue4215">LWG 4215</a> -
-“<code>run_loop::finish</code> should be <code>noexcept</code>”.
-https://cplusplus.github.io/LWG/issue4215</li>
-<li><a href="https://cplusplus.github.io/LWG/issue4356">LWG 4356</a> -
-“<code>connect()</code> should use
-<code>get_allocator(get_env(rcvr))</code>”.
-https://cplusplus.github.io/LWG/issue4356</li>
-</ol>
-<h3 id="blog-posts">Blog Posts</h3>
-<ol start="33" type="1">
-<li><p>Eric Niebler, <a href="https://ericniebler.com/2020/11/08/structured-concurrency/">“Structured
-Concurrency”</a> (2020).
+<li><p>Bryce Adelstein Lelbach. “C++ Standard Parallelism.” CppCon 2021.
+https://www.youtube.com/watch?v=LW_T2RGXego</p></li>
+<li><p>Ville Voutilainen. P0592R5. “To boldly suggest an overall plan
+for C++26.” WG21. https://wg21.link/p0592r5</p></li>
+<li><p>Christopher Kohlhoff, Jamie Allsop, Vinnie Falco, Richard Hodges,
+Klemens Morgenstern. P2469R0. “Response to P2464: The Networking TS is
+baked, P2300 Sender/Receiver is not.” WG21, 2021.
+https://wg21.link/p2469</p></li>
+<li><p>Ville Voutilainen. P2464R0. “Ruminations on networking and
+executors.” WG21, 2021. https://wg21.link/p2464</p></li>
+<li><p>Jonathan Müller. P3801R0. “Concerns about the design of
+std::execution::task.” WG21, 2025. https://wg21.link/p3801</p></li>
+<li><p>Dietmar Kühl. P3796R1. “Coroutine Task Issues.” WG21, 2025.
+https://wg21.link/p3796</p></li>
+<li><p>Christopher Kohlhoff, Jamie Allsop, Klemens Morgenstern. P2480R0.
+“Response to P2471: corrected and expanded.” WG21, 2021.
+https://wg21.link/p2480</p></li>
+<li><p>Vinnie Falco, Klemens Morgenstern. P2583R1. WG21, 2026.
+https://wg21.link/p2583</p></li>
+<li><p>Gor Nishanov. P1362R0. “Incremental Approach: Coroutine TS + Core
+Coroutines.” WG21, 2019. https://wg21.link/p1362</p></li>
+<li><p>Michael Garland, et al. P2403R0. “Presentation on P2300 -
+std::execution.” WG21. https://wg21.link/p2403</p></li>
+<li><p>Eric Niebler. P2999R3. “Sender Algorithm Customization.” WG21,
+2024. https://wg21.link/p2999</p></li>
+<li><p>Eric Niebler. P3303R1. “Fixing Lazy Sender Algorithm
+Customization.” WG21, 2024. https://wg21.link/p3303</p></li>
+<li><p>Eric Niebler. P3718R0. “Fixing Lazy Sender Algorithm
+Customization, Again.” WG21, 2025. https://wg21.link/p3718</p></li>
+<li><p>Eric Niebler. P3826R0. “Defer Sender Algorithm Customization to
+C++29.” WG21, 2025. https://wg21.link/p3826</p></li>
+<li><p>Eric Niebler. “Structured Concurrency.” 2020.
 https://ericniebler.com/2020/11/08/structured-concurrency/</p></li>
-<li><p>Eric Niebler, <a href="https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/">“What
-are Senders Good For, Anyway?”</a> (2024).
+<li><p>Eric Niebler. “What are Senders Good For, Anyway?” 2024.
 https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/</p></li>
-<li><p>Herb Sutter, <a href="https://herbsutter.com/2024/07/02/trip-report-summer-iso-c-standards-meeting-st-louis-mo-usa">“Trip
-report: Summer ISO C++ standards meeting (St Louis, MO, USA)”</a>
-(2024).
-https://herbsutter.com/2024/07/02/trip-report-summer-iso-c-standards-meeting-st-louis-mo-usa</p></li>
-<li><p>Herb Sutter, <a href="https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work">“Living
-in the future: Using C++26 at work”</a> (2025).
-https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work</p></li>
-<li><p><a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines.html">C++
-Core Guidelines</a> - F.7, R.30 (Bjarne Stroustrup, Herb Sutter, eds.).
-https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines.html</p></li>
-<li><p>Butler Lampson, <a href="https://bwlampson.site/33-Hints/Acrobat.pdf">“Hints for Computer
-System Design”</a> (1983).
-https://bwlampson.site/33-Hints/Acrobat.pdf</p></li>
-<li><p><a href="https://en.wikipedia.org/wiki/Continuation-passing_style">Continuation-passing
-style</a> - Wikipedia.
-https://en.wikipedia.org/wiki/Continuation-passing_style</p></li>
-</ol>
-<h3 id="libraries">Libraries</h3>
-<ol start="40" type="1">
-<li><a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a>
-- Asynchronous I/O library (Chris Kohlhoff).
-https://www.boost.org/doc/libs/release/doc/html/boost_asio.html</li>
-<li><a href="https://www.boost.org/doc/libs/develop/libs/cobalt/doc/html/index.html">Boost.Cobalt</a>
-- Coroutine task types for Boost (Klemens Morgenstern).
-https://www.boost.org/doc/libs/develop/libs/cobalt/doc/html/index.html</li>
-<li><a href="https://github.com/lewissbaker/cppcoro">cppcoro</a> - A
-library of C++ coroutine abstractions (Lewis Baker).
-https://github.com/lewissbaker/cppcoro</li>
-<li><a href="https://github.com/facebookexperimental/libunifex">libunifex</a> -
-Unified Executors library for C++ (Facebook/Meta, Eric Niebler).
-https://github.com/facebookexperimental/libunifex</li>
-<li><a href="https://github.com/facebook/folly/tree/main/folly/experimental/coro">folly::coro</a>
-- Facebook’s coroutine library.
-https://github.com/facebook/folly/tree/main/folly/experimental/coro</li>
-<li><a href="https://qcoro.dev/">QCoro</a> - Coroutine integration for
-Qt (Daniel Vrátil). https://qcoro.dev/</li>
-<li><a href="https://github.com/petiaccja/asyncpp">asyncpp</a> - Async
-coroutine library (Péter Kardos).
-https://github.com/petiaccja/asyncpp</li>
-<li><a href="https://github.com/jbaldwin/libcoro">libcoro</a> - C++20
-coroutine library (Josh Baldwin).
-https://github.com/jbaldwin/libcoro</li>
-<li><a href="https://github.com/pfirsich/aiopp">aiopp</a> - Async I/O
-library (Joel Schumacher). https://github.com/pfirsich/aiopp</li>
-<li><a href="https://github.com/bemanproject/task">beman::task</a> -
-P3552R3 reference implementation (Beman Project).
-https://github.com/bemanproject/task</li>
-</ol>
-<h3 id="other">Other</h3>
-<ol start="50" type="1">
-<li><a href="https://eel.is/c++draft/">C++ Working Draft</a> - (Richard
-Smith, ed.). https://eel.is/c++draft/</li>
-<li><a href="https://en.cppreference.com/">cppreference</a> - C++
-reference documentation. https://en.cppreference.com/</li>
-<li><a href="https://github.com/NVIDIA/stdexec">stdexec</a> - NVIDIA
-reference implementation of std::execution.
-https://github.com/NVIDIA/stdexec</li>
-<li><a href="https://github.com/cplusplus/nbballot">C++26 NB ballot
-comments</a> - National body comments repository.
-https://github.com/cplusplus/nbballot</li>
-<li><a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/">WG21
-paper mailings</a> - ISO C++ committee papers.
-https://open-std.org/jtc1/sc22/wg21/docs/papers/</li>
-<li><a href="https://cplusplus.github.io/LWG/lwg-toc.html">LWG issues
-list</a> - Library Working Group active issues.
-https://cplusplus.github.io/LWG/lwg-toc.html</li>
-<li><a href="https://wg21.link/p1678r2">P1678R2</a> - “Callbacks and
-Composition” (Kirk Shoop, 2020). https://wg21.link/p1678r2</li>
-<li><a href="https://github.com/cplusplus/sender-receiver/issues/247">cplusplus/sender-receiver
-#247</a> - “Add ability to know when computing completion-signatures
-whether the call to connect() will throw” (Lewis Baker, 2024).
-https://github.com/cplusplus/sender-receiver/issues/247</li>
-<li><a href="https://wg21.link/p3388r2">P3388R2</a> - “Provide nothrow
-connect guarantee for P2300” (Lewis Baker, 2025).
-https://wg21.link/p3388r2</li>
-<li><a href="https://wg21.link/p1713r0">P1713R0</a> - “Allowing both
-co_return; and co_return value; in the same coroutine” (Lewis Baker,
-2019). https://wg21.link/p1713r0</li>
-<li>Robert Leahy, <a href="https://github.com/NVIDIA/stdexec/blob/9d5836a634a21ecb06d17352905d04f99f635be6/include/asioexec/use_sender.hpp"><code>use_sender.hpp</code></a>
-- Asio-to-sender bridge in stdexec (2026).
-https://github.com/NVIDIA/stdexec/blob/9d5836a634a21ecb06d17352905d04f99f635be6/include/asioexec/use_sender.hpp</li>
-<li><a href="https://github.com/cppalliance/capy/blob/eb1de34a93b64b49e2c8826ca5088bdf72e1e1eb/doc/sender-channels-rationale.md">“Design
-Rationale: Sender Channels and I/O Return Types”</a> - Channel routing
-alternatives for LEWG (2026).
-https://github.com/cppalliance/capy/blob/eb1de34a93b64b49e2c8826ca5088bdf72e1e1eb/doc/sender-channels-rationale.md</li>
-<li><a href="https://wg21.link/p0913r1">P0913R1</a> - “Add symmetric
-coroutine control transfer” (Gor Nishanov, 2018).
-https://wg21.link/p0913r1</li>
-<li><a href="https://wg21.link/p2583r0">P2583R0</a> - “Symmetric
-Transfer and Sender Composition” (Mungo Gill, Vinnie Falco, 2026).
-https://wg21.link/p2583r0</li>
+<li><p>Bryce Adelstein Lelbach. P2453R0. “2021 October Library Evolution
+Poll Outcomes.” WG21, 2022. https://wg21.link/p2453</p></li>
+<li><p>Dmitry Prokoptsev. “C++ Coroutines and Structured Concurrency in
+Practice.” CppCon 2024.
+https://www.youtube.com/watch?v=aPqMQ7SXSiw</p></li>
+<li><p>Eric Niebler. P2470R0. “Slides for presentation of P2300R2.”
+WG21, 2021. https://wg21.link/p2470</p></li>
+<li><p>LWG unresolved prioritized list.
+https://cplusplus.github.io/LWG/unresolved-prioritized.html</p></li>
+<li><p>Michael Garland, Andrew McKenney, Roger Orr, Bjarne Stroustrup,
+Daveed Vandevoorde, Michael Wong. <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf">P4023R0</a>.
+“Strategic Direction for AI in C++: Governance, and Ecosystem”
+(Directions Group, 2026).
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4023r0.pdf</p></li>
 </ol>
 
 </body>
