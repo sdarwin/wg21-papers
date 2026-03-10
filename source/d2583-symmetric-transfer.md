@@ -1,7 +1,7 @@
 ---
 title: "Symmetric Transfer and Sender Composition"
-document: P2583R1
-date: 2026-03-06
+document: D2583R3
+date: 2026-03-10
 reply-to:
   - "Mungo Gill <mungo.gill@me.com>"
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -10,18 +10,28 @@ audience: LEWG
 
 ## Abstract
 
-C++20 provides symmetric transfer ([P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup>) - a mechanism where `await_suspend` returns a `coroutine_handle<>` and the compiler resumes the designated coroutine as a tail call. Coroutine chains execute in constant stack space. `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>) composes asynchronous operations through sender algorithms. These algorithms create receivers that are structs, not coroutines. No `coroutine_handle<>` exists at any intermediate point in a sender pipeline. When a coroutine co_awaits a sender that completes synchronously, the stack grows by one frame per completion. [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>'s `std::execution::task` inherits this property. A protocol-level fix exists: completion functions and `start()` return `coroutine_handle<>` instead of `void`, enabling struct receivers to propagate handles from downstream without becoming coroutines. The fix preserves zero-allocation composition but requires changing the return type of every completion function, every `start()`, and every sender algorithm in [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>. This paper documents the gap, describes the fix, and enumerates the changes required.
+C++20 provides symmetric transfer ([P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup>) - a mechanism where `await_suspend` returns a `coroutine_handle<>` and the compiler resumes the designated coroutine as a tail call. Coroutine chains execute in constant stack space. `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>) composes asynchronous operations through sender algorithms. These algorithms create receivers that are structs, not coroutines. No `coroutine_handle<>` exists at any intermediate point in a sender pipeline. When a coroutine co_awaits a sender that completes synchronously, the stack grows by one frame per completion. [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>'s `std::execution::task` inherits this property. A protocol-level fix exists: completion functions and `start()` return `coroutine_handle<>` instead of `void`, enabling struct receivers to propagate handles from downstream without becoming coroutines. The fix preserves zero-allocation composition but requires changing the return type of every completion function, every `start()`, and every sender algorithm in [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>. This paper documents the gap, describes the fix, enumerates the changes required, and provides draft proposed wording for the protocol-level changes.
 
 ---
 
 ## Revision History
 
+### R3: March 2026 (Croydon)
+
+* Added Section 15: Draft Proposed Wording for the protocol-level fix, motivated by NB comment US 246-373 (#948, LWG4348).
+* Updated Disclosure (Section 1) to note AI assistance in wording generation and two open questions requiring LWG expertise.
+
+### R2: March 2026 (Croydon)
+
+* Added Section 10: The Public Record - symmetric transfer is undocumented in P2300R0 through P2300R10 and first described as a limitation by the P3552 author.
+* Strengthened trampoline vs. symmetric transfer analysis (Section 7.1).
+
 ### R1: March 2026 (Croydon)
 
 * Corrected Section 5's characterization: struct receivers cannot produce a `coroutine_handle<>`, but they can propagate one from downstream. The gap is a protocol choice, not a structural impossibility.
-* Added handle propagation fix (Section 10).
-* Added scope of changes analysis (Section 11).
-* Added ABI considerations (Section 12).
+* Added handle propagation fix (Section 11).
+* Added scope of changes analysis (Section 12).
+* Added ABI considerations (Section 13).
 * Corrected date of R0 revision (March -> February).
 
 ### R0: February 2026 (pre-Croydon mailing)
@@ -35,6 +45,10 @@ C++20 provides symmetric transfer ([P0913R1](https://wg21.link/p0913r1)<sup>[1]<
 The authors developed [P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup> ("Coroutines for I/O") and [P4007R0](https://wg21.link/p4007r0)<sup>[4]</sup> ("Senders and Coroutines"). A coroutine-only design cannot express compile-time work graphs, does not support heterogeneous dispatch, and assumes a cooperative runtime. Those are real costs. We do not claim coroutines are the answer to all problems. The limitation documented here exists independently of any alternative design.
 
 [P4007R0](https://wg21.link/p4007r0)<sup>[4]</sup> documents three costs at the boundary where the sender model meets coroutines: error reporting, error returns, and frame allocator propagation. Each is an interface mismatch. This paper documents a cost inside the composition mechanism. Sender algorithms are structs. The completion protocol is void-returning. These are not boundary properties. They are what sender algorithms are.
+
+This revision adds draft proposed wording (Section 15) for the protocol-level fix described in Section 11, motivated by NB comment US 246-373 ([#948](https://github.com/cplusplus/nbballot/issues/948), LWG4348)<sup>[17]</sup>. The wording was generated with AI assistance and has not been verified against the full specification by the authors. It is offered as a starting point for the [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> and [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> authors, not as a finished product. This wording changes sections introduced by both papers. We do not claim this wording is correct. We claim the direction is worth exploring.
+
+The concept-level and CPO-level changes follow directly from the mechanism in Section 11 and are the most straightforward. The coroutine bridge changes (`sender-awaitable`, `awaitable-receiver`) are drafted from the working draft text. Algorithm-specific and task-specific changes are described in prose rather than specification text, because each algorithm has its own internal state machine that the authors have not traced through the working draft. The wording has not been tested against an implementation. Two open questions requiring LWG expertise are identified in Section 15.1.
 
 ---
 
@@ -168,7 +182,7 @@ Sender algorithms (`then`, `let_value`, `when_all`) compose operations by wrappi
 
 A sender pipeline with three algorithms produces a chain: coroutine -> struct -> struct -> struct -> coroutine. The structs are sender algorithm receivers. Under the current protocol, no `coroutine_handle<>` exists at any intermediate point. These struct receivers have void-returning completion functions. No return channel exists. A `coroutine_handle<>` at the end of the chain cannot propagate back through the intermediate structs to `await_suspend`.
 
-Making each sender algorithm a coroutine would produce a handle at every intermediate point. It would also produce a heap-allocated frame at every intermediate point. A struct receiver cannot *produce* a `coroutine_handle<>` - it is not a coroutine and has no frame. However, it could *propagate* one received from further down the chain, if the protocol provided a return channel. Under the current protocol, no such channel exists. Section 10 describes a protocol-level fix that provides one.
+Making each sender algorithm a coroutine would produce a handle at every intermediate point. It would also produce a heap-allocated frame at every intermediate point. A struct receiver cannot *produce* a `coroutine_handle<>` - it is not a coroutine and has no frame. However, it could *propagate* one received from further down the chain, if the protocol provided a return channel. Under the current protocol, no such channel exists. Section 11 describes a protocol-level fix that provides one.
 
 ### 5.2 The Protocol
 
@@ -262,7 +276,11 @@ Two mitigations exist. Both have costs:
 | Real scheduler | Every `co_await` round-trips through the scheduler queue            | Latency per iteration, even when the work completes immediately         |
 | Trampoline     | Detect stack depth at runtime, reschedule when threshold is reached | Runtime check on every completion, plus occasional rescheduling latency |
 
-Neither mitigation is zero-cost. Symmetric transfer is zero-cost. The difference is the price of composing coroutines through sender algorithms rather than through the awaitable protocol.
+Neither mitigation is zero-cost. Symmetric transfer is zero-cost.
+
+The distinction is structural. Symmetric transfer is a compile-time guarantee: the compiler arranges a tail call from `await_suspend` to the designated coroutine. The trampoline is a runtime heuristic: it monitors stack depth and reschedules when a threshold is exceeded. The trampoline requires choosing that threshold. Too low and the scheduler reschedules unnecessarily, adding latency to every deep completion chain. Too high and the stack overflows on platforms with small stacks - embedded systems, WebAssembly, threads with reduced stack size. No single threshold is correct across deployment targets.
+
+[P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup> was adopted into C++20 specifically to eliminate this class of runtime mitigation. Nishanov wrote: *"Involving a queue and a scheduler makes coroutine to coroutine control transfer inefficient."* The trampoline scheduler reintroduces the queue-and-scheduler overhead that symmetric transfer was designed to remove.
 
 Symmetric transfer does not prevent all stack overflow. Infinite recursion exhausts any finite stack regardless. What symmetric transfer prevents is the specific case where a finite coroutine chain overflows due to accumulated frames from non-tail calls. Sender composition creates exactly this case.
 
@@ -342,7 +360,7 @@ The prior papers document the symptom. K&uuml;hl's [P3796R1](https://wg21.link/p
 
 This paper makes a stronger claim. The analysis in Section 5 identifies two structural causes. Sender algorithms create receivers that are structs, not coroutines - no `coroutine_handle<>` exists at the composition layer. Even coroutine-backed receivers complete through void-returning `set_value` - the protocol does not return the handle. The gap is not a missing feature. It is a consequence of the design choices that define the sender model.
 
-The distinction matters. If symmetric transfer is merely missing, it can be added independently. If it is a consequence of protocol choices, it can only be closed by changing one of those choices - as Section 10 demonstrates by changing the return type while preserving struct receivers - or by a language feature that does not exist. The committee should know which characterization is correct.
+The distinction matters. If symmetric transfer is merely missing, it can be added independently. If it is a consequence of protocol choices, it can only be closed by changing one of those choices - as Section 11 demonstrates by changing the return type while preserving struct receivers - or by a language feature that does not exist. The characterization matters for what comes next.
 
 Symmetric transfer requires `await_suspend` to return a `coroutine_handle<>`. Sender algorithms create receivers that are structs. These structs are not coroutines and have no handle. Even when the final receiver is coroutine-backed, `set_value` is void-returning and does not propagate the handle to the caller.
 
@@ -354,7 +372,7 @@ Symmetric transfer requires `await_suspend` to return a `coroutine_handle<>`. Se
 
 **Symmetric transfer requires a handle. The sender model provides a function call. Under the current protocol, no bridge exists between the two.**
 
-Section 10 describes a protocol-level fix. Completion functions and `start()` return `coroutine_handle<>` instead of `void`. Struct receivers propagate handles from downstream without becoming coroutines. Zero-allocation composition is preserved. The fix closes the gap - but the scope of changes enumerated in Section 11 is pervasive, and Section 12 shows that the change becomes ABI-breaking once `std::execution` ships. If the fix is not adopted, the characterization above applies: the gap is permanent.
+Section 11 describes a protocol-level fix. Completion functions and `start()` return `coroutine_handle<>` instead of `void`. Struct receivers propagate handles from downstream without becoming coroutines. Zero-allocation composition is preserved. The fix closes the gap - but the scope of changes enumerated in Section 12 is pervasive, and Section 13 shows that the change becomes ABI-breaking once `std::execution` ships. If the fix is not adopted, the characterization above applies: the gap is permanent.
 
 Three directions could be explored if the fix is not adopted: domain customization that short-circuits the receiver abstraction for known coroutine types, a language feature for guaranteed tail calls, or coroutine task types that use the awaitable protocol directly for coroutine-to-coroutine composition and reserve the sender model for the boundaries where it is needed.
 
@@ -364,11 +382,25 @@ This is a tradeoff, not a defect. [P2300R10](https://wg21.link/p2300r10)<sup>[5]
 
 ---
 
-## 10. Handle Propagation
+## 10. The Public Record
+
+Three facts from the public record bear on how this gap came to exist.
+
+1. [P2300R0](https://wg21.link/p2300r0) (2021) through [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> (2024): the phrase "symmetric transfer" does not appear. The void return type of completion functions is specified but never discussed as a tradeoff against `coroutine_handle<>` propagation. No design rationale section explains why `set_value`, `set_error`, `set_stopped`, and `start()` return `void` instead of `coroutine_handle<>`. No revision history entry across ten revisions mentions symmetric transfer as a considered and rejected alternative.
+
+2. [P3552R0](https://wg21.link/p3552r0) through [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> (K&uuml;hl, 2025): the task paper is the first to document the limitation. K&uuml;hl writes: *"With senders it is also not possible to use symmetric transfer to combat the problem: to achieve the full generality and composing senders, there are still multiple function calls used, e.g., when producing the completion signal."* The characterization is "not possible" - a limitation discovered downstream, not a tradeoff documented upstream.
+
+3. [P3796R0](https://wg21.link/p3796r0) through [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> (K&uuml;hl, 2025): K&uuml;hl proposes the trampoline scheduler as a mitigation and notes that symmetric transfer *"can be possible to avoid both the expensive scheduling operation and the stack overflow, at least in some cases."* Again framed as a limitation with a workaround, not a design choice with a rationale.
+
+The first documentation of the symmetric transfer gap came from within the `std::execution` ecosystem - from the author of the coroutine task type, not from the authors of the sender protocol. The gap is undocumented in the public record of [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup>. The evidence is consistent with a gap that was not identified during the design of the sender protocol, not a tradeoff that was weighed and accepted.
+
+---
+
+## 11. Handle Propagation
 
 The fix changes the return type of completion functions and `start()` from `void` to `coroutine_handle<>`. A null handle means no transfer is needed. The `coroutine_handle<>` type already provides null semantics: a default-constructed handle is null, and `operator bool` tests for non-null.
 
-### 10.1 The Mechanism
+### 11.1 The Mechanism
 
 Three changes to the protocol:
 
@@ -409,7 +441,7 @@ coroutine_handle<> await_suspend(coroutine_handle<Promise>) noexcept {
 
 If `start()` completes synchronously and the downstream receiver returns a handle, the handle propagates through `start()` to `await_suspend`, which returns it for symmetric transfer. If the operation is pending, `start()` returns a null handle, and `await_suspend` returns `noop_coroutine()` to suspend the coroutine.
 
-### 10.2 `then`: Propagation
+### 11.2 `then`: Propagation
 
 A `then` receiver calls its callable, then forwards the result to the next receiver. The handle originates downstream and propagates upward:
 
@@ -431,7 +463,7 @@ Exception handling is elided for clarity. If `invoke(f_, args...)` throws, the i
 
 The `then` receiver does not produce a handle. It returns whatever the next receiver returned. The handle originates from the coroutine-backed receiver at the end of the chain and propagates through every intermediate struct receiver to `start()`, to `await_suspend`, and into the compiler's symmetric transfer machinery.
 
-### 10.3 `when_all`: Partial Completion
+### 11.3 `when_all`: Partial Completion
 
 A `when_all` receiver stores its values and decrements a counter. Only the last completing sub-sender propagates the handle:
 
@@ -462,7 +494,7 @@ coroutine_handle<> set_stopped() noexcept {
 
 Sibling completions that fire synchronously inside `request_stop()` decrement the counter but cannot be the last decrement, because the caller's own decrement has not yet occurred. The last decrement always occurs in a normal completion context where the returned handle can propagate.
 
-### 10.4 `let_value`: Dynamic Chains
+### 11.4 `let_value`: Dynamic Chains
 
 A `let_value` receiver calls its factory function, connects the resulting sender, and starts the new operation:
 
@@ -479,7 +511,7 @@ Exception handling is elided. If `invoke(f_, args...)` or `connect` throws, the 
 
 The inner sender's `start()` may complete synchronously and return a handle. The `let_value` receiver propagates it. The pattern is the same: return what is received from downstream.
 
-### 10.5 Synchronous and Asynchronous Paths
+### 11.5 Synchronous and Asynchronous Paths
 
 Two paths through the protocol:
 
@@ -489,13 +521,13 @@ Two paths through the protocol:
 
 The synchronous path uses symmetric transfer. The asynchronous path uses `.resume()`. Both are correct. The stack growth documented in Sections 5 through 8 occurs only on the synchronous path, and handle propagation eliminates it.
 
-Every coroutine bridge point where `await_suspend` receives a handle from `start()` or a completion function must convert a null handle to `noop_coroutine()`. The `sender-awaitable` bridge in Section 10.1 demonstrates the pattern. The `connect-awaitable` / `suspend-complete` bridge requires the same conversion. This is a general invariant of the proposed protocol: null means "no transfer needed," and `noop_coroutine()` is the mechanism by which the compiler suspends the coroutine without transferring to another.
+Every coroutine bridge point where `await_suspend` receives a handle from `start()` or a completion function must convert a null handle to `noop_coroutine()`. The `sender-awaitable` bridge in Section 11.1 demonstrates the pattern. The `connect-awaitable` / `suspend-complete` bridge requires the same conversion. This is a general invariant of the proposed protocol: null means "no transfer needed," and `noop_coroutine()` is the mechanism by which the compiler suspends the coroutine without transferring to another.
 
-### 10.6 Zero Allocation Preserved
+### 11.6 Zero Allocation Preserved
 
 Sender algorithm receivers remain structs. No coroutine frames are allocated at intermediate points. The return value is a `coroutine_handle<>` - a pointer-sized value passed on the stack. The compile-time type-level composition is unchanged. The zero-allocation property is preserved.
 
-### 10.7 Conditional Return Types
+### 11.7 Conditional Return Types
 
 The proposed protocol changes every completion function to return `coroutine_handle<>` unconditionally. An alternative approach is possible: make the return type a compile-time property of the receiver. Receivers that participate in coroutine composition would return `coroutine_handle<>`; receivers that do not (terminal receivers, GPU-targeted receivers) would return `void`. Sender algorithms, which are already templates parameterized on the receiver type, could branch on a trait to select the return type at compile time.
 
@@ -505,24 +537,24 @@ The conditional approach doubles the implementation surface: every sender algori
 
 ---
 
-## 11. Scope of Changes to `std::execution`
+## 12. Scope of Changes to `std::execution`
 
 The fix requires changing the return type of every completion function and every `start()` in the sender model. The following enumeration covers [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> and [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> ("Add a Coroutine Task Type").
 
-### 11.1 Concepts
+### 12.1 Concepts
 
-The `receiver` and `operation_state` concepts constrain the return types of completion functions and `start()`. Both currently require `void`:
+The `receiver` and `operation_state` concepts do not constrain the return types of completion functions or `start()`. The return type is unconstrained - all existing receivers in the standard library return `void` by convention, not by requirement. The proposed change adds a return type requirement:
 
-| Concept           | Expression                 | Current | Proposed             |
-|-------------------|----------------------------|---------|----------------------|
-| `receiver`        | `set_value(rcvr, args...)` | `void`  | `coroutine_handle<>` |
-| `receiver`        | `set_error(rcvr, err)`     | `void`  | `coroutine_handle<>` |
-| `receiver`        | `set_stopped(rcvr)`        | `void`  | `coroutine_handle<>` |
-| `operation_state` | `start(op)`                | `void`  | `coroutine_handle<>` |
+| Concept           | Expression                 | Current       | Proposed             |
+|-------------------|----------------------------|---------------|----------------------|
+| `receiver`        | `set_value(rcvr, args...)` | unconstrained | `coroutine_handle<>` |
+| `receiver`        | `set_error(rcvr, err)`     | unconstrained | `coroutine_handle<>` |
+| `receiver`        | `set_stopped(rcvr)`        | unconstrained | `coroutine_handle<>` |
+| `operation_state` | `start(op)`                | unconstrained | `coroutine_handle<>` |
 
 Every type that models `receiver` or `operation_state` - in the standard library and in user code - must change.
 
-### 11.2 Sender Factory Algorithms
+### 12.2 Sender Factory Algorithms
 
 Sender factories complete inside `start()`. The return type of `start()` changes from `void` to `coroutine_handle<>`. The factory propagates whatever the receiver's completion function returns.
 
@@ -542,19 +574,19 @@ coroutine_handle<> start() noexcept {
 
 Affected factories: `just`, `just_error`, `just_stopped`, `read_env`.
 
-### 11.3 Sender Adaptor Algorithms
+### 12.3 Sender Adaptor Algorithms
 
 Sender adaptors create internal receivers that forward completions to the next receiver. Every internal receiver's `set_value`, `set_error`, and `set_stopped` must change return type. Every operation state's `start()` must change return type.
 
 Affected adaptors: `then`, `upon_error`, `upon_stopped`, `let_value`, `let_error`, `let_stopped`, `bulk`, `split`, `ensure_started`, `into_variant`, `stopped_as_optional`, `stopped_as_error`.
 
-### 11.4 Scheduler Algorithms
+### 12.4 Scheduler Algorithms
 
 Scheduler algorithms create internal receivers that manage transitions between execution contexts. Every internal receiver's completion functions and every operation state's `start()` must change return type.
 
 Affected algorithms: `starts_on`, `continues_on`, `on`, `schedule_from`, `affine_on` ([P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>).
 
-### 11.5 Multi-Sender Algorithms
+### 12.5 Multi-Sender Algorithms
 
 Multi-sender algorithms create per-sub-sender receivers with counter-based fan-in logic. Every per-sub-sender receiver's completion functions and every operation state's `start()` must change return type.
 
@@ -563,7 +595,7 @@ Affected algorithms:
 - `when_all`
 - `when_all_with_variant`
 
-### 11.6 Consumer Algorithms
+### 12.6 Consumer Algorithms
 
 Consumer algorithms provide terminal receivers. These receivers store results and signal completion (e.g. through a condition variable or `run_loop`). Their completion functions return a null handle - there is no coroutine to transfer to at the terminal point.
 
@@ -572,16 +604,16 @@ Affected consumers:
 - `sync_wait`
 - `sync_wait_with_variant`
 
-### 11.7 Coroutine Integration
+### 12.7 Coroutine Integration
 
 The coroutine bridges in [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> and [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> are the primary beneficiaries of the fix. The following must change:
 
-- `sender-awaitable`: `await_suspend` changes from `void` return to `coroutine_handle<>` return (Section 10.1).
+- `sender-awaitable`: `await_suspend` changes from `void` return to `coroutine_handle<>` return (Section 11.1).
 - `connect-awaitable` / `suspend-complete`: `await_suspend` changes from `void` return to `coroutine_handle<>` return.
 - `task` promise type: internal awaiters and completion machinery must propagate handles.
-- `awaitable-receiver`: `set_value`, `set_error`, and `set_stopped` return the continuation handle instead of calling `.resume()` (Section 10.1).
+- `awaitable-receiver`: `set_value`, `set_error`, and `set_stopped` return the continuation handle instead of calling `.resume()` (Section 11.1).
 
-### 11.8 New Correctness Requirement
+### 12.8 New Correctness Requirement
 
 The current protocol has one completion path: the receiver calls `.resume()` or signals a synchronization primitive. The proposed protocol has two:
 
@@ -595,9 +627,9 @@ The synchronous path is self-correcting: handles propagate through return values
 
 The return types of `set_value`, `set_error`, `set_stopped`, and `start()` should be marked `[[nodiscard]]`. A discarded `coroutine_handle<>` return is always a bug under this protocol. The `[[nodiscard]]` attribute catches the most common form of misuse - calling a completion function as a statement without using the return value - at compile time.
 
-### 11.9 Third-Party Impact
+### 12.9 Third-Party Impact
 
-The concept changes in Section 11.1 affect every type that models `receiver` or `operation_state`, including types outside the standard library. The following must be updated:
+The concept changes in Section 12.1 affect every type that models `receiver` or `operation_state`, including types outside the standard library. The following must be updated:
 
 - [stdexec](https://github.com/NVIDIA/stdexec)<sup>[15]</sup> (NVIDIA's reference implementation)
 - Every stdexec-based project
@@ -610,7 +642,7 @@ Code that models the current `receiver` or `operation_state` concepts with `void
 
 ---
 
-## 12. ABI Considerations
+## 13. ABI Considerations
 
 Changing the return type of a function changes its calling convention and, for template specializations, its mangled symbol name. Code compiled against `void`-returning `set_value`, `set_error`, `set_stopped`, and `start()` cannot link with code compiled against `coroutine_handle<>`-returning versions. Template instantiations of sender algorithms in different translation units must agree on the return types of receiver completion functions.
 
@@ -618,26 +650,180 @@ Changing the return type of a function changes its calling convention and, for t
 
 ---
 
-## 13. Conclusion
+## 14. Conclusion
 
 [P0913R1](https://wg21.link/p0913r1)<sup>[1]</sup> was adopted into C++20 to solve a specific problem: stack overflow in coroutine chains. The solution is `coroutine_handle<>`-returning `await_suspend`. Every major coroutine library adopted it.
 
 Under the current protocol, the sender model's architectural choice - composing operations through non-coroutine sender algorithms with void-returning completions - prevents this mechanism from operating. [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>'s `std::execution::task` inherits this limitation. The proposed task-to-task fix does not reach the general case. No launch mechanism avoids the sender composition layer. The trampoline scheduler mitigation reintroduces the runtime cost that symmetric transfer was designed to eliminate.
 
-A protocol-level fix exists. Section 10 describes a mechanism where completion functions and `start()` return `coroutine_handle<>` instead of `void`. Struct receivers propagate handles from downstream without becoming coroutines. Zero-allocation composition is preserved. The fix requires changing the return type of four concept-level expressions, the internal receivers and operation states of twenty-five sender algorithms, the coroutine integration bridges, and every third-party type that models `receiver` or `operation_state`. Once `std::execution` ships with void-returning completions, the change becomes ABI-breaking.
+A protocol-level fix exists. Section 11 describes a mechanism where completion functions and `start()` return `coroutine_handle<>` instead of `void`. Struct receivers propagate handles from downstream without becoming coroutines. Zero-allocation composition is preserved. The fix requires changing the return type of four concept-level expressions, the internal receivers and operation states of twenty-five sender algorithms, the coroutine integration bridges, and every third-party type that models `receiver` or `operation_state`. Once `std::execution` ships with void-returning completions, the change becomes ABI-breaking.
 
 Three directions could be explored if the fix is not adopted: domain customization that short-circuits the receiver abstraction for known coroutine types, a language feature for guaranteed tail calls, or coroutine task types that use the awaitable protocol directly for coroutine-to-coroutine composition and reserve the sender model for the boundaries where it is needed.
 
-Users and WG21 should be aware of this cost when evaluating coroutine integration with `std::execution`.
+This cost exists when evaluating coroutine integration with `std::execution`. Section 15 provides draft proposed wording to make the scope of the protocol-level fix concrete.
+
+---
+
+## 15. Draft Proposed Wording
+
+### 15.1 Preamble
+
+NB comment US 246-373 ([#948](https://github.com/cplusplus/nbballot/issues/948), LWG4348)<sup>[17]</sup> asks the committee to specify symmetric transfer when a `task` co_awaits another `task`. SG1 and LEWG reviewed the comment in Kona (November 2025) and requested a paper. This section provides draft wording for the broad fix described in Section 11 - the protocol-level change where completion functions and `start()` return `coroutine_handle<>` instead of `void`. The narrow fix (task-to-task only) does not reach the general case (Section 7).
+
+This wording is a draft. It was generated with AI assistance and has not been verified against the full specification by the authors. It has not been reviewed by LWG. It is offered as a starting point for the [P2300R10](https://wg21.link/p2300r10)<sup>[5]</sup> and [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> authors.
+
+The draft wording covers the protocol-level changes: the completion function CPOs, the `operation_state` concept's `start()`, and the coroutine bridges (`sender-awaitable`, `awaitable-receiver`). Algorithm-specific changes (Section 12.2 through 12.6) and task-specific changes follow the same pattern - return what downstream returned - but are left to the respective authors for specification text. The following P3552R3 sections require changes: [task.state] p4, [task.promise] p6, p7-8, p9, p12-13, and [exec.affine.on].
+
+Two open questions require LWG expertise:
+
+1. **Return type constraint pattern.** The CPOs are defined as "expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`." `MANDATE-NOTHROW` constrains `noexcept` but not the return type. The authors are uncertain whether the return type requirement belongs in a `Mandates` clause on each CPO, in the semantic requirements of `receiver`, or in a new concept requirement. The draft below adds a return type requirement to each CPO specification. LWG input on the correct pattern is invited.
+
+2. **`unhandled_stopped` interaction.** The current `awaitable-receiver::set_stopped` calls `unhandled_stopped()`, casts the result to `coroutine_handle<>`, and calls `.resume()`. The proposed change returns that handle instead. The authors have not traced the `unhandled_stopped` contract to verify that returning the handle for symmetric transfer by the caller preserves the intended semantics. Review from someone familiar with the `unhandled_stopped` contract is invited.
+
+### 15.2 [exec.async.ops] Completion Functions
+
+In [exec.async.ops] paragraph 6, after "A valid invocation of a completion function is called a *completion operation*," add:
+
+> A completion function returns `std::coroutine_handle<>`. A null handle indicates that no symmetric transfer is needed. A non-null handle designates a coroutine to be resumed.
+>
+> *[Note: A null handle is used rather than `noop_coroutine()` to avoid an unconditional `.resume()` call on the asynchronous completion path. The `sender-awaitable` bridge converts a null handle to `noop_coroutine()` at the `await_suspend` boundary, where the language requires it. -- end note]*
+
+### 15.3 [exec.set.value], [exec.set.error], [exec.set.stopped]
+
+Modify [exec.set.value] paragraph 1. Current text:
+
+> The expression `set_value(rcvr, vs...)` for a subexpression `rcvr` and pack of subexpressions `vs` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`.
+
+Proposed text:
+
+> The expression `set_value(rcvr, vs...)` for a subexpression `rcvr` and pack of subexpressions `vs` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`.
+>
+> *Mandates:* The expression has type `std::coroutine_handle<>`.
+>
+> The return value should not be discarded.
+
+Apply the same change to [exec.set.error] paragraph 1 (for `set_error(rcvr, err)`) and [exec.set.stopped] paragraph 1 (for `set_stopped(rcvr)`).
+
+The `Mandates` clause was chosen because it is the pattern the authors are most familiar with for expressing return type requirements on CPOs. LWG may prefer a different specification pattern - for example, adding the requirement to the semantic requirements of `receiver`, introducing a new exposition-only concept, or modifying `MANDATE-NOTHROW` to accept a return type parameter. The intent is the same regardless of pattern: the expression must have type `std::coroutine_handle<>`. We defer to LWG on the correct way to express this in the standard.
+
+### 15.4 [exec.opstate.start]
+
+Modify [exec.opstate.start] paragraph 1. Current text:
+
+> For a subexpression `op`, the expression `start(op)` is ill-formed if `op` is an rvalue. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(op.start())`.
+
+Proposed text:
+
+> For a subexpression `op`, the expression `start(op)` is ill-formed if `op` is an rvalue. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(op.start())`.
+>
+> *Mandates:* The expression has type `std::coroutine_handle<>`.
+>
+> The return value should not be discarded.
+
+### 15.5 Coroutine Bridges
+
+#### sender-awaitable ([exec.as.awaitable] p2)
+
+Modify the class definition. Current:
+
+```cpp
+static constexpr bool await_ready() noexcept {
+    return false;
+}
+void await_suspend(coroutine_handle<Promise>) noexcept {
+    start(state);
+}
+```
+
+Proposed:
+
+```cpp
+static constexpr bool await_ready() noexcept {
+    return false;
+}
+coroutine_handle<> await_suspend(
+    coroutine_handle<Promise>) noexcept
+{
+    auto h = start(state);
+    return h ? h : noop_coroutine();
+}
+```
+
+#### awaitable-receiver ([exec.as.awaitable] p4)
+
+Modify paragraph 4.1. Current `set_value` effects:
+
+```cpp
+try {
+    rcvr.result-ptr->template emplace<1>(vs...);
+} catch(...) {
+    rcvr.result-ptr->template emplace<2>(
+        current_exception());
+}
+rcvr.continuation.resume();
+```
+
+Proposed `set_value` effects:
+
+```cpp
+try {
+    rcvr.result-ptr->template emplace<1>(vs...);
+} catch(...) {
+    rcvr.result-ptr->template emplace<2>(
+        current_exception());
+}
+return rcvr.continuation;
+```
+
+Modify paragraph 4.2. Current `set_error` effects end with `rcvr.continuation.resume();`. Replace with `return rcvr.continuation;`.
+
+Modify paragraph 4.3. Current `set_stopped` effects:
+
+```cpp
+static_cast<coroutine_handle<>>(
+    rcvr.continuation.promise()
+        .unhandled_stopped()).resume();
+```
+
+Proposed `set_stopped` effects:
+
+```cpp
+return static_cast<coroutine_handle<>>(
+    rcvr.continuation.promise()
+        .unhandled_stopped());
+```
+
+*[Note: Open Question 2 applies here. The authors have not verified that returning the handle from `unhandled_stopped()` instead of calling `.resume()` preserves the intended semantics. The `unhandled_stopped` contract may assume immediate resumption. -- end note]*
+
+### 15.6 Semantic Requirements
+
+Add to [exec.async.ops] after the new paragraph from Section 15.2:
+
+> When a completion function is invoked outside the dynamic extent of a call to `start()` on the associated operation state (i.e., the operation completed asynchronously), the caller of the completion function shall call `.resume()` on the returned `coroutine_handle<>` if it is non-null. Failure to do so leaves the associated coroutine permanently suspended.
+
+> *Recommended practice:* Implementations should mark the return types of `set_value`, `set_error`, `set_stopped`, and `start` as `[[nodiscard]]`.
+
+### 15.7 Sections Requiring Algorithm-Specific Wording
+
+The following sections require changes that follow the pattern described in Section 11: completion functions return whatever the downstream receiver returned; `start()` returns whatever the completion function returned. The changes are mechanical but each algorithm has its own internal state machine. Specification text for these sections is left to the respective authors.
+
+**P2300R10 sender factories** ([exec.just]): `just`, `just_error`, `just_stopped`, `read_env`.
+
+**P2300R10 sender adaptors**: `then`, `upon_error`, `upon_stopped`, `let_value`, `let_error`, `let_stopped`, `bulk`, `split`, `into_variant`, `stopped_as_optional`, `stopped_as_error`.
+
+**P2300R10 scheduler algorithms**: `starts_on`, `continues_on`, `on`, `schedule_from`.
+
+**P2300R10 multi-sender algorithms**: `when_all`, `when_all_with_variant`.
+
+**P2300R10 consumers**: `sync_wait`, `sync_wait_with_variant`.
+
+**P3552R3 task sections**: [task.state] p4 (`start()`), [task.promise] p6 (`final_suspend` completion propagation), [task.promise] p7-8 (`yield_value` completion propagation), [task.promise] p9 (`await_transform` / `affine_on`), [task.promise] p12-13 (`unhandled_stopped`).
+
+**P3552R3 scheduler affinity**: [exec.affine.on] (also under NB comments #939/#940).
 
 ---
 
 # Acknowledgements
-
-This document is written in Markdown and depends on the extensions in
-[`pandoc`](https://pandoc.org/MANUAL.html#pandocs-markdown) and
-[`mermaid`](https://github.com/mermaid-js/mermaid), and we would like to
-thank the authors of those extensions and associated libraries.
 
 The authors would like to thank Gor Nishanov for the design of symmetric
 transfer, Lewis Baker for demonstrating it in cppcoro, and Dietmar K&uuml;hl
@@ -672,3 +858,4 @@ and Jonathan M&uuml;ller for documenting the limitation in
 ### Other
 
 16. [C++ Working Draft](https://eel.is/c++draft/) - (Richard Smith, ed.). https://eel.is/c++draft/
+17. [US 246-373 (#948)](https://github.com/cplusplus/nbballot/issues/948) - "Support symmetric transfer" (LWG4348, CD C++26). https://github.com/cplusplus/nbballot/issues/948
