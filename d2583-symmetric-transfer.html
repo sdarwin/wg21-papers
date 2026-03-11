@@ -574,20 +574,43 @@ background-color: var(--text-secondary);
 
 .wording {
 background-color: var(--bg-secondary);
+border-left: 3px solid var(--text-muted);
 border-radius: 4px;
 padding: var(--spacing-lg);
 margin: var(--spacing-lg) 0;
 }
 .wording-add {
 background-color: #eef6ee;
-border-color: #66aa66;
+border-left: 3px solid #66aa66;
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #006e28;
 }
 .wording-remove {
 background-color: #fdf2f2;
-border-color: var(--cpp-alliance-red);
-}
-.wording-remove > p:not(:first-child) {
+border-left: 3px solid var(--cpp-alliance-red);
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #bf0303;
 text-decoration: line-through;
+}
+
+.wording code,
+.wording-add code,
+.wording-remove code {
+color: inherit;
+}
+
+.wording pre,
+.wording-add pre,
+.wording-remove pre {
+border-left: none;
+padding: 0;
+margin: 0;
+background: none;
+box-shadow: none;
 }
 
 .pnum {
@@ -2102,8 +2125,14 @@ defined as “expression-equivalent to
 the return type. The authors are uncertain whether the return type
 requirement belongs in a <code>Mandates</code> clause on each CPO, in
 the semantic requirements of <code>receiver</code>, or in a new concept
-requirement. The draft below adds a return type requirement to each CPO
-specification. LWG input on the correct pattern is invited.</p></li>
+requirement. The draft below uses a <code>Mandates</code> clause on each
+CPO because it is the pattern the authors are most familiar with. LWG
+may prefer a different specification pattern - for example, adding the
+requirement to the semantic requirements of <code>receiver</code>,
+introducing a new exposition-only concept, or modifying
+<code>MANDATE-NOTHROW</code> to accept a return type parameter. The
+intent is the same regardless of pattern: the expression must have type
+<code>std::coroutine_handle&lt;&gt;</code>.</p></li>
 <li><p><strong><code>unhandled_stopped</code> interaction.</strong> The
 current <code>awaitable-receiver::set_stopped</code> calls
 <code>unhandled_stopped()</code>, casts the result to
@@ -2114,11 +2143,16 @@ returning the handle for symmetric transfer by the caller preserves the
 intended semantics. Review from someone familiar with the
 <code>unhandled_stopped</code> contract is invited.</p></li>
 </ol>
+<p>Mandating <code>[[nodiscard]]</code> on the return values of
+completion functions and <code>start()</code> may be worth considering
+but has not been included in the draft wording below. SD-9 states that
+library wording should not use <code>[[nodiscard]]</code>, leaving it as
+a quality-of-implementation decision for vendors.</p>
 <h3 id="exec.async.ops-completion-functions">15.2 [exec.async.ops]
 Completion Functions</h3>
 <p>In [exec.async.ops] paragraph 6, after “A valid invocation of a
 completion function is called a <em>completion operation</em>,” add:</p>
-<blockquote>
+<div class="wording-add">
 <p>A completion function returns
 <code>std::coroutine_handle&lt;&gt;</code>. A null handle indicates that
 no symmetric transfer is needed. A non-null handle designates a
@@ -2129,107 +2163,105 @@ coroutine to be resumed.</p>
 <code>sender-awaitable</code> bridge converts a null handle to
 <code>noop_coroutine()</code> at the <code>await_suspend</code>
 boundary, where the language requires it. – end note]</em></p>
-</blockquote>
+</div>
 <h3 id="exec.set.value-exec.set.error-exec.set.stopped">15.3
 [exec.set.value], [exec.set.error], [exec.set.stopped]</h3>
-<p>Modify [exec.set.value] paragraph 1. Current text:</p>
-<blockquote>
-<p>The expression <code>set_value(rcvr, vs...)</code> for a
-subexpression <code>rcvr</code> and pack of subexpressions
-<code>vs</code> is ill-formed if <code>rcvr</code> is an lvalue or an
-rvalue of const type. Otherwise, it is expression-equivalent to
+<p>Modify [exec.set.value] paragraph 1 as follows:</p>
+<div class="wording">
+<p><code>set_value</code> is a value completion function. Its associated
+completion tag is <code>set_value_t</code>. The expression
+<code>set_value(rcvr, vs...)</code> for a subexpression
+<code>rcvr</code> and pack of subexpressions <code>vs</code> is
+ill-formed if <code>rcvr</code> is an lvalue or an rvalue of const type.
+Otherwise, it is expression-equivalent to
 <code>MANDATE-NOTHROW(rcvr.set_value(vs...))</code>.</p>
-</blockquote>
-<p>Proposed text:</p>
-<blockquote>
-<p>The expression <code>set_value(rcvr, vs...)</code> for a
-subexpression <code>rcvr</code> and pack of subexpressions
-<code>vs</code> is ill-formed if <code>rcvr</code> is an lvalue or an
-rvalue of const type. Otherwise, it is expression-equivalent to
-<code>MANDATE-NOTHROW(rcvr.set_value(vs...))</code>.</p>
-<p><em>Mandates:</em> The expression has type
-<code>std::coroutine_handle&lt;&gt;</code>.</p>
-<p>The return value should not be discarded.</p>
-</blockquote>
-<p>Apply the same change to [exec.set.error] paragraph 1 (for
-<code>set_error(rcvr, err)</code>) and [exec.set.stopped] paragraph 1
-(for <code>set_stopped(rcvr)</code>).</p>
-<p>The <code>Mandates</code> clause was chosen because it is the pattern
-the authors are most familiar with for expressing return type
-requirements on CPOs. LWG may prefer a different specification pattern -
-for example, adding the requirement to the semantic requirements of
-<code>receiver</code>, introducing a new exposition-only concept, or
-modifying <code>MANDATE-NOTHROW</code> to accept a return type
-parameter. The intent is the same regardless of pattern: the expression
-must have type <code>std::coroutine_handle&lt;&gt;</code>. We defer to
-LWG on the correct way to express this in the standard.</p>
+<ins>
+<em>Mandates:</em> The expression has type
+<code>std::coroutine_handle&lt;&gt;</code>.
+</ins>
+</div>
+<p>Modify [exec.set.error] paragraph 1 as follows:</p>
+<div class="wording">
+<p><code>set_error</code> is an error completion function. Its
+associated completion tag is <code>set_error_t</code>. The expression
+<code>set_error(rcvr, err)</code> for some subexpressions
+<code>rcvr</code> and <code>err</code> is ill-formed if
+<code>rcvr</code> is an lvalue or an rvalue of const type. Otherwise, it
+is expression-equivalent to
+<code>MANDATE-NOTHROW(rcvr.set_error(err))</code>.</p>
+<ins>
+<em>Mandates:</em> The expression has type
+<code>std::coroutine_handle&lt;&gt;</code>.
+</ins>
+</div>
+<p>Modify [exec.set.stopped] paragraph 1 as follows:</p>
+<div class="wording">
+<p><code>set_stopped</code> is a stopped completion function. Its
+associated completion tag is <code>set_stopped_t</code>. The expression
+<code>set_stopped(rcvr)</code> for a subexpression <code>rcvr</code> is
+ill-formed if <code>rcvr</code> is an lvalue or an rvalue of const type.
+Otherwise, it is expression-equivalent to
+<code>MANDATE-NOTHROW(rcvr.set_stopped())</code>.</p>
+<ins>
+<em>Mandates:</em> The expression has type
+<code>std::coroutine_handle&lt;&gt;</code>.
+</ins>
+</div>
 <h3 id="exec.opstate.start">15.4 [exec.opstate.start]</h3>
-<p>Modify [exec.opstate.start] paragraph 1. Current text:</p>
-<blockquote>
+<p>Modify [exec.opstate.start] paragraph 1 as follows:</p>
+<div class="wording">
 <p>For a subexpression <code>op</code>, the expression
 <code>start(op)</code> is ill-formed if <code>op</code> is an rvalue.
 Otherwise, it is expression-equivalent to
 <code>MANDATE-NOTHROW(op.start())</code>.</p>
-</blockquote>
-<p>Proposed text:</p>
-<blockquote>
-<p>For a subexpression <code>op</code>, the expression
-<code>start(op)</code> is ill-formed if <code>op</code> is an rvalue.
-Otherwise, it is expression-equivalent to
-<code>MANDATE-NOTHROW(op.start())</code>.</p>
-<p><em>Mandates:</em> The expression has type
-<code>std::coroutine_handle&lt;&gt;</code>.</p>
-<p>The return value should not be discarded.</p>
-</blockquote>
+<ins>
+<em>Mandates:</em> The expression has type
+<code>std::coroutine_handle&lt;&gt;</code>.
+</ins>
+</div>
 <h3 id="coroutine-bridges">15.5 Coroutine Bridges</h3>
 <h4 id="sender-awaitable-exec.as.awaitable-p2">sender-awaitable
 ([exec.as.awaitable] p2)</h4>
-<p>Modify the class definition. Current:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> await_ready<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> await_suspend<span class="op">(</span>coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    start<span class="op">(</span>state<span class="op">);</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Proposed:</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> await_ready<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>coroutine_handle<span class="op">&lt;&gt;</span> await_suspend<span class="op">(</span></span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;)</span> <span class="kw">noexcept</span></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> h <span class="op">=</span> start<span class="op">(</span>state<span class="op">);</span></span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> h <span class="op">?</span> h <span class="op">:</span> noop_coroutine<span class="op">();</span></span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Modify the class definition as follows:</p>
+<div class="wording">
+<pre><code>static constexpr bool await_ready() noexcept {
+    return false;
+}
+<del>void</del><ins>coroutine_handle&lt;&gt;</ins> await_suspend(
+    coroutine_handle&lt;Promise&gt;) noexcept
+{
+    <del>start(state);</del>
+    <ins>auto h = start(state);</ins>
+    <ins>return h ? h : noop_coroutine();</ins>
+}</code></pre>
+</div>
 <h4 id="awaitable-receiver-exec.as.awaitable-p4">awaitable-receiver
 ([exec.as.awaitable] p4)</h4>
-<p>Modify paragraph 4.1. Current <code>set_value</code> effects:</p>
-<div class="sourceCode" id="cb23"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>result<span class="op">-</span>ptr<span class="op">-&gt;</span><span class="kw">template</span> emplace<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;(</span>vs<span class="op">...);</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">catch</span><span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>result<span class="op">-</span>ptr<span class="op">-&gt;</span><span class="kw">template</span> emplace<span class="op">&lt;</span><span class="dv">2</span><span class="op">&gt;(</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        current_exception<span class="op">());</span></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>rcvr<span class="op">.</span>continuation<span class="op">.</span>resume<span class="op">();</span></span></code></pre></div>
-<p>Proposed <code>set_value</code> effects:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>result<span class="op">-</span>ptr<span class="op">-&gt;</span><span class="kw">template</span> emplace<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;(</span>vs<span class="op">...);</span></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">catch</span><span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>result<span class="op">-</span>ptr<span class="op">-&gt;</span><span class="kw">template</span> emplace<span class="op">&lt;</span><span class="dv">2</span><span class="op">&gt;(</span></span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>        current_exception<span class="op">());</span></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> rcvr<span class="op">.</span>continuation<span class="op">;</span></span></code></pre></div>
-<p>Modify paragraph 4.2. Current <code>set_error</code> effects end with
-<code>rcvr.continuation.resume();</code>. Replace with
-<code>return rcvr.continuation;</code>.</p>
-<p>Modify paragraph 4.3. Current <code>set_stopped</code> effects:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">static_cast</span><span class="op">&lt;</span>coroutine_handle<span class="op">&lt;&gt;&gt;(</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>continuation<span class="op">.</span>promise<span class="op">()</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>unhandled_stopped<span class="op">()).</span>resume<span class="op">();</span></span></code></pre></div>
-<p>Proposed <code>set_stopped</code> effects:</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> <span class="kw">static_cast</span><span class="op">&lt;</span>coroutine_handle<span class="op">&lt;&gt;&gt;(</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    rcvr<span class="op">.</span>continuation<span class="op">.</span>promise<span class="op">()</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>unhandled_stopped<span class="op">());</span></span></code></pre></div>
+<p>Modify paragraph 4.1 <code>set_value</code> effects as follows:</p>
+<div class="wording">
+<pre><code>try {
+    rcvr.result-ptr-&gt;template emplace&lt;1&gt;(vs...);
+} catch(...) {
+    rcvr.result-ptr-&gt;template emplace&lt;2&gt;(
+        current_exception());
+}
+<del>rcvr.continuation.resume();</del>
+<ins>return rcvr.continuation;</ins></code></pre>
+</div>
+<p>Modify paragraph 4.2 <code>set_error</code> effects as follows:</p>
+<div class="wording">
+<pre><code><del>rcvr.continuation.resume();</del>
+<ins>return rcvr.continuation;</ins></code></pre>
+</div>
+<p>Modify paragraph 4.3 <code>set_stopped</code> effects as follows:</p>
+<div class="wording">
+<pre><code><del>static_cast&lt;coroutine_handle&lt;&gt;&gt;(
+    rcvr.continuation.promise()
+        .unhandled_stopped()).resume();</del>
+<ins>return static_cast&lt;coroutine_handle&lt;&gt;&gt;(
+    rcvr.continuation.promise()
+        .unhandled_stopped());</ins></code></pre>
+</div>
 <p><em>[Note: Open Question 2 applies here. The authors have not
 verified that returning the handle from <code>unhandled_stopped()</code>
 instead of calling <code>.resume()</code> preserves the intended
@@ -2238,20 +2270,14 @@ immediate resumption. – end note]</em></p>
 <h3 id="semantic-requirements">15.6 Semantic Requirements</h3>
 <p>Add to [exec.async.ops] after the new paragraph from Section
 15.2:</p>
-<blockquote>
+<div class="wording-add">
 <p>When a completion function is invoked outside the dynamic extent of a
 call to <code>start()</code> on the associated operation state (i.e.,
 the operation completed asynchronously), the caller of the completion
 function shall call <code>.resume()</code> on the returned
 <code>coroutine_handle&lt;&gt;</code> if it is non-null. Failure to do
 so leaves the associated coroutine permanently suspended.</p>
-</blockquote>
-<blockquote>
-<p><em>Recommended practice:</em> Implementations should mark the return
-types of <code>set_value</code>, <code>set_error</code>,
-<code>set_stopped</code>, and <code>start</code> as
-<code>[[nodiscard]]</code>.</p>
-</blockquote>
+</div>
 <h3 id="sections-requiring-algorithm-specific-wording">15.7 Sections
 Requiring Algorithm-Specific Wording</h3>
 <p>The following sections require changes that follow the pattern

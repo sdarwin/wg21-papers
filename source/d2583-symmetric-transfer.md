@@ -676,122 +676,127 @@ The draft wording covers the protocol-level changes: the completion function CPO
 
 Two open questions require LWG expertise:
 
-1. **Return type constraint pattern.** The CPOs are defined as "expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`." `MANDATE-NOTHROW` constrains `noexcept` but not the return type. The authors are uncertain whether the return type requirement belongs in a `Mandates` clause on each CPO, in the semantic requirements of `receiver`, or in a new concept requirement. The draft below adds a return type requirement to each CPO specification. LWG input on the correct pattern is invited.
+1. **Return type constraint pattern.** The CPOs are defined as "expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`." `MANDATE-NOTHROW` constrains `noexcept` but not the return type. The authors are uncertain whether the return type requirement belongs in a `Mandates` clause on each CPO, in the semantic requirements of `receiver`, or in a new concept requirement. The draft below uses a `Mandates` clause on each CPO because it is the pattern the authors are most familiar with. LWG may prefer a different specification pattern - for example, adding the requirement to the semantic requirements of `receiver`, introducing a new exposition-only concept, or modifying `MANDATE-NOTHROW` to accept a return type parameter. The intent is the same regardless of pattern: the expression must have type `std::coroutine_handle<>`.
 
 2. **`unhandled_stopped` interaction.** The current `awaitable-receiver::set_stopped` calls `unhandled_stopped()`, casts the result to `coroutine_handle<>`, and calls `.resume()`. The proposed change returns that handle instead. The authors have not traced the `unhandled_stopped` contract to verify that returning the handle for symmetric transfer by the caller preserves the intended semantics. Review from someone familiar with the `unhandled_stopped` contract is invited.
+
+Mandating `[[nodiscard]]` on the return values of completion functions and `start()` may be worth considering but has not been included in the draft wording below. SD-9 states that library wording should not use `[[nodiscard]]`, leaving it as a quality-of-implementation decision for vendors.
 
 ### 15.2 [exec.async.ops] Completion Functions
 
 In [exec.async.ops] paragraph 6, after "A valid invocation of a completion function is called a *completion operation*," add:
 
-> A completion function returns `std::coroutine_handle<>`. A null handle indicates that no symmetric transfer is needed. A non-null handle designates a coroutine to be resumed.
->
-> *[Note: A null handle is used rather than `noop_coroutine()` to avoid an unconditional `.resume()` call on the asynchronous completion path. The `sender-awaitable` bridge converts a null handle to `noop_coroutine()` at the `await_suspend` boundary, where the language requires it. -- end note]*
+:::wording-add
+
+A completion function returns `std::coroutine_handle<>`. A null handle indicates that no symmetric transfer is needed. A non-null handle designates a coroutine to be resumed.
+
+*[Note: A null handle is used rather than `noop_coroutine()` to avoid an unconditional `.resume()` call on the asynchronous completion path. The `sender-awaitable` bridge converts a null handle to `noop_coroutine()` at the `await_suspend` boundary, where the language requires it. -- end note]*
+
+:::
 
 ### 15.3 [exec.set.value], [exec.set.error], [exec.set.stopped]
 
-Modify [exec.set.value] paragraph 1. Current text:
+Modify [exec.set.value] paragraph 1 as follows:
 
-> The expression `set_value(rcvr, vs...)` for a subexpression `rcvr` and pack of subexpressions `vs` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`.
+:::wording
 
-Proposed text:
+`set_value` is a value completion function. Its associated completion tag is `set_value_t`. The expression `set_value(rcvr, vs...)` for a subexpression `rcvr` and pack of subexpressions `vs` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`.
 
-> The expression `set_value(rcvr, vs...)` for a subexpression `rcvr` and pack of subexpressions `vs` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_value(vs...))`.
->
-> *Mandates:* The expression has type `std::coroutine_handle<>`.
->
-> The return value should not be discarded.
+<ins>*Mandates:* The expression has type `std::coroutine_handle<>`.</ins>
 
-Apply the same change to [exec.set.error] paragraph 1 (for `set_error(rcvr, err)`) and [exec.set.stopped] paragraph 1 (for `set_stopped(rcvr)`).
+:::
 
-The `Mandates` clause was chosen because it is the pattern the authors are most familiar with for expressing return type requirements on CPOs. LWG may prefer a different specification pattern - for example, adding the requirement to the semantic requirements of `receiver`, introducing a new exposition-only concept, or modifying `MANDATE-NOTHROW` to accept a return type parameter. The intent is the same regardless of pattern: the expression must have type `std::coroutine_handle<>`. We defer to LWG on the correct way to express this in the standard.
+Modify [exec.set.error] paragraph 1 as follows:
+
+:::wording
+
+`set_error` is an error completion function. Its associated completion tag is `set_error_t`. The expression `set_error(rcvr, err)` for some subexpressions `rcvr` and `err` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_error(err))`.
+
+<ins>*Mandates:* The expression has type `std::coroutine_handle<>`.</ins>
+
+:::
+
+Modify [exec.set.stopped] paragraph 1 as follows:
+
+:::wording
+
+`set_stopped` is a stopped completion function. Its associated completion tag is `set_stopped_t`. The expression `set_stopped(rcvr)` for a subexpression `rcvr` is ill-formed if `rcvr` is an lvalue or an rvalue of const type. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(rcvr.set_stopped())`.
+
+<ins>*Mandates:* The expression has type `std::coroutine_handle<>`.</ins>
+
+:::
 
 ### 15.4 [exec.opstate.start]
 
-Modify [exec.opstate.start] paragraph 1. Current text:
+Modify [exec.opstate.start] paragraph 1 as follows:
 
-> For a subexpression `op`, the expression `start(op)` is ill-formed if `op` is an rvalue. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(op.start())`.
+:::wording
 
-Proposed text:
+For a subexpression `op`, the expression `start(op)` is ill-formed if `op` is an rvalue. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(op.start())`.
 
-> For a subexpression `op`, the expression `start(op)` is ill-formed if `op` is an rvalue. Otherwise, it is expression-equivalent to `MANDATE-NOTHROW(op.start())`.
->
-> *Mandates:* The expression has type `std::coroutine_handle<>`.
->
-> The return value should not be discarded.
+<ins>*Mandates:* The expression has type `std::coroutine_handle<>`.</ins>
+
+:::
 
 ### 15.5 Coroutine Bridges
 
 #### sender-awaitable ([exec.as.awaitable] p2)
 
-Modify the class definition. Current:
+Modify the class definition as follows:
 
-```cpp
-static constexpr bool await_ready() noexcept {
+:::wording
+
+<pre><code>static constexpr bool await_ready() noexcept {
     return false;
 }
-void await_suspend(coroutine_handle<Promise>) noexcept {
-    start(state);
-}
-```
-
-Proposed:
-
-```cpp
-static constexpr bool await_ready() noexcept {
-    return false;
-}
-coroutine_handle<> await_suspend(
-    coroutine_handle<Promise>) noexcept
+<del>void</del><ins>coroutine_handle&lt;&gt;</ins> await_suspend(
+    coroutine_handle&lt;Promise&gt;) noexcept
 {
-    auto h = start(state);
-    return h ? h : noop_coroutine();
-}
-```
+    <del>start(state);</del>
+    <ins>auto h = start(state);</ins>
+    <ins>return h ? h : noop_coroutine();</ins>
+}</code></pre>
+
+:::
 
 #### awaitable-receiver ([exec.as.awaitable] p4)
 
-Modify paragraph 4.1. Current `set_value` effects:
+Modify paragraph 4.1 `set_value` effects as follows:
 
-```cpp
-try {
-    rcvr.result-ptr->template emplace<1>(vs...);
+:::wording
+
+<pre><code>try {
+    rcvr.result-ptr-&gt;template emplace&lt;1&gt;(vs...);
 } catch(...) {
-    rcvr.result-ptr->template emplace<2>(
+    rcvr.result-ptr-&gt;template emplace&lt;2&gt;(
         current_exception());
 }
-rcvr.continuation.resume();
-```
+<del>rcvr.continuation.resume();</del>
+<ins>return rcvr.continuation;</ins></code></pre>
 
-Proposed `set_value` effects:
+:::
 
-```cpp
-try {
-    rcvr.result-ptr->template emplace<1>(vs...);
-} catch(...) {
-    rcvr.result-ptr->template emplace<2>(
-        current_exception());
-}
-return rcvr.continuation;
-```
+Modify paragraph 4.2 `set_error` effects as follows:
 
-Modify paragraph 4.2. Current `set_error` effects end with `rcvr.continuation.resume();`. Replace with `return rcvr.continuation;`.
+:::wording
 
-Modify paragraph 4.3. Current `set_stopped` effects:
+<pre><code><del>rcvr.continuation.resume();</del>
+<ins>return rcvr.continuation;</ins></code></pre>
 
-```cpp
-static_cast<coroutine_handle<>>(
+:::
+
+Modify paragraph 4.3 `set_stopped` effects as follows:
+
+:::wording
+
+<pre><code><del>static_cast&lt;coroutine_handle&lt;&gt;&gt;(
     rcvr.continuation.promise()
-        .unhandled_stopped()).resume();
-```
-
-Proposed `set_stopped` effects:
-
-```cpp
-return static_cast<coroutine_handle<>>(
+        .unhandled_stopped()).resume();</del>
+<ins>return static_cast&lt;coroutine_handle&lt;&gt;&gt;(
     rcvr.continuation.promise()
-        .unhandled_stopped());
-```
+        .unhandled_stopped());</ins></code></pre>
+
+:::
 
 *[Note: Open Question 2 applies here. The authors have not verified that returning the handle from `unhandled_stopped()` instead of calling `.resume()` preserves the intended semantics. The `unhandled_stopped` contract may assume immediate resumption. -- end note]*
 
@@ -799,9 +804,11 @@ return static_cast<coroutine_handle<>>(
 
 Add to [exec.async.ops] after the new paragraph from Section 15.2:
 
-> When a completion function is invoked outside the dynamic extent of a call to `start()` on the associated operation state (i.e., the operation completed asynchronously), the caller of the completion function shall call `.resume()` on the returned `coroutine_handle<>` if it is non-null. Failure to do so leaves the associated coroutine permanently suspended.
+:::wording-add
 
-> *Recommended practice:* Implementations should mark the return types of `set_value`, `set_error`, `set_stopped`, and `start` as `[[nodiscard]]`.
+When a completion function is invoked outside the dynamic extent of a call to `start()` on the associated operation state (i.e., the operation completed asynchronously), the caller of the completion function shall call `.resume()` on the returned `coroutine_handle<>` if it is non-null. Failure to do so leaves the associated coroutine permanently suspended.
+
+:::
 
 ### 15.7 Sections Requiring Algorithm-Specific Wording
 
