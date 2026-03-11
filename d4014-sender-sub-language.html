@@ -574,20 +574,43 @@ background-color: var(--text-secondary);
 
 .wording {
 background-color: var(--bg-secondary);
+border-left: 3px solid var(--text-muted);
 border-radius: 4px;
 padding: var(--spacing-lg);
 margin: var(--spacing-lg) 0;
 }
 .wording-add {
 background-color: #eef6ee;
-border-color: #66aa66;
+border-left: 3px solid #66aa66;
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #006e28;
 }
 .wording-remove {
 background-color: #fdf2f2;
-border-color: var(--cpp-alliance-red);
-}
-.wording-remove > p:not(:first-child) {
+border-left: 3px solid var(--cpp-alliance-red);
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #bf0303;
 text-decoration: line-through;
+}
+
+.wording code,
+.wording-add code,
+.wording-remove code {
+color: inherit;
+}
+
+.wording pre,
+.wording-add pre,
+.wording-remove pre {
+border-left: none;
+padding: 0;
+margin: 0;
+background: none;
+box-shadow: none;
 }
 
 .pnum {
@@ -1312,6 +1335,12 @@ collection. Each illustrates a progressively more expressive pattern in
 the Sender Sub-Language, annotated with the functional programming
 concepts from Section 3. After each example, the same program is shown
 in C++.</p>
+<p>Downey demonstrates that the base sender operations -
+<code>just</code>, <code>then</code>, and <code>let_value</code> - are
+sufficient to express all structured programming constructs, including
+structured concurrency<sup>[35]</sup>. The examples that follow do not
+dispute that finding. They illustrate the cost of that expression for
+programs typical of the I/O domain.</p>
 <h3 id="a-simple-pipeline">5.1 A Simple Pipeline</h3>
 <div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> work <span class="op">=</span> just<span class="op">(</span><span class="dv">42</span><span class="op">)</span>                                      <span class="co">// pure/return</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>          <span class="op">|</span> then<span class="op">([](</span><span class="dt">int</span> v<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> v <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> <span class="op">})</span>             <span class="co">// fmap/functor lift</span></span>
@@ -1914,9 +1943,11 @@ practice-first abstractions succeed where top-down designs do not</li>
 and <a href="https://github.com/mermaid-js/mermaid"><code>mermaid</code></a>,
 and we would like to thank the authors of those extensions and
 associated libraries.</p>
-<p>The authors would also like to thank John Lakos, Joshua Berne, Pablo
-Halpern, and Dietmar Kühl for their valuable feedback in the development
-of this paper.</p>
+<p>The authors would also like to thank Steve Downey, whose <a href="https://github.com/steve-downey/sender-examples">sender-examples</a>
+code provided the foundation for Sections 5.4-5.6 and whose published
+response sharpened this paper’s framing; and John Lakos, Joshua Berne,
+Pablo Halpern, and Dietmar Kühl for their valuable feedback in the
+development of this paper.</p>
 <hr />
 <h2 id="references">References</h2>
 <h3 id="wg21-papers">WG21 Papers</h3>
@@ -1965,6 +1996,9 @@ https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/</li>
 <li>Herb Sutter. <a href="https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/">“Living
 in the Future: Using C++26 at Work”</a>. 2025.
 https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/</li>
+<li>Steve Downey. <a href="https://sdowney.org/posts/the-sender-sub-language/">“The Sender
+Sub-Language”</a>. 2026.
+https://sdowney.org/posts/the-sender-sub-language/</li>
 </ol>
 <h3 id="functional-programming-theory">Functional Programming
 Theory</h3>

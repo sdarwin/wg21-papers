@@ -168,6 +168,8 @@ The question is not which discovery was right. Both were. Coroutines are already
 
 The following examples are drawn from the official [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> repository and the [sender-examples](https://github.com/steve-downey/sender-examples)<sup>[28]</sup> collection. Each illustrates a progressively more expressive pattern in the Sender Sub-Language, annotated with the functional programming concepts from Section 3. After each example, the same program is shown in C++.
 
+Downey demonstrates that the base sender operations - `just`, `then`, and `let_value` - are sufficient to express all structured programming constructs, including structured concurrency<sup>[35]</sup>. The examples that follow do not dispute that finding. They illustrate the cost of that expression for programs typical of the I/O domain.
+
 ### 5.1 A Simple Pipeline
 
 ```cpp
@@ -668,7 +670,10 @@ This document is written in Markdown and depends on the extensions in
 [`mermaid`](https://github.com/mermaid-js/mermaid), and we would like to
 thank the authors of those extensions and associated libraries.
 
-The authors would also like to thank John Lakos, Joshua Berne, Pablo Halpern,
+The authors would also like to thank Steve Downey, whose
+[sender-examples](https://github.com/steve-downey/sender-examples) code
+provided the foundation for Sections 5.4-5.6 and whose published response
+sharpened this paper's framing; and John Lakos, Joshua Berne, Pablo Halpern,
 and Dietmar K&uuml;hl for their valuable feedback in the development of this paper.
 
 ---
@@ -694,6 +699,7 @@ and Dietmar K&uuml;hl for their valuable feedback in the development of this pap
 12. Eric Niebler. ["Asynchronous Stacks and Scopes"](https://ericniebler.com/2021/08/29/asynchronous-stacks-and-scopes/). 2021. https://ericniebler.com/2021/08/29/asynchronous-stacks-and-scopes/
 13. Eric Niebler. ["What are Senders Good For, Anyway?"](https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/). 2024. https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/
 14. Herb Sutter. ["Living in the Future: Using C++26 at Work"](https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/). 2025. https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/
+35. Steve Downey. ["The Sender Sub-Language"](https://sdowney.org/posts/the-sender-sub-language/). 2026. https://sdowney.org/posts/the-sender-sub-language/
 
 ### Functional Programming Theory
 

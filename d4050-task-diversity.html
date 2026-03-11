@@ -864,7 +864,14 @@ outline: none;
   (post-Croydon mailing)</a></li>
   </ul></li>
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#task-types-in-production" id="toc-task-types-in-production">2. Task Types in Production</a></li>
+  <li><a href="#task-types-in-production" id="toc-task-types-in-production">2. Task Types in Production</a>
+  <ul>
+  <li><a href="#the-allocator-ceremony" id="toc-the-allocator-ceremony">2.1 The Allocator Ceremony</a></li>
+  <li><a href="#two-empty-structs" id="toc-two-empty-structs">2.2 Two
+  Empty Structs</a></li>
+  <li><a href="#library-upgrade-breaks-downstream" id="toc-library-upgrade-breaks-downstream">2.3 Library Upgrade Breaks
+  Downstream</a></li>
+  </ul></li>
   <li><a href="#why-the-invariants-differ" id="toc-why-the-invariants-differ">3. Why the Invariants Differ</a>
   <ul>
   <li><a href="#frame-allocator" id="toc-frame-allocator">3.1 Frame
@@ -872,6 +879,8 @@ outline: none;
   <li><a href="#foreign-awaitables" id="toc-foreign-awaitables">3.2
   Foreign Awaitables</a></li>
   <li><a href="#timing" id="toc-timing">3.3 Timing</a></li>
+  <li><a href="#symmetric-transfer" id="toc-symmetric-transfer">3.4
+  Symmetric Transfer</a></li>
   </ul></li>
   <li><a href="#cross-domain-bridges" id="toc-cross-domain-bridges">4.
   Cross-Domain Bridges</a></li>
@@ -884,21 +893,21 @@ outline: none;
   <li><a href="#references" id="toc-references">References</a>
   <ul>
   <li><a href="#wg21-papers" id="toc-wg21-papers">WG21 Papers</a></li>
-  <li><a href="#libraries" id="toc-libraries">Libraries</a></li>
+  <li><a href="#other" id="toc-other">Other</a></li>
   </ul></li>
   </ul></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>Every production C++ coroutine library ships its own task type. Six
-libraries independently converged on a one-parameter declaration. Each
-extends the C++20 awaitable protocol with domain-specific safety
-invariants - frame allocator propagation for networking, device memory
-contracts for GPU, zero-allocation guarantees for high-frequency
-trading. Cross-domain composition requires explicit bridges that
-translate these invariants. This paper surveys the evidence, documents
-why the invariants differ by design, and recommends that
+<p>Every C++ coroutine library ships its own task type. Six libraries
+independently converged on a one-parameter declaration. Each extends the
+C++20 awaitable protocol with domain-specific safety invariants - frame
+allocator propagation for networking, cancellation models for structured
+concurrency, fiber scheduler integration for large-scale deployments.
+Cross-domain composition requires explicit bridges that translate these
+invariants. This paper surveys the evidence, documents why the
+invariants differ by design, and recommends that
 <code>std::execution::task</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>) be
 documented as the standard task type for the sender domain rather than
 presented as a general-purpose task type for all coroutine users.</p>
@@ -920,12 +929,16 @@ express compile-time work graphs, does not support heterogeneous
 dispatch, and assumes a cooperative runtime. Those are real costs.</p>
 <p>The frame allocator propagation gap described in Section 3 was
 identified by Peter Dimov. The cross-library bridge evidence in Section
-4 was produced by Klemens Morgenstern, the author of Boost.Cobalt.
-Neither is a co-author of this paper or any paper in this series.</p>
+4 was produced by Klemens Morgenstern, the author of Boost.Cobalt, to
+test the cross-domain composition claim. Neither is a co-author of this
+paper or any paper in this series.</p>
 <hr />
 <h2 id="task-types-in-production">2. Task Types in Production</h2>
-<p>Six production coroutine libraries independently converged on a
-one-parameter task type.</p>
+<p>Six coroutine libraries independently converged on a one-parameter
+task type. Of these, folly::coro and Boost.Cobalt are in active
+production use at scale. cppcoro was deployed at Facebook before
+folly::coro replaced it. The remaining three are smaller libraries that
+independently arrived at the same interface.</p>
 <table>
 <colgroup>
 <col style="width: 18%" />
@@ -1000,6 +1013,93 @@ second template parameter: <code>Environment</code>. This means
 different types. The sender environment - which every production library
 independently chose not to expose in the type signature - is now part of
 the public type.</p>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>’s
+wording declares
+<code>template&lt;class T, class Environment&gt; class task</code> with
+no default for <code>Environment</code> (<a href="https://eel.is/c++draft/execution.syn">[execution.syn]</a><sup>[10]</sup>,
+<a href="https://eel.is/c++draft/task.class">[task.class]</a><sup>[10]</sup>).
+The design section states that “any empty type provides the default
+behaviour” but does not name or standardize such a type. The paper’s own
+examples use <code>task&lt;int&gt;</code> with one parameter - a usage
+that is ill-formed against its own wording.</p>
+<p>The consequence is twofold. First, every function signature that
+returns <code>task</code> is coupled to the sender environment model - a
+networking function advertises the sender environment in its return type
+even though the environment is not a networking concern and the
+networking programmer did not choose it. Second, generic code that
+accepts <code>task&lt;T&gt;</code> does not accept
+<code>task&lt;T, MyEnvironment&gt;</code>. The interoperability that
+one-parameter task types enjoy through the awaitable protocol breaks the
+moment the environment parameter diverges. Whether a default is
+eventually provided does not change the fragmentation: the moment any
+library in the dependency chain provides a non-default
+<code>Environment</code>, every function in the chain must agree on the
+type.</p>
+<p>Consider a generic function that accepts the “standard task” and a
+library that returns a task with a custom environment:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> spawn_work<span class="op">(</span><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> work<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> net_env<span class="op">&gt;</span> do_network<span class="op">();</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>spawn_work<span class="op">(</span>do_network<span class="op">());</span>  <span class="co">// does not compile:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>                           <span class="co">// task&lt;void, net_env&gt; is not task&lt;void&gt;</span></span></code></pre></div>
+<p>The types are different template instantiations. Both are “the
+standard task.” They are incompatible. The fragmentation is invisible
+until the user tries to compose them.</p>
+<p><strong>One-parameter task types compose by construction.
+Two-parameter task types fragment by default.</strong></p>
+<h3 id="the-allocator-ceremony">2.1 The Allocator Ceremony</h3>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> Section
+4.6 shows how to enable allocator awareness. The user must define a
+custom environment struct and use it in every function signature:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> alloc_env <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">allocator_type</span> <span class="op">=</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>pmr::polymorphic_allocator<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">&gt;;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> alloc_env<span class="op">&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>read_body<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span>json<span class="op">,</span> alloc_env<span class="op">&gt;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>parse<span class="op">(</span><span class="bu">std::</span>string_view body<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> alloc_env<span class="op">&gt;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>write_response<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">,</span> <span class="bu">std::</span>string_view body<span class="op">);</span></span></code></pre></div>
+<p>Every production library:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span> read_body<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">);</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span>json<span class="op">&gt;</span>        parse<span class="op">(</span><span class="bu">std::</span>string_view body<span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span>        write_response<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                                 <span class="bu">std::</span>string_view body<span class="op">);</span></span></code></pre></div>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> does
+not provide a standard allocator-aware environment type. The user must
+define it. Two users who independently define semantically identical
+structs produce incompatible task types.</p>
+<h3 id="two-empty-structs">2.2 Two Empty Structs</h3>
+<p>Two libraries both define empty environments. Both get identical
+default behavior. The types are incompatible:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Library A</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> env_a <span class="op">{};</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> env_a<span class="op">&gt;</span> compute<span class="op">();</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Library B</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> env_b <span class="op">{};</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> env_b<span class="op">&gt;</span> fetch<span class="op">();</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Both environments are empty. Both produce identical</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// default behavior. The types are incompatible.</span></span></code></pre></div>
+<p>The C++ type system distinguishes them even though the sender model
+does not. This is fragmentation with zero semantic basis.</p>
+<h3 id="library-upgrade-breaks-downstream">2.3 Library Upgrade Breaks
+Downstream</h3>
+<p>A library that upgrades from the default environment to a custom one
+changes the return type and breaks every downstream caller:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// v1.0: default environment</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span>response<span class="op">&gt;</span> http_get<span class="op">(</span>url_view<span class="op">);</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// v2.0: needs allocator awareness</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span>response<span class="op">,</span> http_env<span class="op">&gt;</span> http_get<span class="op">(</span>url_view<span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Every downstream caller has a type mismatch.</span></span></code></pre></div>
 <p>A networking task type can use thread-local propagation for frame
 allocators. A GPU task type can use device memory APIs. A high-frequency
 trading task type can enforce zero allocation at compile time. Solutions
@@ -1012,8 +1112,9 @@ fitness.</strong></p>
 <p>Every production coroutine library extends the base C++20 awaitable
 protocol. The extensions enforce domain-specific safety invariants. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>’s
 <code>await_transform</code> + <code>affine_on</code> maintains executor
-continuity and stop token propagation for recognized senders. Three gaps
-remain, each independently documented.</p>
+continuity and stop token propagation for recognized senders within the
+<code>std::execution</code> (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[9]</sup>) framework.
+Four gaps remain, each independently documented.</p>
 <h3 id="frame-allocator">3.1 Frame Allocator</h3>
 <p><code>affine_on</code> returns the coroutine to the correct scheduler
 thread after completion. The thread-local frame allocator value on that
@@ -1021,7 +1122,7 @@ thread is whatever was left by the previous coroutine that executed on
 it - not the allocator for this chain. There is no hook between
 <code>affine_on</code> completing and the coroutine body resuming where
 TLS can be restored. Peter Dimov identified this gap. It is unsolved in
-the published record: <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[6]</sup>
+the published record: <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html">P3980R0</a><sup>[6]</sup>
 addresses allocator sourcing from the receiver environment but does not
 restore TLS on resumption.</p>
 <h3 id="foreign-awaitables">3.2 Foreign Awaitables</h3>
@@ -1034,7 +1135,10 @@ basic C++20 awaitable - it passes through without
 environment propagation. All three invariants are lost. Networking
 libraries reject non-conforming awaitables at compile time because
 permissiveness breaks their safety invariants. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> permits the
-permissive case.</p>
+permissive case. This is a deliberate scope boundary: <code>task</code>
+is designed for sender composition. The consequence for non-sender
+domains is that <code>task</code> cannot enforce their safety
+invariants, which is why those domains require their own task types.</p>
 <h3 id="timing">3.3 Timing</h3>
 <p>The sender extension delivers context through
 <code>connect</code>/<code>start</code> after the coroutine frame is
@@ -1042,16 +1146,24 @@ allocated. The networking extension delivers context at
 <code>co_await</code> time through the <code>await_suspend</code>
 parameter. The frame allocator must be available before the child’s
 <code>operator new</code> fires, and <code>operator new</code> fires at
-the call site - before any sender machinery runs. No mechanism in
-<code>std::execution</code> delivers any allocator to
-<code>operator new</code> without <code>allocator_arg_t</code> in the
-parameter list. Jonathan Müller confirmed the symmetric transfer
-consequence in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup>: <em>“a
+the call site (<a href="https://eel.is/c++draft/dcl.fct.def.coroutine">[dcl.fct.def.coroutine]</a><sup>[10]</sup>)
+- before any sender machinery runs. No mechanism in
+<code>std::execution</code> (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[9]</sup>) delivers
+any allocator to <code>operator new</code> without
+<code>allocator_arg_t</code> in the parameter list. A single task type
+cannot satisfy both timing requirements: deferred delivery serves the
+sender model, immediate delivery serves networking. The requirements are
+contradictory by design.</p>
+<h3 id="symmetric-transfer">3.4 Symmetric Transfer</h3>
+<p>When <code>task</code> bridges into the sender pipeline, the
+sender-awaitable’s <code>await_suspend</code> returns <code>void</code>,
+foreclosing symmetric transfer. Jonathan Müller confirmed in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup>: <em>“a
 thorough fix is non-trivial and requires support for guaranteed tail
-calls.”</em> Dietmar Kühl documented the gap as an open issue in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[8]</sup>.</p>
+calls.”</em> Dietmar Kühl documented the gap as an open issue in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[8]</sup>. This gap is
+independent of the frame allocator timing in Section 3.3.</p>
 <hr />
 <h2 id="cross-domain-bridges">4. Cross-Domain Bridges</h2>
-<p>The <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a><sup>[9]</sup>
+<p>The <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a><sup>[11]</sup>
 repository, authored by Klemens Morgenstern, contains four working
 cross-library composition examples. None compose natively through the
 base C++20 protocol alone. All four require explicit adaptor code.</p>
@@ -1093,28 +1205,28 @@ base C++20 protocol alone. All four require explicit adaptor code.</p>
 </table>
 <p>Each adaptor translates execution context between two domain
 protocols. From <code>cobalt_capy.cpp</code>:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> capy_task_adaptor <span class="op">{</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>task<span class="op">&lt;</span>T<span class="op">&gt;</span> tt<span class="op">;</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>io_env env<span class="op">;</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>stop_source src<span class="op">;</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="ex">boost::</span>asio::cancellation_slot slt<span class="op">;</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Promise<span class="op">&gt;</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> await_suspend<span class="op">(</span><span class="bu">std::</span>coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;</span> h<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">&amp;</span> p <span class="op">=</span> h<span class="op">.</span>promise<span class="op">();</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>executor        <span class="op">=</span> p<span class="op">.</span>get_executor<span class="op">();</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>stop_token      <span class="op">=</span> src<span class="op">.</span>get_token<span class="op">();</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>frame_allocator <span class="op">=</span> p<span class="op">.</span>get_allocator<span class="op">().</span>resource<span class="op">();</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        slt <span class="op">=</span> p<span class="op">.</span>get_cancellation_slot<span class="op">();</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        slt<span class="op">.</span>assign<span class="op">([</span><span class="kw">this</span><span class="op">](</span><span class="kw">auto</span> ct<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">((</span>ct <span class="op">&amp;</span> <span class="ex">boost::</span>asio::cancellation_type::terminal<span class="op">)</span> <span class="op">!=</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                      <span class="ex">boost::</span>asio::cancellation_type::none<span class="op">)</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>                src<span class="op">.</span>request_stop<span class="op">();</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="op">});</span></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> tt<span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span>env<span class="op">);</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> capy_task_adaptor <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>task<span class="op">&lt;</span>T<span class="op">&gt;</span> tt<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>io_env env<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>stop_source src<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="ex">boost::</span>asio::cancellation_slot slt<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Promise<span class="op">&gt;</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> await_suspend<span class="op">(</span><span class="bu">std::</span>coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;</span> h<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">&amp;</span> p <span class="op">=</span> h<span class="op">.</span>promise<span class="op">();</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>executor        <span class="op">=</span> p<span class="op">.</span>get_executor<span class="op">();</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>stop_token      <span class="op">=</span> src<span class="op">.</span>get_token<span class="op">();</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        env<span class="op">.</span>frame_allocator <span class="op">=</span> p<span class="op">.</span>get_allocator<span class="op">().</span>resource<span class="op">();</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        slt <span class="op">=</span> p<span class="op">.</span>get_cancellation_slot<span class="op">();</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        slt<span class="op">.</span>assign<span class="op">([</span><span class="kw">this</span><span class="op">](</span><span class="kw">auto</span> ct<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">((</span>ct <span class="op">&amp;</span> <span class="ex">boost::</span>asio::cancellation_type::terminal<span class="op">)</span> <span class="op">!=</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>                      <span class="ex">boost::</span>asio::cancellation_type::none<span class="op">)</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>                src<span class="op">.</span>request_stop<span class="op">();</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="op">});</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> tt<span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span>env<span class="op">);</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
 <p>The bridge knows both Cobalt’s internal API and Capy’s protocol. It
 is specific to the pair of libraries. There is no generic bridge because
 the invariants being translated are domain-specific. Cross-domain
@@ -1142,18 +1254,18 @@ type for all coroutine users.”</p></li>
 </ol>
 <hr />
 <h1 id="acknowledgements">Acknowledgements</h1>
-<p>The authors would like to thank Peter Dimov for identifying the frame
+<p>The author would like to thank Peter Dimov for identifying the frame
 allocator propagation gap and requiring the <code>IoAwaitable</code> fix
 that clarified the relationship between domain-specific invariants and
 the base protocol; Klemens Morgenstern for authoring Boost.Cobalt and
 producing the <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a>
 bridge evidence that demonstrates cross-domain composition in practice;
-Dietmar Kühl for authoring <a href="https://wg21.link/p3552r3">P3552R3</a> and <a href="https://wg21.link/p3796r1">P3796R1</a>, whose open documentation
-of task issues reflects the thoroughness the committee depends on;
-Jonathan Müller for independently confirming the symmetric transfer gap
-in <a href="https://wg21.link/p3801r0">P3801R0</a>; and Mungo Gill,
-Mohammad Nejati, and Michael Vandeberg for their feedback during
-development.</p>
+Dietmar Kühl for authoring <a href="https://wg21.link/p3552r3">P3552R3</a> and <a href="https://wg21.link/p3796r1">P3796R1</a>, whose thorough design
+discussion in <a href="https://wg21.link/p3552r3">P3552R3</a> Section
+4.1 and open documentation of task issues in <a href="https://wg21.link/p3796r1">P3796R1</a> reflect the standard of
+care the committee depends on; Jonathan Müller for independently
+confirming the symmetric transfer gap in <a href="https://wg21.link/p3801r0">P3801R0</a>; and Mungo Gill, Mohammad
+Nejati, and Michael Vandeberg for their feedback during development.</p>
 <hr />
 <h2 id="references">References</h2>
 <h3 id="wg21-papers">WG21 Papers</h3>
@@ -1172,17 +1284,21 @@ Sub-Language” (Vinnie Falco, 2026). https://wg21.link/p4014r0</li>
 <li><a href="https://wg21.link/p2583r1">P2583R1</a> - “Symmetric
 Transfer and Sender Composition” (Mungo Gill, Vinnie Falco, 2026).
 https://wg21.link/p2583r1</li>
-<li><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a> -
-“Task’s Allocator Use” (Dietmar Kühl, 2026).
-https://isocpp.org/files/papers/D3980R0.html</li>
+<li><a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html">P3980R0</a>
+- “Task’s Allocator Use” (Dietmar Kühl, 2026).
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html</li>
 <li><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
 the design of <code>std::execution::task</code>” (Jonathan Müller,
 2025). https://wg21.link/p3801r0</li>
 <li><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
 Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
+<li><a href="https://wg21.link/p2300r10">P2300R10</a> - “std::execution”
+(Michał Dominiak et al., 2024). https://wg21.link/p2300r10</li>
 </ol>
-<h3 id="libraries">Libraries</h3>
-<ol start="9" type="1">
+<h3 id="other">Other</h3>
+<ol start="10" type="1">
+<li><a href="https://eel.is/c++draft/">C++ Working Draft</a> - (Richard
+Smith, ed.). https://eel.is/c++draft/</li>
 <li>Klemens Morgenstern, <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a>
 - “co_await one coroutine library from another” (2026).
 https://github.com/klemens-morgenstern/cross_await</li>
