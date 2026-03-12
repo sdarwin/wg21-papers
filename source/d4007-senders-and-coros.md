@@ -46,24 +46,24 @@ The issues in this section are items where shipping forecloses the fix.
 
 | Issue                 | References                                                                                                                                                                                                                                                                  | Fixed |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----:|
-| Allocator Timing      | [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[5]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup>, [LWG 4356](https://cplusplus.github.io/LWG/issue4356)<sup>[6]</sup>, [US 254-385](https://github.com/cplusplus/nbballot/issues/960)<sup>[7]</sup> | no    |
-| Allocator Propagation | [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[5]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup>                                                                                                                                                  | no    |
+| Allocator Timing      | [P3980R0](https://isocpp.org/files/papers/P3980R0.html)<sup>[5]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup>, [LWG 4356](https://cplusplus.github.io/LWG/issue4356)<sup>[6]</sup>, [US 254-385](https://github.com/cplusplus/nbballot/issues/960)<sup>[7]</sup> | no    |
+| Allocator Propagation | [P3980R0](https://isocpp.org/files/papers/P3980R0.html)<sup>[5]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup>                                                                                                                                                  | no    |
 | Error Return          | [P3950R0](https://wg21.link/p3950r0)<sup>[8]</sup>, [P3801R0](https://wg21.link/p3801r0)<sup>[4]</sup>, [P1713R0](https://wg21.link/p1713r0)<sup>[9]</sup>                                                                                                                | no    |
-| Symmetric Transfer    | [P2583R3](https://wg21.link/p2583r3)<sup>[10]</sup>, [US 246-373](https://github.com/cplusplus/nbballot/issues/948)<sup>[11]</sup>, [LWG 4348](https://cplusplus.github.io/LWG/issue4348)<sup>[12]</sup>, [P3801R0](https://wg21.link/p3801r0)<sup>[4]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup> | no    |
+| Symmetric Transfer    | [P2583R3](https://isocpp.org/files/papers/P2583R3.pdf)<sup>[10]</sup>, [US 246-373](https://github.com/cplusplus/nbballot/issues/948)<sup>[11]</sup>, [LWG 4348](https://cplusplus.github.io/LWG/issue4348)<sup>[12]</sup>, [P3801R0](https://wg21.link/p3801r0)<sup>[4]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[3]</sup> | no    |
 
-- **Allocator Timing.** `task` does not allow the user to specify an allocator at the launch site for coroutine frame allocation. The `allocator_arg` mechanism in [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> requires the allocator to appear in the coroutine's parameter list, which creates a timing problem: the frame is allocated before the parameters are evaluated. Shipping this interface locks in the parameter-list approach and forecloses alternative injection mechanisms.
+- **Allocator Timing.** `task` does not allow the user to specify an allocator at the launch site for coroutine frame allocation. The coroutine frame is allocated by `operator new` at the call site, before any sender `connect`/`start` machinery runs. The receiver's environment - which carries the allocator - is not yet available at that point. The `allocator_arg` mechanism in [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> works around this by requiring the allocator in the coroutine's parameter list, but that locks in a caller-specified approach and forecloses environment-based injection.
 
 - **Allocator Propagation.** `task` does not propagate the frame allocator to child tasks. Each child task allocates its frame independently. Shipping without propagation locks in a design where every launch site must specify its allocator explicitly, foreclosing transparent propagation through the coroutine call tree.
 
 - **Error Return.** `task` requires `co_yield with_error(e)` to propagate an error to the caller. `co_return` cannot carry an error value because `return_value` and `return_void` are mutually exclusive in the current coroutine specification. Shipping this interface locks in the `co_yield` mechanism and forecloses `co_return`-based error propagation, which would require a language change.
 
-- **Symmetric Transfer.** `sender-awaitable::await_suspend` returns `void`. When a sender completes synchronously inside `start()`, the receiver calls `handle.resume()` on the `await_suspend` stack, adding a frame per completion with no upper bound. Shipping this interface locks in the `void` return type and forecloses `coroutine_handle<>` return, which would enable symmetric transfer.
+- **Symmetric Transfer.** The completion functions (`set_value`, `set_error`, `set_stopped`) and `start()` return `void`, providing no channel to propagate a `coroutine_handle<>`. When a sender completes synchronously, the receiver calls `handle.resume()` on the caller's stack, adding a frame per completion with no upper bound. Shipping this protocol forecloses the `coroutine_handle<>`-returning completion protocol that would enable symmetric transfer.
 
 ---
 
 ## Acknowledgements
 
-The authors thank Andrzej Krzemie&nacute;ski for feedback that sharpened the scope of this revision.
+The authors thank Andrzej Krzemie&nacute;ski for feedback that sharpened the scope of this revision. Thanks are also due to Dietmar K&uuml;hl, Michael Hava, Mark Hoemmen, Ian Petersen, and Ville Voutilainen for technical discussion that informed the analysis.
 
 ---
 
@@ -77,16 +77,16 @@ Papers, issues, and ballot comments referenced in this document.
 2. [P4007R0](https://wg21.link/p4007r0) - "Senders and Coroutines" (Vinnie Falco, Mungo Gill, 2026). https://wg21.link/p4007r0
 3. [P3796R1](https://wg21.link/p3796r1) - "Coroutine Task Issues" (Dietmar K&uuml;hl, 2025). https://wg21.link/p3796r1
 4. [P3801R0](https://wg21.link/p3801r0) - "Concerns about the design of std::execution::task" (Jonathan M&uuml;ller, 2025). https://wg21.link/p3801r0
-5. [D3980R0](https://isocpp.org/files/papers/D3980R0.html) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://isocpp.org/files/papers/D3980R0.html
+5. [P3980R0](https://isocpp.org/files/papers/P3980R0.html) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://isocpp.org/files/papers/P3980R0.html
 6. [LWG 4356](https://cplusplus.github.io/LWG/issue4356) - "connect() should use get_allocator(get_env(rcvr))". https://cplusplus.github.io/LWG/issue4356
 7. [US 254-385](https://github.com/cplusplus/nbballot/issues/960) - C++26 NB ballot comment. https://github.com/cplusplus/nbballot/issues/960
 8. [P3950R0](https://wg21.link/p3950r0) - "return_value & return_void Are Not Mutually Exclusive" (Robert Leahy, 2025). https://wg21.link/p3950r0
 9. [P1713R0](https://wg21.link/p1713r0) - "Allowing both co_return; and co_return value; in the same coroutine" (Lewis Baker, 2019). https://wg21.link/p1713r0
-10. [P2583R3](https://wg21.link/p2583r3) - "Symmetric Transfer and Sender Composition" (Mungo Gill, Vinnie Falco, 2026). https://wg21.link/p2583r3
+10. [P2583R3](https://isocpp.org/files/papers/P2583R3.pdf) - "Symmetric Transfer and Sender Composition" (Mungo Gill, Vinnie Falco, 2026). https://isocpp.org/files/papers/P2583R3.pdf
 11. [US 246-373](https://github.com/cplusplus/nbballot/issues/948) - C++26 NB ballot comment. https://github.com/cplusplus/nbballot/issues/948
 12. [LWG 4348](https://cplusplus.github.io/LWG/issue4348) - "task doesn't support symmetric transfer". https://cplusplus.github.io/LWG/issue4348
+13. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
 
 ### Other
 
-13. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
 14. [C++ Working Draft](https://eel.is/c++draft/) - (Richard Smith, ed.). https://eel.is/c++draft/

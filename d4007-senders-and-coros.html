@@ -968,7 +968,7 @@ fix.</p>
 <tbody>
 <tr>
 <td>Allocator Timing</td>
-<td><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[5]</sup>,
+<td><a href="https://isocpp.org/files/papers/P3980R0.html">P3980R0</a><sup>[5]</sup>,
 <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup>, <a href="https://cplusplus.github.io/LWG/issue4356">LWG
 4356</a><sup>[6]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/960">US
 254-385</a><sup>[7]</sup></td>
@@ -976,7 +976,7 @@ fix.</p>
 </tr>
 <tr>
 <td>Allocator Propagation</td>
-<td><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[5]</sup>,
+<td><a href="https://isocpp.org/files/papers/P3980R0.html">P3980R0</a><sup>[5]</sup>,
 <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup></td>
 <td style="text-align: center;">no</td>
 </tr>
@@ -987,7 +987,8 @@ fix.</p>
 </tr>
 <tr>
 <td>Symmetric Transfer</td>
-<td><a href="https://wg21.link/p2583r3">P2583R3</a><sup>[10]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/948">US
+<td><a href="https://isocpp.org/files/papers/P2583R3.pdf">P2583R3</a><sup>[10]</sup>,
+<a href="https://github.com/cplusplus/nbballot/issues/948">US
 246-373</a><sup>[11]</sup>, <a href="https://cplusplus.github.io/LWG/issue4348">LWG
 4348</a><sup>[12]</sup>, <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup></td>
 <td style="text-align: center;">no</td>
@@ -997,11 +998,14 @@ fix.</p>
 <ul>
 <li><p><strong>Allocator Timing.</strong> <code>task</code> does not
 allow the user to specify an allocator at the launch site for coroutine
-frame allocation. The <code>allocator_arg</code> mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> requires the
-allocator to appear in the coroutine’s parameter list, which creates a
-timing problem: the frame is allocated before the parameters are
-evaluated. Shipping this interface locks in the parameter-list approach
-and forecloses alternative injection mechanisms.</p></li>
+frame allocation. The coroutine frame is allocated by
+<code>operator new</code> at the call site, before any sender
+<code>connect</code>/<code>start</code> machinery runs. The receiver’s
+environment - which carries the allocator - is not yet available at that
+point. The <code>allocator_arg</code> mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> works around
+this by requiring the allocator in the coroutine’s parameter list, but
+that locks in a caller-specified approach and forecloses
+environment-based injection.</p></li>
 <li><p><strong>Allocator Propagation.</strong> <code>task</code> does
 not propagate the frame allocator to child tasks. Each child task
 allocates its frame independently. Shipping without propagation locks in
@@ -1016,19 +1020,23 @@ exclusive in the current coroutine specification. Shipping this
 interface locks in the <code>co_yield</code> mechanism and forecloses
 <code>co_return</code>-based error propagation, which would require a
 language change.</p></li>
-<li><p><strong>Symmetric Transfer.</strong>
-<code>sender-awaitable::await_suspend</code> returns <code>void</code>.
-When a sender completes synchronously inside <code>start()</code>, the
-receiver calls <code>handle.resume()</code> on the
-<code>await_suspend</code> stack, adding a frame per completion with no
-upper bound. Shipping this interface locks in the <code>void</code>
-return type and forecloses <code>coroutine_handle&lt;&gt;</code> return,
-which would enable symmetric transfer.</p></li>
+<li><p><strong>Symmetric Transfer.</strong> The completion functions
+(<code>set_value</code>, <code>set_error</code>,
+<code>set_stopped</code>) and <code>start()</code> return
+<code>void</code>, providing no channel to propagate a
+<code>coroutine_handle&lt;&gt;</code>. When a sender completes
+synchronously, the receiver calls <code>handle.resume()</code> on the
+caller’s stack, adding a frame per completion with no upper bound.
+Shipping this protocol forecloses the
+<code>coroutine_handle&lt;&gt;</code>-returning completion protocol that
+would enable symmetric transfer.</p></li>
 </ul>
 <hr />
 <h2 id="acknowledgements">Acknowledgements</h2>
 <p>The authors thank Andrzej Krzemieński for feedback that sharpened the
-scope of this revision.</p>
+scope of this revision. Thanks are also due to Dietmar Kühl, Michael
+Hava, Mark Hoemmen, Ian Petersen, and Ville Voutilainen for technical
+discussion that informed the analysis.</p>
 <hr />
 <h2 id="references">References</h2>
 <p>Papers, issues, and ballot comments referenced in this document.</p>
@@ -1045,9 +1053,9 @@ Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
 <li><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
 the design of std::execution::task” (Jonathan Müller, 2025).
 https://wg21.link/p3801r0</li>
-<li><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a> -
+<li><a href="https://isocpp.org/files/papers/P3980R0.html">P3980R0</a> -
 “Task’s Allocator Use” (Dietmar Kühl, 2026).
-https://isocpp.org/files/papers/D3980R0.html</li>
+https://isocpp.org/files/papers/P3980R0.html</li>
 <li><a href="https://cplusplus.github.io/LWG/issue4356">LWG 4356</a> -
 “connect() should use get_allocator(get_env(rcvr))”.
 https://cplusplus.github.io/LWG/issue4356</li>
@@ -1060,20 +1068,20 @@ https://wg21.link/p3950r0</li>
 <li><a href="https://wg21.link/p1713r0">P1713R0</a> - “Allowing both
 co_return; and co_return value; in the same coroutine” (Lewis Baker,
 2019). https://wg21.link/p1713r0</li>
-<li><a href="https://wg21.link/p2583r3">P2583R3</a> - “Symmetric
-Transfer and Sender Composition” (Mungo Gill, Vinnie Falco, 2026).
-https://wg21.link/p2583r3</li>
+<li><a href="https://isocpp.org/files/papers/P2583R3.pdf">P2583R3</a> -
+“Symmetric Transfer and Sender Composition” (Mungo Gill, Vinnie Falco,
+2026). https://isocpp.org/files/papers/P2583R3.pdf</li>
 <li><a href="https://github.com/cplusplus/nbballot/issues/948">US
 246-373</a> - C++26 NB ballot comment.
 https://github.com/cplusplus/nbballot/issues/948</li>
 <li><a href="https://cplusplus.github.io/LWG/issue4348">LWG 4348</a> -
 “task doesn’t support symmetric transfer”.
 https://cplusplus.github.io/LWG/issue4348</li>
-</ol>
-<h3 id="other">Other</h3>
-<ol start="13" type="1">
 <li><a href="https://wg21.link/p2300r10">P2300R10</a> - “std::execution”
 (Michał Dominiak et al., 2024). https://wg21.link/p2300r10</li>
+</ol>
+<h3 id="other">Other</h3>
+<ol start="14" type="1">
 <li><a href="https://eel.is/c++draft/">C++ Working Draft</a> - (Richard
 Smith, ed.). https://eel.is/c++draft/</li>
 </ol>
