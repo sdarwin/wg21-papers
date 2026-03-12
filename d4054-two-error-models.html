@@ -869,14 +869,17 @@ outline: none;
   <ul>
   <li><a href="#infrastructure-operations" id="toc-infrastructure-operations">2.1 Infrastructure
   Operations</a></li>
-  <li><a href="#io-operations" id="toc-io-operations">2.2 I/O
+  <li><a href="#compound-result-operations" id="toc-compound-result-operations">2.2 Compound-Result
   Operations</a></li>
-  <li><a href="#the-os-delivers-pairs" id="toc-the-os-delivers-pairs">2.3 The OS Delivers Pairs</a></li>
+  <li><a href="#compound-results-in-practice" id="toc-compound-results-in-practice">2.3 Compound Results in
+  Practice</a></li>
+  <li><a href="#where-the-partition-becomes-a-problem" id="toc-where-the-partition-becomes-a-problem">2.4 Where the Partition
+  Becomes a Problem</a></li>
   </ul></li>
   <li><a href="#the-infrastructure-error-model" id="toc-the-infrastructure-error-model">3. The Infrastructure Error
   Model</a></li>
-  <li><a href="#the-io-error-model" id="toc-the-io-error-model">4. The
-  I/O Error Model</a></li>
+  <li><a href="#the-compound-result-error-model" id="toc-the-compound-result-error-model">4. The Compound-Result Error
+  Model</a></li>
   <li><a href="#the-channel-split" id="toc-the-channel-split">5. The
   Channel Split</a>
   <ul>
@@ -902,11 +905,15 @@ outline: none;
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>Asynchronous operations partition naturally into two classes based on
-their error semantics. Infrastructure operations have binary outcomes:
-the operation executed or it did not. I/O operations produce compound
-results: a status classification and associated data, always paired.
-This paper identifies the partition and examines the sender
+<p>Operations partition naturally into two classes based on their
+postcondition structure. Infrastructure operations have binary outcomes:
+the postcondition was satisfied or it was not. Compound-result
+operations produce a status classification and associated data, always
+paired. The partition is not specific to asynchronous programming -
+<code>std::from_chars</code> and POSIX <code>read()</code> exhibit the
+same split. The partition becomes a concrete problem when the sender
+three-channel model forces a routing decision that synchronous return
+values do not face. This paper identifies the partition and examines the
 three-channel model against it. This paper is informational and proposes
 no action.</p>
 <hr />
@@ -925,11 +932,12 @@ claim is sourced to published committee papers, OS specifications, or
 cited implementations.</p>
 <hr />
 <h2 id="the-partition">2. The Partition</h2>
-<p>Asynchronous operations fall into two classes based on what their
-errors mean.</p>
+<p>Operations fall into two classes based on their postcondition
+structure. The partition is not about asynchrony. It is about what the
+operation promises to return.</p>
 <h3 id="infrastructure-operations">2.1 Infrastructure Operations</h3>
-<p>Launch, schedule, dispatch, allocate, enqueue. The operation either
-executes or it does not. An error means the postcondition was
+<p>Launch, schedule, dispatch, allocate, enqueue, open. The operation
+either executes or it does not. An error means the postcondition was
 violated.</p>
 <table>
 <colgroup>
@@ -946,6 +954,21 @@ violated.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>malloc</code></td>
+<td>Block returned</td>
+<td>Allocation failed</td>
+</tr>
+<tr>
+<td><code>fopen</code></td>
+<td>File handle returned</td>
+<td>Open failed</td>
+</tr>
+<tr>
+<td><code>pthread_create</code></td>
+<td>Thread running</td>
+<td>Creation failed</td>
+</tr>
+<tr>
 <td>GPU kernel launch</td>
 <td>Kernel running</td>
 <td>Launch failed</td>
@@ -961,11 +984,6 @@ violated.</p>
 <td>Resource limit</td>
 </tr>
 <tr>
-<td>Memory allocate</td>
-<td>Block returned</td>
-<td>Allocation failed</td>
-</tr>
-<tr>
 <td>Mutex acquire</td>
 <td>Lock held</td>
 <td>Deadlock / timeout</td>
@@ -974,11 +992,13 @@ violated.</p>
 </table>
 <p>Every row is binary. Success is one thing. Failure is another. There
 is no middle ground, no partial outcome, no compound result. The
-operation either satisfied its postcondition or it did not.</p>
-<h3 id="io-operations">2.2 I/O Operations</h3>
-<p>Read, write, connect, accept, send, receive. The operation always
-completes. The result is a classification of what happened, paired with
-associated data.</p>
+operation either satisfied its postcondition or it did not. This is true
+whether the operation is synchronous (<code>malloc</code>,
+<code>fopen</code>) or asynchronous (GPU launch, timer arm).</p>
+<h3 id="compound-result-operations">2.2 Compound-Result Operations</h3>
+<p>Read, write, connect, accept, parse, convert. The operation completes
+and returns a classification of what happened, paired with associated
+data.</p>
 <table>
 <thead>
 <tr>
@@ -988,26 +1008,37 @@ associated data.</p>
 </thead>
 <tbody>
 <tr>
-<td>Read</td>
+<td><code>read</code></td>
 <td><code>(status, bytes_transferred)</code></td>
 </tr>
 <tr>
-<td>Write</td>
+<td><code>write</code></td>
 <td><code>(status, bytes_written)</code></td>
 </tr>
 <tr>
-<td>Connect</td>
-<td><code>(status)</code></td>
+<td><code>from_chars</code></td>
+<td><code>(ptr, errc)</code></td>
 </tr>
 <tr>
-<td>Accept</td>
+<td><code>strtol</code></td>
+<td><code>(value, endptr, errno)</code></td>
+</tr>
+<tr>
+<td><code>accept</code></td>
 <td><code>(status, peer_socket)</code></td>
 </tr>
 </tbody>
 </table>
+<p><code>std::from_chars</code> is synchronous. <code>read</code> may be
+synchronous or asynchronous. Both return compound results where the
+status and the associated data are inseparable. The partition follows
+from postcondition structure, not from how the operation is
+dispatched.</p>
 <p>The status code is not evidence of a postcondition violation. It is
 the postcondition. <code>read(fd, buf, n)</code> promises to report what
-happened on the descriptor. Every status code fulfills that promise:</p>
+happened on the descriptor. <code>from_chars(first, last, value)</code>
+promises to report how far it parsed and whether parsing succeeded.
+Every status code fulfills that promise:</p>
 <table>
 <thead>
 <tr>
@@ -1059,9 +1090,10 @@ happened on the descriptor. Every status code fulfills that promise:</p>
 <p>Only <code>EBADF</code>-class errors - invalid file descriptor, bad
 address, not a socket - are postcondition violations. Every other
 outcome is the operation correctly reporting the state of the world.</p>
-<h3 id="the-os-delivers-pairs">2.3 The OS Delivers Pairs</h3>
-<p>This is not a design preference. It is how operating systems report
-I/O completions:</p>
+<h3 id="compound-results-in-practice">2.3 Compound Results in
+Practice</h3>
+<p>The compound-result pattern is not a design preference. It is how
+systems report outcomes when the result carries more than a boolean:</p>
 <ul>
 <li><p><strong>io_uring.</strong> Each completion queue entry (CQE)
 carries <code>res</code> (byte count or negative errno) and
@@ -1075,9 +1107,41 @@ together in one call.</p></li>
 <code>ssize_t</code>. On success, the byte count. On failure,
 <code>-1</code> with <code>errno</code> set. Both values are available
 at the same call site.</p></li>
+<li><p><strong>C++ Standard Library.</strong>
+<code>std::from_chars</code> returns
+<code>from_chars_result{ptr, ec}</code>. The pointer and the error code
+arrive together in one struct. The caller inspects both at the same call
+site.</p></li>
 </ul>
-<p>Three OS families, three different APIs, the same shape: status and
-data arrive as a pair because they are a single result.</p>
+<p>Three OS families, the C++ standard library, the same shape: status
+and data arrive as a pair because they are a single result.</p>
+<h3 id="where-the-partition-becomes-a-problem">2.4 Where the Partition
+Becomes a Problem</h3>
+<p>For synchronous code, compound results are straightforward. The
+function returns a struct or a tuple. The caller inspects both fields at
+the same call site. No routing decision is required.</p>
+<p>C++ has had two channels since exceptions were introduced:
+<code>return</code> and <code>throw</code>. They are mutually exclusive
+execution paths. When a function throws, the return value is destroyed.
+For compound-result operations, this is the same structural problem: a
+<code>write</code> that throws on <code>ECONNRESET</code> destroys the
+500-byte transfer count the application needed.</p>
+<p>The industry solved this decades ago: use the value channel whenever
+the result is not 100% failure. <code>std::from_chars</code> returns
+<code>{ptr, errc}</code> instead of throwing on parse failure. POSIX
+<code>read()</code> returns a byte count instead of raising a signal on
+EOF. Asio returns <code>(error_code, size_t)</code> as a pair. The error
+channel - <code>throw</code> - is reserved for genuine postcondition
+violations: <code>EBADF</code>, bad address, not a socket. Everything
+else goes through the value channel, keeping the pair intact. The reason
+is not performance. It is information preservation.</p>
+<p>The sender three-channel model reintroduced the problem the industry
+had already learned to avoid - and extended it from two channels to
+three. <code>set_value</code>, <code>set_error</code>, and
+<code>set_stopped</code> are mutually exclusive execution paths. A
+compound result that was a single return value must now be split across
+channels. The remaining sections examine what happens when the
+three-channel model meets each side of the partition.</p>
 <hr />
 <h2 id="the-infrastructure-error-model">3. The Infrastructure Error
 Model</h2>
@@ -1112,10 +1176,11 @@ the cancellation. The channels compose with generic algorithms:
 <p>The three-channel model is correct for this class.
 <code>std::execution</code> serves it well.</p>
 <hr />
-<h2 id="the-io-error-model">4. The I/O Error Model</h2>
-<p>For I/O operations, the postcondition is: “return the outcome
-classification and associated data.” This postcondition is always
-satisfied. The operation always reports what happened.</p>
+<h2 id="the-compound-result-error-model">4. The Compound-Result Error
+Model</h2>
+<p>For compound-result operations, the postcondition is: “return the
+outcome classification and associated data.” This postcondition is
+always satisfied. The operation always reports what happened.</p>
 <p>The status code is not a failure signal. It is a vocabulary:</p>
 <ul>
 <li><code>ECONNRESET</code> - the peer reset the connection</li>
@@ -1301,80 +1366,118 @@ data, becomes unused, or changes its semantics when applied to I/O.</p>
 <hr />
 <h2 id="domain-boundary">7. Domain Boundary</h2>
 <p>The finding is not that the three-channel model is wrong. It is that
-the model has a domain.</p>
+the model has a domain. The partition exists independent of asynchrony.
+The channel problem exists because the sender model forces a routing
+decision.</p>
 <table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 14%" />
+<col style="width: 23%" />
+<col style="width: 37%" />
+</colgroup>
 <thead>
 <tr>
 <th>Domain</th>
+<th>Sync/Async</th>
 <th>Error model</th>
 <th>Three-channel model fits?</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td><code>malloc</code></td>
+<td>Sync</td>
+<td>Infrastructure</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>fopen</code></td>
+<td>Sync</td>
+<td>Infrastructure</td>
+<td>Yes</td>
+</tr>
+<tr>
 <td>GPU dispatch</td>
+<td>Async</td>
 <td>Infrastructure</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td>Thread pool</td>
+<td>Async</td>
 <td>Infrastructure</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td>Timer</td>
+<td>Async</td>
 <td>Infrastructure</td>
 <td>Yes</td>
 </tr>
 <tr>
-<td>Allocator</td>
-<td>Infrastructure</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Read / Write</td>
-<td>I/O</td>
+<td><code>from_chars</code></td>
+<td>Sync</td>
+<td>Compound-result</td>
 <td>No</td>
 </tr>
 <tr>
-<td>Connect/Accept</td>
-<td>I/O</td>
+<td><code>strtol</code></td>
+<td>Sync</td>
+<td>Compound-result</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Read / Write</td>
+<td>Either</td>
+<td>Compound-result</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Connect / Accept</td>
+<td>Either</td>
+<td>Compound-result</td>
 <td>No</td>
 </tr>
 <tr>
 <td>DNS resolve</td>
-<td>I/O</td>
+<td>Either</td>
+<td>Compound-result</td>
 <td>No</td>
 </tr>
 </tbody>
 </table>
-<p><code>std::execution</code> was built at NVIDIA for compile-time work
-graphs and GPU dispatch<sup>[8]</sup>. Those are infrastructure
-operations with binary outcomes. The model is correct for its design
-domain.</p>
-<p>Dietmar Kühl - the author of <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[5]</sup>
-(<code>std::execution::task</code>) and <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[3]</sup>
-(sender/receiver networking) - described his own I/O error dispatch
-mechanism on the LEWG reflector (March 12, 2026): “My answer does
-somewhat appall me, especially having created this - er - solution!” He
-was demonstrating the four different syntactic mechanisms required to
-dispatch to the three channels from a coroutine. The task author’s own
-assessment of what happens when the infrastructure error model meets
-I/O.</p>
+<p>The reference implementation of
+<code>std::execution</code><sup>[8]</sup> targets compile-time work
+graphs and GPU dispatch. Those are infrastructure operations with binary
+outcomes. The model is correct for its design domain. The
+compound-result operations - whether synchronous or asynchronous - are
+outside that domain.</p>
 <hr />
 <h2 id="conclusion">8. Conclusion</h2>
 <p>Two error models exist. They are not a matter of taste. They follow
-from the structure of the operations.</p>
-<p>Infrastructure operations have binary postconditions. The
-three-channel model maps them cleanly. I/O operations produce compound
-results where the status code and the associated data are inseparable.
-The three-channel model cannot represent them without losing data,
-bypassing the channels, or redefining what the channels mean.</p>
+from the postcondition structure of the operations. The partition is not
+about asynchrony.</p>
+<p>Infrastructure operations have binary postconditions: satisfied or
+violated. <code>malloc</code> returns a pointer or null. A GPU kernel
+launches or it does not. The three-channel model maps these cleanly.</p>
+<p>Compound-result operations produce a status classification paired
+with associated data. <code>from_chars</code> returns
+<code>{ptr, errc}</code>. <code>read</code> returns
+<code>(status, bytes_transferred)</code>. The status code is the
+postcondition, not evidence of its violation. The three-channel model
+cannot represent these results without losing data, bypassing the
+channels, or redefining what the channels mean.</p>
+<p>Synchronous code handles compound results naturally - the function
+returns a struct and the caller inspects both fields. The partition
+becomes a problem when the sender three-channel model forces a routing
+decision that splits the pair before the application sees it.</p>
 <p>The partition is the same one Chris Kohlhoff identified in
 2021<sup>[2]</sup>. It is the same one every OS kernel enforces by
 delivering status and byte count as a single completion. It is the
-reason Asio delivers <code>(error_code, size_t)</code> as a pair. It is
-not new. It is forty years old.</p>
+reason <code>std::from_chars</code> returns a struct with two fields. It
+is the reason Asio delivers <code>(error_code, size_t)</code> as a pair.
+It is not new. It is forty years old.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
@@ -1399,8 +1502,8 @@ https://wg21.link/p4007r0</p></li>
 <li><p><a href="https://github.com/bemanproject/net">bemanproject/net</a> -
 Sender/receiver networking library.
 https://github.com/bemanproject/net</p></li>
-<li><p><a href="https://github.com/NVIDIA/stdexec">stdexec</a> - NVIDIA
-reference implementation of std::execution.
+<li><p><a href="https://github.com/NVIDIA/stdexec">stdexec</a> -
+Reference implementation of std::execution.
 https://github.com/NVIDIA/stdexec</p></li>
 <li><p>IEEE Std 1003.1 - POSIX <code>read()</code> /
 <code>write()</code> specification.
