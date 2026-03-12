@@ -16,7 +16,7 @@ audience: LEWG
 
 ## Revision History
 
-### R1: March 2026 (post-Croydon mailing)
+### R1: March 2026 (prior to Croydon meeting)
 
 * Complete rewrite as an informational classification of open issues.
 
@@ -90,3 +90,4 @@ Papers, issues, and ballot comments referenced in this document.
 ### Other
 
 14. [C++ Working Draft](https://eel.is/c++draft/) - (Richard Smith, ed.). https://eel.is/c++draft/
+
