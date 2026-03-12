@@ -16,7 +16,7 @@ audience: LEWG
 
 ## Revision History
 
-### R1: March 2026 (pre-Croydon mailing)
+### R1: March 2026 (post-Croydon mailing)
 
 * Complete rewrite as a criteria paper.
 
