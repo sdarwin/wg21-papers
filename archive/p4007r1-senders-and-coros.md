@@ -16,7 +16,7 @@ audience: LEWG
 
 ## Revision History
 
-### R1: March 2026 (pre-Croydon)
+### R1: March 2026 (prior to Croydon meeting)
 
 * Complete rewrite as an informational classification of open issues.
 
