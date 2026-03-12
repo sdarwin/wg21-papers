@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>D4007R1: <code>std::execution::task</code> Shipping
-Gate</title>
+  <title>D4007R1: Open Issues in
+<code>std::execution::task</code></title>
   <style type="text/css">
 
 @font-face {
@@ -843,12 +843,12 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1><code>std::execution::task</code> Shipping Gate</h1>
+<h1>Open Issues in <code>std::execution::task</code></h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
   <p><strong>Document Number:</strong> D4007R1</p>
-  <p><strong>Date:</strong> 2026-03-11</p>
+  <p><strong>Date:</strong> 2026-03-12</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Mungo Gill
 <a href="mailto:mungo.gill@me.com" class="email">mungo.gill@me.com</a></p>
@@ -870,12 +870,9 @@ outline: none;
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
   <li><a href="#fixed-after-ship" id="toc-fixed-after-ship">2. Fixed
   After Ship</a></li>
-  <li><a href="#ships-broken" id="toc-ships-broken">3. Ships
-  Broken</a></li>
-  <li><a href="#straw-polls" id="toc-straw-polls">4. Straw
-  Polls</a></li>
-  <li><a href="#proposed-wording" id="toc-proposed-wording">5. Proposed
-  Wording</a></li>
+  <li><a href="#not-fixable-post-ship" id="toc-not-fixable-post-ship">3.
+  Not Fixable Post-Ship</a></li>
+  <li><a href="#acknowledgements" id="toc-acknowledgements">Acknowledgements</a></li>
   <li><a href="#references" id="toc-references">References</a>
   <ul>
   <li><a href="#wg21-papers" id="toc-wg21-papers">WG21 Papers</a></li>
@@ -886,17 +883,16 @@ outline: none;
 
 <h2 id="abstract">Abstract</h2>
 <p><code>std::execution::task</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>) has open
-defects identified by national ballot comments, LWG issues, and
-published papers. This paper lists criteria that must be resolved to
-ship <code>task</code> in C++26. If all are resolved, ship. If any
-remain, apply the proposed wording in Section 5 to remove
-<code>task</code> from the working draft.</p>
+issues identified by national ballot comments, LWG issues, and published
+papers. This paper classifies each issue by whether it can be resolved
+after C++26 ships or whether shipping forecloses the fix.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r1-march-2026-post-croydon-mailing">R1: March 2026 (post-Croydon
 mailing)</h3>
 <ul>
-<li>Complete rewrite as a criteria paper.</li>
+<li>Complete rewrite as an informational classification of open
+issues.</li>
 </ul>
 <h3 id="r0-february-2026-pre-croydon-mailing">R0: February 2026
 (pre-Croydon mailing)</h3>
@@ -905,13 +901,9 @@ mailing)</h3>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The authors developed <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[3]</sup> (“Coroutines
-for I/O”) and <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> (“Senders and
-Coroutines”). A coroutine-only design cannot express compile-time work
-graphs, does not support heterogeneous dispatch, and assumes a
-cooperative runtime. Those are real costs. The defects documented below
-hold regardless of whether P4003 is the right design or any design at
-all.</p>
+<p>The authors developed <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> (“Senders and
+Coroutines”). The classification below holds regardless of whether any
+alternative design exists.</p>
 <hr />
 <h2 id="fixed-after-ship">2. Fixed After Ship</h2>
 <p><code>task</code>’s <code>promise_type</code> is a class template
@@ -919,46 +911,46 @@ instantiated in user code. Its <code>operator new</code>, allocator
 selection, stop token storage, environment forwarding, and destruction
 ordering can change between standard revisions without binary
 incompatibility. These issues are fixable post-ship: <a href="https://wg21.link/p3796r1">Unusual Allocator
-Customisation</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Flexible Allocator
-Position</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Shadowing The Environment
-Allocator</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Stop
-Source Always Created</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Stop Token Default
-Constructible</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Task Not Actually Lazily
-Started</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Frame
-Destroyed Too Late</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">No Default Arguments</a><sup>[4]</sup>,
+Customisation</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Flexible Allocator
+Position</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Shadowing The Environment
+Allocator</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Stop
+Source Always Created</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Stop Token Default
+Constructible</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Task Not Actually Lazily
+Started</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Frame
+Destroyed Too Late</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">No Default Arguments</a><sup>[3]</sup>,
 <a href="https://wg21.link/p3796r1"><code>unhandled_stopped</code> Not
-<code>noexcept</code></a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Environment Design
-Inefficient</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Non-Sender Awaitables
-Unsupported</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Future Language Feature Could Avoid
-<code>co_yield</code></a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">No TLS Capture/Restore
-Hook</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>return_value</code>/<code>return_void</code>
-Have No Specification</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>co_return { args... }</code>
-Unsupported</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>change_coroutine_scheduler</code>
-Requires Assignable Scheduler</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Sender-Unaware Coroutines Cannot
-<code>co_await</code> a <code>task</code></a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Missing Rvalue
-Qualification</a><sup>[4]</sup>, <a href="https://wg21.link/p3801r0">Parameter Lifetime Is
-Surprising</a><sup>[5]</sup>, <a href="https://wg21.link/p3801r0">No
-Protection Against Dangling References</a><sup>[5]</sup>, <a href="https://wg21.link/p3801r0"><code>co_yield with_error</code> Is
-Clunky</a><sup>[5]</sup>, <a href="https://wg21.link/p3801r0"><code>co_await schedule(sch)</code> Is
-an Expensive No-Op</a><sup>[5]</sup>, <a href="https://wg21.link/p3801r0">Coroutine Cancellation Is
-Ad-Hoc</a><sup>[5]</sup>.</p>
+<code>noexcept</code></a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Environment Design
+Inefficient</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Non-Sender Awaitables
+Unsupported</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Future Language Feature Could Avoid
+<code>co_yield</code></a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">No TLS Capture/Restore
+Hook</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>return_value</code>/<code>return_void</code>
+Have No Specification</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>co_return { args... }</code>
+Unsupported</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>change_coroutine_scheduler</code>
+Requires Assignable Scheduler</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Sender-Unaware Coroutines Cannot
+<code>co_await</code> a <code>task</code></a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Missing Rvalue
+Qualification</a><sup>[3]</sup>, <a href="https://wg21.link/p3801r0">Parameter Lifetime Is
+Surprising</a><sup>[4]</sup>, <a href="https://wg21.link/p3801r0">No
+Protection Against Dangling References</a><sup>[4]</sup>, <a href="https://wg21.link/p3801r0"><code>co_yield with_error</code> Is
+Clunky</a><sup>[4]</sup>, <a href="https://wg21.link/p3801r0"><code>co_await schedule(sch)</code> Is
+an Expensive No-Op</a><sup>[4]</sup>, <a href="https://wg21.link/p3801r0">Coroutine Cancellation Is
+Ad-Hoc</a><sup>[4]</sup>.</p>
 <p><code>affine_on</code> semantics, rescheduling behavior, and
 algorithm customisation are specification-level concerns. Tightening
 requirements or adding default implementations does not change any
 published interface. These issues are fixable post-ship: <a href="https://wg21.link/p3796r1"><code>affine_on</code> Default
-Implementation Lacks Specification</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Semantics Not
-Clear</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Shape May Not Be
-Correct</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Shouldn’t
-Forward Stop Requests</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Customisation
-For Other Senders</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Starting a <code>task</code>
-Reschedules Unconditionally</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">Resuming After a <code>task</code>
-Reschedules Unnecessarily</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>bulk</code>
-vs. <code>task_scheduler</code></a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">No Completion
-Scheduler</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1"><code>with_awaitable_senders</code>
-Unused</a><sup>[4]</sup>.</p>
+Implementation Lacks Specification</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Semantics Not
+Clear</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Shape May Not Be
+Correct</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Shouldn’t
+Forward Stop Requests</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>affine_on</code> Customisation
+For Other Senders</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Starting a <code>task</code>
+Reschedules Unconditionally</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">Resuming After a <code>task</code>
+Reschedules Unnecessarily</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>bulk</code>
+vs. <code>task_scheduler</code></a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1">No Completion
+Scheduler</a><sup>[3]</sup>, <a href="https://wg21.link/p3796r1"><code>with_awaitable_senders</code>
+Unused</a><sup>[3]</sup>.</p>
 <hr />
-<h2 id="ships-broken">3. Ships Broken</h2>
-<p>The criteria in this section are items where shipping forecloses the
+<h2 id="not-fixable-post-ship">3. Not Fixable Post-Ship</h2>
+<p>The issues in this section are items where shipping forecloses the
 fix.</p>
 <table>
 <colgroup>
@@ -968,7 +960,7 @@ fix.</p>
 </colgroup>
 <thead>
 <tr>
-<th>Criterion</th>
+<th>Issue</th>
 <th>References</th>
 <th style="text-align: center;">Fixed</th>
 </tr>
@@ -976,81 +968,70 @@ fix.</p>
 <tbody>
 <tr>
 <td>Allocator Timing</td>
-<td><a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> S5, <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[6]</sup>,
-<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[4]</sup>, <a href="https://cplusplus.github.io/LWG/issue4356">LWG
-4356</a><sup>[7]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/960">US
-254-385</a><sup>[8]</sup></td>
+<td><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[5]</sup>,
+<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup>, <a href="https://cplusplus.github.io/LWG/issue4356">LWG
+4356</a><sup>[6]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/960">US
+254-385</a><sup>[7]</sup></td>
 <td style="text-align: center;">no</td>
 </tr>
 <tr>
 <td>Allocator Propagation</td>
-<td><a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> S5, <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[6]</sup>,
-<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[4]</sup></td>
-<td style="text-align: center;">no</td>
-</tr>
-<tr>
-<td>Complicated Success</td>
-<td><a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> S3, <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[9]</sup></td>
-<td style="text-align: center;">no</td>
-</tr>
-<tr>
-<td>Exception Hygiene</td>
-<td><a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup>
-S3.7</td>
+<td><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[5]</sup>,
+<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup></td>
 <td style="text-align: center;">no</td>
 </tr>
 <tr>
 <td>Error Return</td>
-<td><a href="https://wg21.link/p4007r0">P4007R0</a><sup>[2]</sup> S4, <a href="https://wg21.link/p3950r0">P3950R0</a><sup>[10]</sup>, <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[5]</sup>, <a href="https://wg21.link/p1713r0">P1713R0</a><sup>[11]</sup></td>
+<td><a href="https://wg21.link/p3950r0">P3950R0</a><sup>[8]</sup>, <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[4]</sup>, <a href="https://wg21.link/p1713r0">P1713R0</a><sup>[9]</sup></td>
 <td style="text-align: center;">no</td>
 </tr>
 <tr>
 <td>Symmetric Transfer</td>
-<td><a href="https://wg21.link/p2583r3">P2583R3</a><sup>[12]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/948">US
-246-373</a><sup>[13]</sup>, <a href="https://cplusplus.github.io/LWG/issue4348">LWG
-4348</a><sup>[14]</sup>, <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[5]</sup>, <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[4]</sup></td>
+<td><a href="https://wg21.link/p2583r3">P2583R3</a><sup>[10]</sup>, <a href="https://github.com/cplusplus/nbballot/issues/948">US
+246-373</a><sup>[11]</sup>, <a href="https://cplusplus.github.io/LWG/issue4348">LWG
+4348</a><sup>[12]</sup>, <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[4]</sup>, <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[3]</sup></td>
 <td style="text-align: center;">no</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li><p><strong>Allocator Timing.</strong> The user can specify either a
-type <code>Allocator</code> or pointer to
-<code>pmr::memory_resource</code> at the launch site and this allocator
-is injected into the environment and used to allocate the coroutine
-frame of the launched task; if the launch function implementation
-creates any trampolines, those coroutine frames are also allocated using
-the user’s specified allocator.</p></li>
-<li><p><strong>Allocator Propagation.</strong> The allocator used in the
-launch function is invisibly propagated to all child tasks.</p></li>
-<li><p><strong>Complicated Success.</strong> I/O outcomes
-(<code>error_code</code>, value pair) map cleanly to the sender’s
-three-channel design, without data loss, and without foreclosing a
-subset of downstream sender algorithms.</p></li>
-<li><p><strong>Exception Hygiene.</strong> No exceptions thrown for
-transient errors like <code>ECONNRESET</code> or
-<code>ssl::stream_truncated</code>.</p></li>
-<li><p><strong>Error Return.</strong> Users write <code>co_return</code>
-to propagate error codes to the caller, not
-<code>co_yield</code>.</p></li>
+<li><p><strong>Allocator Timing.</strong> <code>task</code> does not
+allow the user to specify an allocator at the launch site for coroutine
+frame allocation. The <code>allocator_arg</code> mechanism in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> requires the
+allocator to appear in the coroutine’s parameter list, which creates a
+timing problem: the frame is allocated before the parameters are
+evaluated. Shipping this interface locks in the parameter-list approach
+and forecloses alternative injection mechanisms.</p></li>
+<li><p><strong>Allocator Propagation.</strong> <code>task</code> does
+not propagate the frame allocator to child tasks. Each child task
+allocates its frame independently. Shipping without propagation locks in
+a design where every launch site must specify its allocator explicitly,
+foreclosing transparent propagation through the coroutine call
+tree.</p></li>
+<li><p><strong>Error Return.</strong> <code>task</code> requires
+<code>co_yield with_error(e)</code> to propagate an error to the caller.
+<code>co_return</code> cannot carry an error value because
+<code>return_value</code> and <code>return_void</code> are mutually
+exclusive in the current coroutine specification. Shipping this
+interface locks in the <code>co_yield</code> mechanism and forecloses
+<code>co_return</code>-based error propagation, which would require a
+language change.</p></li>
 <li><p><strong>Symmetric Transfer.</strong>
-<code>sender-awaitable::await_suspend</code> returns <code>void</code>,
-so co_awaiting a synchronously completing sender grows the stack by one
-frame per completion with no upper bound.</p></li>
+<code>sender-awaitable::await_suspend</code> returns <code>void</code>.
+When a sender completes synchronously inside <code>start()</code>, the
+receiver calls <code>handle.resume()</code> on the
+<code>await_suspend</code> stack, adding a frame per completion with no
+upper bound. Shipping this interface locks in the <code>void</code>
+return type and forecloses <code>coroutine_handle&lt;&gt;</code> return,
+which would enable symmetric transfer.</p></li>
 </ul>
 <hr />
-<h2 id="straw-polls">4. Straw Polls</h2>
-<ol type="1">
-<li><p>“The committee is comfortable shipping
-<code>std::execution::task</code> in C++26 with the defects listed in
-Section 3 unresolved.”</p></li>
-<li><p>“Apply the proposed wording in Section 5.”</p></li>
-</ol>
-<hr />
-<h2 id="proposed-wording">5. Proposed Wording</h2>
-<p>TBD</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>The authors thank Andrzej Krzemieński for feedback that sharpened the
+scope of this revision.</p>
 <hr />
 <h2 id="references">References</h2>
+<p>Papers, issues, and ballot comments referenced in this document.</p>
 <h3 id="wg21-papers">WG21 Papers</h3>
 <ol type="1">
 <li><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a Coroutine
@@ -1059,9 +1040,6 @@ https://wg21.link/p3552r3</li>
 <li><a href="https://wg21.link/p4007r0">P4007R0</a> - “Senders and
 Coroutines” (Vinnie Falco, Mungo Gill, 2026).
 https://wg21.link/p4007r0</li>
-<li><a href="https://wg21.link/p4003r0">P4003R0</a> - “Coroutines for
-I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
-https://wg21.link/p4003r0</li>
 <li><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
 Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
 <li><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
@@ -1076,9 +1054,6 @@ https://cplusplus.github.io/LWG/issue4356</li>
 <li><a href="https://github.com/cplusplus/nbballot/issues/960">US
 254-385</a> - C++26 NB ballot comment.
 https://github.com/cplusplus/nbballot/issues/960</li>
-<li><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial success
-scenarios with P2300” (Chris Kohlhoff, 2021).
-https://wg21.link/p2430r0</li>
 <li><a href="https://wg21.link/p3950r0">P3950R0</a> - “return_value
 &amp; return_void Are Not Mutually Exclusive” (Robert Leahy, 2025).
 https://wg21.link/p3950r0</li>
@@ -1096,7 +1071,7 @@ https://github.com/cplusplus/nbballot/issues/948</li>
 https://cplusplus.github.io/LWG/issue4348</li>
 </ol>
 <h3 id="other">Other</h3>
-<ol start="15" type="1">
+<ol start="13" type="1">
 <li><a href="https://wg21.link/p2300r10">P2300R10</a> - “std::execution”
 (Michał Dominiak et al., 2024). https://wg21.link/p2300r10</li>
 <li><a href="https://eel.is/c++draft/">C++ Working Draft</a> - (Richard
