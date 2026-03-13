@@ -1,7 +1,7 @@
 ---
-title: "Network Library Comparison"
+title: "Sender I/O: A Constructed Comparison"
 document: D4053R0
-date: 2026-03-12
+date: 2026-03-13
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
   - "Steve Gerbino <steve@gerbino.co>"
@@ -10,7 +10,7 @@ audience: LEWG
 
 ## Abstract
 
-Two TCP echo servers built on different architectures - [beman.net](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c)<sup>[2]</sup> (sender/receiver, [P2762R2](https://wg21.link/p2762r2)<sup>[1]</sup>) and [Corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409)<sup>[3]</sup> (coroutine-native, built on [Capy](https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135)<sup>[4]</sup>) - are compared source to source across ten dimensions. This paper is informational and proposes no action.
+Three sender-based TCP echo servers are constructed from the C++26 specification and compared against a coroutine-native echo server ([Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup>). Approach A1 routes I/O results through `set_value`, matching coroutine-native ergonomics but bypassing the channel-based composition algebra. Approach A2 routes the error code through `set_error` while capturing the byte count in shared state, restoring channel-based composition but removing the byte count from the completion signature and reintroducing shared mutable state. Approach B routes errors through `set_error`, retaining composition but converting every routine network event into an exception and discarding the byte count. No construction achieves both data preservation and channel-based composition without shared state or exceptions. The authors invite any reader to construct a sender-based echo server that preserves compound I/O results, retains channel-based composition, and avoids exception round-trips, using C++26 facilities. The authors will incorporate any such construction into a future revision and re-evaluate every finding.
 
 ---
 
@@ -18,671 +18,282 @@ Two TCP echo servers built on different architectures - [beman.net](https://gith
 
 ### R0: March 2026 (post-Croydon mailing)
 
-* Initial version.
+- Initial version.
 
 ---
 
 ## 1. Disclosure
 
-The authors developed [Corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409)<sup>[3]</sup> and have an interest in this space. This paper proposes no action. It presents direct source-to-source comparisons so the reader can make an informed assessment.
+The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The authors provide information, ask nothing, and serve at the pleasure of the chair. This paper constructs the best sender-based echo server the authors can build from the C++26 specification, places it next to a coroutine-native echo server, and shows what each approach costs. The authors invite improvements to the sender construction (Section 10).
 
 ---
 
-## 2. Error Handling
+## 2. The Coroutine-Native Echo Server
 
-**Claim:** "Sender/receiver error handling composes generically across implementations."
-
-```cpp
-// beman.net - server.cpp
-} catch (const std::exception& e) {
-    std::cerr << "ERROR: " << e.what() << '\n';
-}
-```
+[Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> `do_session`:
 
 ```cpp
-// Corosio - echo_server.cpp
-if (ec) break;
-```
-
-Every `ECONNRESET` - a routine network event - is `make_exception_ptr` + `rethrow_exception`. Two heap allocations and a table lookup per I/O error, by design.
-
-### How it works
-
-The sender-to-coroutine bridge in [`demo_task.hpp`](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_task.hpp)<sup>[2]</sup> has no path that avoids exceptions:
-
-```cpp
-// demo_task.hpp - sender_awaiter::set_error
-template <typename Error>
-auto set_error(Error&& err) noexcept -> void {
-    if constexpr (std::same_as<std::decay_t<Error>, std::exception_ptr>)
-        this->awaiter->error = err;
-    else
-        this->awaiter->error =
-            std::make_exception_ptr(std::forward<Error>(err));
-    this->awaiter->handle.resume();
-}
-
-// demo_task.hpp - sender_awaiter::await_resume
-auto await_resume() {
-    if (this->error)
-        std::rethrow_exception(this->error);
-    return std::move(*this->result);
-}
-```
-
-`set_error` calls `make_exception_ptr` unconditionally. `await_resume` calls `rethrow_exception` unconditionally. This is not a bug; it is the only way the sender-to-coroutine bridge can surface errors through `co_await`.
-
-The echo handler wraps its entire body in `try/catch`:
-
-```cpp
-// beman.net - server.cpp
-auto make_client(auto client) -> demo::task<void> {
-    try {
-        char buffer[8];
-        while (auto size = co_await net::async_receive(
-                   client, net::buffer(buffer)))
-        {
-            std::string_view message(+buffer, size);
-            std::cout << "received<" << size << ">(" << message << ")\n";
-            auto ssize = co_await net::async_send(
-                client, net::const_buffer(buffer, size));
-            std::cout << "sent<" << ssize << "/" << message.size()
-                      << ">(" << std::string_view(buffer, ssize) << ")\n";
-        }
-        std::cout << "client done\n";
-    } catch (const std::exception& e) {
-        std::cerr << "ERROR: " << e.what() << '\n';
-    }
-}
-```
-
-In Corosio, the error code is a value. No exception. No `make_exception_ptr`. No `rethrow_exception`:
-
-```cpp
-// Corosio - echo_server.cpp
 capy::task<> do_session()
 {
     for (;;)
     {
-        buf_.resize(4096);
         auto [ec, n] = co_await sock_.read_some(
-            capy::mutable_buffer(buf_.data(), buf_.size()));
-        if (ec)
-            break;
+            capy::mutable_buffer(
+                buf_, sizeof buf_));
 
-        buf_.resize(n);
         auto [wec, wn] = co_await capy::write(
-            sock_, capy::const_buffer(buf_.data(), buf_.size()));
-        if (wec)
+            sock_, capy::const_buffer(buf_, n));
+
+        if (wec || ec)
             break;
     }
     sock_.close();
 }
 ```
 
+Each `co_await` yields `(error_code, size_t)` as a structured binding. The error code is a value. No exceptions. Both values are visible at the call site.
+
 ---
 
-## 3. Error Propagation
+## 3. Why I/O Results Are Different
 
-**Claim:** "The three-channel model cleanly separates success from failure."
+Infrastructure operations have binary outcomes:
+
+| Operation          | Success              | Failure            |
+| ------------------ | -------------------- | ------------------ |
+| `malloc`           | Block returned       | Allocation failed  |
+| `fopen`            | File handle returned | Open failed        |
+| `pthread_create`   | Thread running       | Creation failed    |
+| GPU kernel launch  | Kernel running       | Launch failed      |
+| Timer arm          | Timer armed          | Resource limit     |
+
+Every row is binary. The three channels - `set_value`, `set_error`, `set_stopped` - map unambiguously. The three-channel model is correct for this class. `std::execution` serves it well.
+
+I/O operations return compound results:
+
+| Operation | Result                        |
+| --------- | ----------------------------- |
+| `read`    | `(status, bytes_transferred)` |
+| `write`   | `(status, bytes_written)`     |
+
+Status and data, always paired. Both values are always present. Every OS delivers them together. io_uring carries `res` and `flags` in one CQE. IOCP returns a `BOOL` and `lpNumberOfBytesTransferred` in one call. POSIX `read()` returns `ssize_t` with `errno` set.
+
+Chris Kohlhoff identified this in [P2430R0](https://wg21.link/p2430r0)<sup>[5]</sup> ("Partial success scenarios with P2300," 2021):
+
+> "Due to the limitations of the `set_error` channel (which has a single 'error' argument) and `set_done` channel (which takes no arguments), partial results must be communicated down the `set_value` channel."
+
+The remaining sections construct three approaches to routing compound results through three channels and show what each costs.
+
+---
+
+## 4. Constructing the Sender Echo Server
+
+Three approaches exist for routing I/O results through the three-channel model. Approach A1 routes everything through `set_value`. Approach A2 routes the error code through `set_error` while capturing the byte count in shared state. Approach B routes errors through `set_error` and discards the byte count. We construct the best version of each from the C++26 specification ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>, [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>).
+
+Dietmar K&uuml;hl enumerated five channel-routing options for I/O in [P2762R2](https://wg21.link/p2762r2)<sup>[10]</sup> (Section 4.2), including fused `set_value(error_code, n)`, multiple `set_value` overloads, `set_error` routing, hybrid severity-based classification, and an `error_code` reference argument. K&uuml;hl noted that "some of the error cases may have been partial successes" and that "using the set_error channel taking just one argument is somewhat limiting." Kirk Shoop identified the same heuristic difficulty in [P2471R1](https://wg21.link/p2471r1)<sup>[11]</sup>, observing that completion tokens translating to senders "must use a heuristic to type-match the first arg" to distinguish errors from values. The approaches below correspond to K&uuml;hl's options 1, 3, and a shared-state variant not in his enumeration.
+
+---
+
+## 5. Approach A1: Route Through `set_value`
+
+The I/O sender calls `set_value(error_code, size_t)` for all outcomes. Completion signature: `set_value_t(std::error_code, std::size_t)`.
+
+[P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> Section 4.4 specifies that `co_await` on a sender with multiple value arguments yields a `std::tuple`. Structured bindings work:
 
 ```cpp
-// beman.net - initiate.hpp
-auto exp{co_await (
-    beman::net::async_connect(client)
-    | beman::net::detail::into_expected
-    | beman::execution::then(
-        [](auto&& e) { return std::move(e); }))};
-if (!exp) {
-    co_yield beman::execution::with_error(exp.error());
+auto do_session(auto& sock, auto& buf)
+    -> std::execution::task<void>
+{
+    for (;;)
+    {
+        auto [ec, n] = co_await async_read(
+            sock, net::buffer(buf));
+
+        auto [wec, wn] = co_await async_write(
+            sock, net::const_buffer(buf, n));
+
+        if (wec || ec)
+            break;
+    }
 }
 ```
 
+The echo session is nearly identical to Corosio. The error code is a value. No exceptions. Both values are visible at the call site.
+
+### What Approach A1 Loses
+
+The I/O sender never calls `set_error` for I/O results. The channel-based composition algebra is bypassed:
+
+- **`when_all`** cancels sibling operations when one completes with `set_error` or `set_stopped` ([exec.when.all]). An I/O failure arriving through `set_value` looks like success to `when_all`. Siblings continue.
+
+- **`upon_error`** intercepts `set_error` ([exec.then]). It is unreachable for these senders.
+
+- **`retry`** (stdexec, not in the C++26 working draft) intercepts `set_error` and restarts the operation. An I/O failure arriving through `set_value` does not trigger it.
+
+The three-channel model reduces to one channel with a structured result. `set_error` serves no purpose for I/O senders under Approach A1. (`set_stopped` retains its cancellation role.)
+
+---
+
+## 6. Approach A2: Split Across Channels and Shared State
+
+A variation of Approach A1 routes the error code through `set_error` while capturing the byte count into shared state before the channel split. A `let_error` handler recovers both values:
+
 ```cpp
-// Corosio
-auto [ec] = co_await sock.connect(ep);
-if (ec) co_return;
-```
+auto do_session(auto& sock, auto& buf)
+    -> std::execution::task<void>
+{
+    for (;;)
+    {
+        std::size_t n = 0;
 
-Six lines and three adaptors to do what `if (ec)` does. The `then([](auto&& e) { return std::move(e); })` is an identity lambda - it does nothing, but the pipeline requires it to compile.
-
-### How it works
-
-The error goes to `set_error` (failure channel). `into_expected` moves it back to `set_value` (success channel). `then` wraps it. The coroutine unwraps it. Then `co_yield with_error` puts it back in the failure channel. The error crosses the channel boundary three times to end up where it started.
-
-The [`into_expected`](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_algorithm.hpp)<sup>[2]</sup> implementation:
-
-```cpp
-// demo_algorithm.hpp - into_expected
-template <beman::net::detail::ex::sender Sender>
-inline auto demo::into_expected_t::operator()(Sender&& s) const {
-    using value_type = ex::value_types_of_t<
-        Sender, ex::env<>,
-        demo::detail::decayed_tuple_or_single_t,
-        std::type_identity_t>;
-    using error_type = ex::error_types_of_t<Sender>;
-    return std::forward<Sender>(s)
-        | beman::net::detail::ex::then(
-              []<typename... A>(A&&... a) noexcept {
-                  return std::expected<value_type, error_type>(
-                      std::in_place_t{}, std::forward<A>(a)...);
+        co_await (
+            async_read(sock, net::buffer(buf))
+            | then([&](std::size_t bytes) {
+                  n = bytes;
               })
-        | beman::net::detail::ex::upon_error(
-              []<typename E>(E&& e) noexcept {
-                  return std::expected<value_type, error_type>(
-                      std::unexpect_t{}, std::forward<E>(e));
-              });
+            | upon_error(
+                  [&](std::error_code ec) {
+                      // ec visible, n stale
+                  }));
+
+        co_await (
+            async_write(
+                sock, net::const_buffer(buf, n))
+            | then([&](std::size_t bytes) {
+                  n = bytes;
+              })
+            | upon_error(
+                  [&](std::error_code ec) {
+                      // ec visible, n stale
+                  }));
+    }
 }
 ```
 
+The error code reaches `upon_error`. `when_all` would cancel siblings. `retry` would fire. The three channels are all in use.
+
+### What Approach A2 Loses
+
+The byte count is not part of any completion signature. It is smuggled through a captured variable that the sender algorithms cannot see:
+
+- **`retry`** fires on `set_error`, but the byte count is in `n`, not in the error channel. A generic retry algorithm cannot inspect the partial transfer count to decide whether retrying is safe.
+
+- **`upon_error`** receives `error_code` alone. The byte count in `n` reflects the *previous* successful stage, not the failed one. The I/O sender called `set_error` without delivering the byte count to any channel.
+
+- **Shared mutable state.** The byte count lives in a captured `std::size_t` that the programmer must coordinate across continuation boundaries. Shared mutable state between sender stages is the concurrency hazard the sender model was designed to eliminate.
+
+Approach A2 uses all three channels, but the byte count bypasses them. The composition algebra operates on the error code alone. The compound result is still split - one half in a channel, the other in a side variable. This is Approach A1 with the error code moved to `set_error` and the byte count moved to shared state.
+
 ---
 
-## 4. Cancellation
+## 7. Approach B: Route Through `set_error`
 
-**Claim:** "Senders provide structured cancellation that raw coroutines cannot express."
+The I/O sender calls `set_value(size_t)` on success and `set_error(error_code)` on any non-zero status. Completion signatures: `set_value_t(std::size_t)` and `set_error_t(std::error_code)`.
 
-```cpp
-// beman.net - server.cpp
-while (true) {
-```
+[P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> specifies that `set_error` is converted to an exception via `AS-EXCEPT-PTR` ([exec.general] p8). For `error_code`, this is `make_exception_ptr(system_error(ec))`, rethrown in `await_resume`. There is no non-throwing path:
 
 ```cpp
-// Corosio - tcp_server.cpp
-while (!env->stop_token.stop_requested()) {
-```
-
-The sender-based server has no way to stop. `while (true)` runs forever. Timer expiry - expected control flow - is routed through `set_error`, converted to an exception, and caught by `catch (...)` { "timer fired" }.
-
-### How it works
-
-To express "accept with a 1-second timeout" in beman.net requires four abstractions:
-
-```cpp
-// beman.net - server.cpp
-while (true) {
+auto do_session(auto& sock, auto& buf)
+    -> std::execution::task<void>
+{
     try {
-        auto [stream, ep] =
-            co_await demo::when_any(
-                net::async_accept(acceptor),
-                demo::into_error(
-                    net::resume_after(ctxt.get_scheduler(), 1s),
-                    [](auto&&...) {
-                        return ::std::error_code();
-                    }));
-        std::cout << "ep=" << ep << "\n";
-        scp.spawn(make_client(std::move(stream)));
-    } catch (...) {
-        std::cout << "timer fired\n";
-    }
-}
-```
-
-`when_any` races accept against timer. `into_error` converts the timer's success into an error. A lambda manufactures an `error_code`. `catch (...)` detects which arm won. Four abstractions for one timeout. And the loop never exits.
-
-Corosio uses hierarchical stop tokens at three levels:
-
-```cpp
-// Corosio - tcp_server.cpp: server level
-void tcp_server::stop()
-{
-    if (!running_)
-        return;
-    running_ = false;
-    impl_->stop.request_stop();
-    capy::run_async(ex_, std::stop_token{})(do_stop());
-}
-
-// Corosio - tcp_server.cpp: accept level
-capy::task<void>
-tcp_server::do_accept(tcp_acceptor& acc)
-{
-    auto env = co_await capy::this_coro::environment;
-    while (!env->stop_token.stop_requested())
-    {
-        auto& w   = co_await pop();
-        auto [ec] = co_await acc.accept(w.socket());
-        if (ec)
+        for (;;)
         {
-            co_await push(w);
-            continue;
+            auto n = co_await async_read(
+                sock, net::buffer(buf));
+
+            co_await async_write(
+                sock, net::const_buffer(buf, n));
         }
-        w.run(launcher{*this, w});
-    }
-}
-
-// Corosio - tcp_server.cpp: worker level
-capy::task<>
-tcp_server::do_stop()
-{
-    for (auto* w = active_head_; w; w = w->next_)
-        w->stop_.request_stop();
-    co_return;
-}
-```
-
----
-
-## 5. Symmetric Transfer
-
-**Claim:** "Sender/receiver composition avoids unbounded stack growth."
-
-```cpp
-// beman.net - demo_task.hpp
-auto await_suspend(coroutine_handle<Promise> h) -> void {
-    this->handle = h;
-    ex::start(this->state);
-}
-```
-
-```cpp
-// Corosio
-auto await_suspend(coroutine_handle<> h, io_env const* env)
-    -> coroutine_handle<>;
-```
-
-`await_suspend` returns `void`. If the sender completes synchronously inside `start()`, `set_value` calls `handle.resume()` while still on the `await_suspend` stack. Each synchronous completion adds a frame. There is no upper bound.
-
-### How it works
-
-When `ex::start(this->state)` completes synchronously, the receiver's `set_value` runs immediately:
-
-```cpp
-// demo_task.hpp - sender_awaiter::receiver::set_value
-template <typename... Args>
-auto set_value(Args&&... args) noexcept -> void {
-    this->awaiter->result.emplace(std::forward<Args>(args)...);
-    this->awaiter->handle.resume();  // resumes on this stack
-}
-```
-
-`handle.resume()` is called while still on the `await_suspend` -> `start` -> `set_value` call chain. If the resumed coroutine co_awaits another synchronously-completing sender, the pattern nests. There is no tail call.
-
-This is not a demo limitation. `void` return from `await_suspend` is the only option when the sender-to-coroutine bridge does not own the resumption. Corosio's awaitables return `coroutine_handle<>`, enabling the compiler to tail-call. Stack depth is constant regardless of call chain depth.
-
----
-
-## 6. Accept Loop
-
-**Claim:** "Sender algorithms compose naturally to express concurrent I/O patterns."
-
-[beman.net](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp)<sup>[2]</sup> (22 lines):
-
-```cpp
-scope.spawn(std::invoke(
-    [](auto& scp, auto& ctxt) -> demo::task<> {
-        net::ip::tcp::endpoint endpoint(
-            net::ip::address_v4::any(), 12345);
-        net::ip::tcp::acceptor acceptor(ctxt, endpoint);
-
-        while (true) {
-            try {
-                auto [stream, ep] =
-                    co_await demo::when_any(
-                        net::async_accept(acceptor),
-                        demo::into_error(
-                            net::resume_after(
-                                ctxt.get_scheduler(), 1s),
-                            [](auto&&...) {
-                                return ::std::error_code();
-                            }));
-                std::cout << "ep=" << ep << "\n";
-                scp.spawn(make_client(std::move(stream)));
-            } catch (...) {
-                std::cout << "timer fired\n";
-            }
-        }
-    },
-    scope,
-    context));
-```
-
-[Corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/src/corosio/src/tcp_server.cpp)<sup>[3]</sup> (15 lines):
-
-```cpp
-capy::task<void>
-tcp_server::do_accept(tcp_acceptor& acc)
-{
-    auto env = co_await capy::this_coro::environment;
-    while (!env->stop_token.stop_requested())
-    {
-        auto& w   = co_await pop();
-        auto [ec] = co_await acc.accept(w.socket());
-        if (ec)
-        {
-            co_await push(w);
-            continue;
-        }
-        w.run(launcher{*this, w});
+    } catch (std::system_error const& e) {
+        // ECONNRESET, EPIPE, EOF arrive here
     }
 }
 ```
 
-Five abstractions to accept a connection: `std::invoke` (IILE to avoid coroutine capture), `when_any` (race accept against timer), `into_error` (convert timer success to error), `try/catch` (detect which arm won), `scope.spawn` (dispatch handler). Two abstractions in Corosio: `co_await` and `if`.
+### What Approach B Loses
 
-`std::invoke` is required because a coroutine lambda that captures by reference is use-after-free. The IILE passes `scope` and `context` as parameters instead. This is a coroutine safety workaround that the sender model forces by requiring the accept loop to be a lambda inside `scope.spawn`.
+- **Information.** The byte count is discarded on any error. A `write` that sends 500 of 1,000 bytes before `ECONNRESET` produces `set_error(ECONNRESET)`. The 500 is gone.
 
----
+- **Non-throwing error handling.** Every `ECONNRESET` - a routine network event - requires `make_exception_ptr` plus `rethrow_exception`.
 
-## 7. Echo Session
-
-**Claim:** "The sender awaitable bridge gives coroutines seamless access to sender results."
-
-```cpp
-// beman.net - server.cpp
-while (auto size = co_await net::async_receive(
-           client, net::buffer(buffer)))
-```
-
-```cpp
-// Corosio - echo_server.cpp
-auto [ec, n] = co_await sock_.read_some(
-    capy::mutable_buffer(buf_.data(), buf_.size()));
-if (ec) break;
-```
-
-The "seamless" bridge discards the error code. `async_receive` produces both a byte count and a status, but the coroutine only sees the byte count. The status went to `set_error` and became an exception. The programmer cannot inspect both values from the same `co_await` expression.
-
-### Full comparison
-
-[beman.net](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp)<sup>[2]</sup> `make_client`:
-
-```cpp
-auto make_client(auto client) -> demo::task<void> {
-    try {
-        char buffer[8];
-        while (auto size = co_await net::async_receive(
-                   client, net::buffer(buffer)))
-        {
-            std::string_view message(+buffer, size);
-            std::cout << "received<" << size << ">(" << message << ")\n";
-            auto ssize = co_await net::async_send(
-                client, net::const_buffer(buffer, size));
-            std::cout << "sent<" << ssize << "/" << message.size()
-                      << ">(" << std::string_view(buffer, ssize) << ")\n";
-        }
-        std::cout << "client done\n";
-    } catch (const std::exception& e) {
-        std::cerr << "ERROR: " << e.what() << '\n';
-    }
-}
-```
-
-`while (auto size = co_await ...)` looks clean until you realize the error path is invisible - it is hiding inside the `try/catch` ten lines away.
-
-[Corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/example/echo-server/echo_server.cpp)<sup>[3]</sup> `do_session`:
-
-```cpp
-capy::task<> do_session()
-{
-    for (;;)
-    {
-        buf_.resize(4096);
-        auto [ec, n] = co_await sock_.read_some(
-            capy::mutable_buffer(buf_.data(), buf_.size()));
-        if (ec)
-            break;
-
-        buf_.resize(n);
-        auto [wec, wn] = co_await capy::write(
-            sock_, capy::const_buffer(buf_.data(), buf_.size()));
-        if (wec)
-            break;
-    }
-    sock_.close();
-}
-```
+- **Visible error path.** The error hides in a `catch` block separated from the `co_await` site. The programmer cannot inspect the error code and the byte count at the same call site.
 
 ---
 
-## 8. Support Machinery
+## 8. The Trade-Off
 
-**Claim:** "std::execution provides the building blocks; users compose them into complete solutions."
+Each sender approach pays a cost the coroutine-native approach does not.
 
-- beman.net: [`demo_task.hpp`](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_task.hpp)<sup>[2]</sup> (254) + [`demo_algorithm.hpp`](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_algorithm.hpp)<sup>[2]</sup> (387) + [`demo_scope.hpp`](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_scope.hpp)<sup>[2]</sup> (91) = **732 lines**
-- Corosio: `#include <boost/capy/task.hpp>` = **0 lines** (library provides the task type)
+| Property                        | A1 (`set_value`)   | A2 (shared state)  | B (`set_error`)    | Corosio              |
+| ------------------------------- | ------------------ | ------------------ | ------------------ | -------------------- |
+| Error code at call site         | Yes                | Yes                | No (in `catch`)    | Yes                  |
+| Byte count at call site         | Yes                | Yes                | No (discarded)     | Yes                  |
+| Partial write preserved         | Yes                | Yes                | No                 | Yes                  |
+| Byte count in completion sig    | Yes                | No (side state)    | No (discarded)     | Yes (return value)   |
+| `when_all` cancels on I/O error | No                 | Yes                | Yes                | Yes (value-based)    |
+| Error handler reachable         | No (`upon_error`)  | Yes (`upon_error`) | Yes (`upon_error`) | Yes (`if (ec)`)      |
+| Retry on I/O error              | No (`retry`)       | Yes (`retry`)      | Yes (`retry`)      | Yes (`retry_after`)  |
+| Retry sees byte count           | No                 | No                 | No                 | Yes                  |
+| Exception on `ECONNRESET`       | No                 | No                 | Yes                | No                   |
+| Shared mutable state required   | No                 | Yes                | No                 | No                   |
+| Channels used for I/O           | 1 of 3             | 3 of 3             | 3 of 3             | Values (no channels) |
 
-732 lines of "demo" headers to run an 88-line echo server. These are not scaffolding. They implement a task type, a sender-to-coroutine bridge, structured concurrency, and an error channel adaptor - functionality that `std::execution` does not provide.
+Infrastructure operations (Section 3) face no such trade-off. Their outcomes are binary. The three channels map unambiguously.
 
-### What each header implements
-
-- `demo_task.hpp` (254 lines): task type, promise, `sender_awaiter`, operation state. This is what `std::execution::task` is supposed to be.
-- `demo_algorithm.hpp` (387 lines): `when_any`, `into_error`, `into_expected`. Three sender algorithms that do not exist in `std::execution`.
-- `demo_scope.hpp` (91 lines): structured concurrency scope. `counting_scope` is not in C++26.
-
----
-
-## 9. Structured Concurrency
-
-**Claim:** "Senders provide structured concurrency that coroutine approaches lack."
-
-```cpp
-// beman.net - demo_scope.hpp
-~scope() {
-    if (0u < this->count)
-        std::cerr << "ERROR: scope destroyed with live jobs: "
-                  << this->count << "\n";
-}
-```
-
-```cpp
-// Corosio - tcp_server.cpp
-void tcp_server::start() {
-    if (active_accepts_ != 0)
-        detail::throw_logic_error(
-            "tcp_server::start: previous session not joined");
-```
-
-The sender-based scope prints to stderr when destroyed with live jobs but does not block, does not join, and does not prevent the program from continuing. The coroutine-based server throws if you violate the lifecycle. Structured concurrency means enforcement, not diagnostics.
-
-### Four properties demonstrated
-
-**(a) RAII ownership.** The [`launcher`](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/include/boost/corosio/tcp_server.hpp)<sup>[3]</sup> class is move-only and must be invoked exactly once. If destroyed without invoking, the worker returns to the pool automatically. If the coroutine setup throws, a stack guard returns the worker. Double-invocation throws `logic_error`:
-
-```cpp
-// Corosio - tcp_server.hpp: launcher
-~launcher()
-{
-    if (w_)
-        srv_->push_sync(*w_);
-}
-
-template<class Executor>
-void operator()(Executor const& ex, capy::task<void> task)
-{
-    if (!w_)
-        detail::throw_logic_error();
-
-    auto* w = std::exchange(w_, nullptr);
-    srv_->active_push(w);
-
-    struct guard_t
-    {
-        tcp_server* srv;
-        worker_base* w;
-        ~guard_t()
-        {
-            if (w)
-                srv->push_sync(*w);
-        }
-    } guard{srv_, w};
-
-    // ... launch coroutine ...
-    guard.w = nullptr; // dismiss on success
-}
-```
-
-Compare with beman.net's spawn:
-
-```cpp
-// beman.net - demo_scope.hpp
-template <ex::sender Sender>
-auto spawn(Sender&& sender) {
-    ++this->count;
-    new job<Sender>(this, std::forward<Sender>(sender));
-}
-```
-
-Raw `new`. No corresponding `delete` in the spawn path. The receiver's `complete()` calls `delete this->state` later.
-
-**(b) Hierarchical cancellation.** Three levels of stop token propagation:
-
-```
-server.stop()
-  -> impl_->stop.request_stop()         // stops accept loops
-    -> do_accept checks stop_requested() // exits accept loop
-    -> do_stop() iterates active workers
-      -> w->stop_.request_stop()         // stops each worker
-```
-
-beman.net's `demo::scope` has `stop()` but no hierarchy. Workers do not receive individual stop tokens.
-
-**(c) Join semantics.** `tcp_server::join()` blocks until all accept loops complete:
-
-```cpp
-// Corosio - tcp_server.cpp
-void tcp_server::join()
-{
-    std::unique_lock lock(impl_->join_mutex);
-    impl_->join_cv.wait(lock,
-        [this] { return active_accepts_ == 0; });
-}
-```
-
-`demo::scope` has no `join()`. Its destructor prints an error but does not block.
-
-**(d) Bounded resources.** Workers are preallocated via `set_workers()`. No `new` per connection. The pool is fixed. `demo::scope::spawn` calls `new job<Sender>(...)` per spawn - unbounded heap allocation.
+The echo server is deliberately minimal. The compound-result problem is per-operation: every `read` returns `(status, bytes_transferred)` regardless of the protocol built on top of it. A TLS handshake, an HTTP/2 stream multiplexer, and a database wire protocol all issue reads and writes with the same completion shape. Adding protocol complexity adds more call sites with the same trade-off, not a different trade-off. The echo server isolates the structural problem. A more complex example would demonstrate the same table at every I/O boundary, with additional protocol logic between them. An HTTP/2 multiplexer issuing concurrent reads on multiple streams via `when_all` faces the same per-stream choice: Approach A1 preserves the byte count but `when_all` does not cancel siblings on I/O failure; Approach B cancels siblings but discards the byte count and throws on `ECONNRESET`.
 
 ---
 
-## 10. TCP Server: Full Program
+## 9. How Coroutines Achieve Structured Concurrency
 
-**Claim:** "A sender-based networking library is as straightforward to use as a callback-based one."
+Coroutines alone are suspendable functions. They do not compose. The structure comes from the execution context - the event loop, the thread pool, the io_uring submission queue. The execution context collects suspended coroutines, dispatches completions, propagates stop tokens, and enforces lifetime boundaries. `when_all` launches coroutines into the execution context, maintains a completion counter, and requests cancellation of siblings via stop tokens when the first coroutine completes. Each cancelled sibling decrements the counter as it completes; `when_all` resumes the caller when the counter reaches zero. The compound result is visible to the application before the cancellation decision is made. The classification happens with full protocol context, not at a context-free channel router.
 
-[beman.net](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp)<sup>[2]</sup> `main()`:
-
-```cpp
-int main() {
-    std::cout << std::unitbuf;
-    std::cout << "example server\n";
-
-    try {
-        demo::scope     scope;
-        net::io_context context;
-
-        scope.spawn(std::invoke(
-            [](auto& scp, auto& ctxt) -> demo::task<> {
-                net::ip::tcp::endpoint endpoint(
-                    net::ip::address_v4::any(), 12345);
-                net::ip::tcp::acceptor acceptor(ctxt, endpoint);
-
-                while (true) {
-                    try {
-                        auto [stream, ep] =
-                            co_await demo::when_any(
-                                net::async_accept(acceptor),
-                                demo::into_error(
-                                    net::resume_after(
-                                        ctxt.get_scheduler(), 1s),
-                                    [](auto&&...) {
-                                        return ::std::error_code();
-                                    }));
-                        std::cout << "ep=" << ep << "\n";
-                        scp.spawn(make_client(std::move(stream)));
-                    } catch (...) {
-                        std::cout << "timer fired\n";
-                    }
-                }
-            },
-            scope,
-            context));
-
-        context.run();
-    } catch (const std::exception& ex) {
-        std::cout << "EXCEPTION: " << ex.what() << "\n";
-        abort();
-    }
-}
-```
-
-[Corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/example/echo-server/echo_server.cpp)<sup>[3]</sup> `main()`:
-
-```cpp
-int main(int argc, char* argv[])
-{
-    if (argc != 3)
-    {
-        std::cerr <<
-            "Usage: echo_server <port> <max-workers>\n"
-            "Example:\n"
-            "    echo_server 8080 10\n";
-        return EXIT_FAILURE;
-    }
-
-    int port_int = std::atoi(argv[1]);
-    auto port = static_cast<std::uint16_t>(port_int);
-    int max_workers = std::atoi(argv[2]);
-
-    corosio::io_context ioc;
-    echo_server server(ioc, max_workers);
-
-    auto ec = server.bind(corosio::endpoint(port));
-    if (ec)
-    {
-        std::cerr << "Bind failed: " << ec.message() << "\n";
-        return EXIT_FAILURE;
-    }
-
-    std::cout << "Echo server listening on port " << port
-              << " with " << max_workers << " workers\n";
-
-    server.start();
-    ioc.run();
-    return EXIT_SUCCESS;
-}
-```
-
-beman.net's `main()` requires the programmer to understand `std::invoke`, IILE parameter passing, `demo::scope`, `demo::task`, `demo::when_any`, `demo::into_error`, and exception-based error handling before writing a single line of networking code. Corosio's `main()` is a conventional object lifecycle: create, bind, start, run.
+The sender model provides structured concurrency through the type system: completion signatures, channel dispatch, and compile-time composition. The coroutine-native model provides structured concurrency through the runtime: the execution context manages the same concerns at the point where the application has already inspected the result. Both models provide structured concurrency. They differ in where the compound result is visible when the composition decision is made.
 
 ---
 
-## 11. Postcondition Analysis
+## 10. Invitation
 
-**Claim:** "The three-channel model correctly partitions I/O outcomes into success, error, and cancellation."
+The authors invite any reader to construct a sender-based echo server that:
 
-```
-beman.net:  error_code -> set_error -> exception_ptr -> rethrow -> catch
-Corosio:    error_code -> io_result -> structured binding -> if (ec)
-```
+- preserves compound I/O results (error code and byte count visible at the call site),
+- retains channel-based composition (`when_all`, `upon_error` fire on I/O errors),
+- avoids exception round-trips for routine error codes, and
+- uses only facilities in C++26 or in-progress proposals ([P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup>, [P3149](https://wg21.link/p3149)<sup>[6]</sup>).
 
-An I/O read always produces a byte count and a status code. Both values are always present. The operation always satisfies its postcondition. beman.net routes the status code through `set_error` - the channel for postcondition violations. But the postcondition was not violated. The error code describes the *kind* of success.
-
-This is not a naming quibble. The channel mismatch is why `into_expected` exists (to move the status code back to the value channel), why every I/O error becomes an exception (the bridge can only surface `set_error` as `rethrow`), and why `co_yield with_error` is needed (to propagate an error code that was already an error code before the three-channel model touched it). Every absurdity in the preceding sections traces to this single architectural decision.
+The authors will incorporate any such construction into a future revision and re-evaluate every finding in this paper. If the sender approach, when done correctly, matches the coroutine-native ergonomics, this paper will say so.
 
 ---
 
-## 12. Summary
+## 11. Acknowledgments
 
-|                          | beman.net                                 | Corosio                        |
-|--------------------------|-------------------------------------------|--------------------------------|
-| Error return             | `catch (const std::exception&)`           | `if (ec)`                      |
-| I/O error mechanism      | `make_exception_ptr` + `rethrow`          | `error_code` value             |
-| Error propagation        | `into_expected` + `then` + `co_yield`     | `if (ec) co_return`            |
-| Channel mapping          | error crosses boundary 3 times            | direct                         |
-| Cancellation             | `catch (...)` for timer expiry            | `stop_token`                   |
-| Accept loop exit         | `while (true)` (no exit)                  | `while (!stop_requested())`    |
-| Symmetric transfer       | `void` (unbounded stack growth)           | `coroutine_handle<>` return    |
-| Concurrency spawn        | `new job<Sender>(...)` (heap per spawn)   | preallocated worker pool       |
-| Scope enforcement        | `~scope()` prints to stderr               | `start()` throws on violation  |
-| Scope join               | none                                      | `join()` blocks on CV          |
-| Hierarchical stop        | none                                      | 3-level stop token propagation |
-| Support machinery        | 732 lines of demo headers                 | 0 (library provides task)      |
-| Full program complexity  | `std::invoke` + IILE + 5 abstractions     | create, bind, start, run       |
+The authors thank Dietmar K&uuml;hl for the channel-routing enumeration in [P2762R2](https://wg21.link/p2762r2)<sup>[10]</sup> and for `beman::execution`, Chris Kohlhoff for identifying the partial-success problem in [P2430R0](https://wg21.link/p2430r0)<sup>[5]</sup>, Kirk Shoop for the completion-token heuristic analysis in [P2471R1](https://wg21.link/p2471r1)<sup>[11]</sup>, Peter Dimov for the refined channel mapping in [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup>, Micha&lstrok; Dominiak, Eric Niebler, and Lewis Baker for `std::execution`, Ian Petersen, Jessica Wong, and Kirk Shoop for `async_scope`, Fabio Fracassi for [P3570R2](https://wg21.link/p3570r2)<sup>[12]</sup>, Ville Voutilainen and Jens Maurer for reflector discussion, and Herb Sutter for identifying the need for constructed comparisons.
 
 ---
 
 ## References
 
-1. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver-Based Networking" (Dietmar K&uuml;hl, 2024). https://wg21.link/p2762r2
-2. [bemanproject/net](https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c) - Sender/receiver networking library. Commit ee861c7. https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c
-3. [cppalliance/corosio](https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409) - Coroutine-native networking library. Commit 6d10efa. https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409
-4. [cppalliance/capy](https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135) - Coroutine I/O primitives library. Commit 18c30d2. https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135
+1. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
+
+2. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
+
+3. [cppalliance/corosio](https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb) - Coroutine-native networking library. Commit ce1c43e. https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb
+
+4. [cppalliance/capy](https://github.com/cppalliance/capy) - Coroutine I/O primitives library. https://github.com/cppalliance/capy
+
+5. [P2430R0](https://wg21.link/p2430r0) - "Partial success scenarios with P2300" (Chris Kohlhoff, 2021). https://wg21.link/p2430r0
+
+6. [P3149](https://wg21.link/p3149) - "async_scope - Creating scopes for non-sequential concurrency" (Ian Petersen, Jessica Wong, Kirk Shoop, et al., 2024). https://wg21.link/p3149
+
+7. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
+
+8. IEEE Std 1003.1 - POSIX `read()` / `write()` specification. https://pubs.opengroup.org/onlinepubs/9799919799/
+
+9. [P4007R0](https://wg21.link/p4007r0) - "Senders and Coroutines" (Vinnie Falco, Mungo Gill, 2026). https://wg21.link/p4007r0
+
+10. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver Interface For Networking" (Dietmar K&uuml;hl, 2023). https://wg21.link/p2762r2
+
+11. [P2471R1](https://wg21.link/p2471r1) - "NetTS, ASIO and Sender Library Design Comparison" (Kirk Shoop, 2021). https://wg21.link/p2471r1
+
+12. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2

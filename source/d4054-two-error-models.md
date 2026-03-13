@@ -9,7 +9,7 @@ audience: LEWG
 
 ## Abstract
 
-Operations partition naturally into two classes based on their postcondition structure. Infrastructure operations have binary outcomes: the postcondition was satisfied or it was not. Compound-result operations produce a status classification and associated data, always paired. The partition is not specific to asynchronous programming - `std::from_chars` and POSIX `read()` exhibit the same split. The partition becomes a concrete problem when the sender three-channel model forces a routing decision that synchronous return values do not face. This paper identifies the partition and examines the three-channel model against it. This paper is informational and proposes no action.
+Operations partition naturally into two classes based on their postcondition structure. Infrastructure operations have binary outcomes: the postcondition was satisfied or it was not. Compound-result operations produce a status classification and associated data, always paired. The partition is not specific to asynchronous programming - `std::from_chars` and POSIX `read()` exhibit the same split. The partition becomes a concrete problem when the sender three-channel model forces a routing decision that synchronous return values do not face. This paper identifies the partition and examines the three-channel model against it.
 
 ---
 
@@ -23,7 +23,7 @@ Operations partition naturally into two classes based on their postcondition str
 
 ## 1. Disclosure
 
-The author developed [P4007R0](https://wg21.link/p4007r0)<sup>[6]</sup> ("Senders and Coroutines") and publishes coroutine-native I/O libraries. The analysis below holds regardless of whether any alternative design exists. Every claim is sourced to published committee papers, OS specifications, or cited implementations.
+The author developed [P4007R0](https://wg21.link/p4007r0)<sup>[6]</sup> ("Senders and Coroutines") and believes coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The author provides information, asks nothing, and serves at the pleasure of the chair. The analysis below holds regardless of whether any alternative design exists. Every claim is sourced to published committee papers, OS specifications, or cited implementations.
 
 ---
 
@@ -49,7 +49,7 @@ Every row is binary. Success is one thing. Failure is another. There is no middl
 
 ### 2.2 Compound-Result Operations
 
-Read, write, connect, accept, parse, convert. The operation completes and returns a classification of what happened, paired with associated data.
+Read, write, accept, parse, convert. The operation completes and returns a classification of what happened, paired with associated data.
 
 | Operation        | Result                        |
 | ---------------- | ----------------------------- |
@@ -58,6 +58,8 @@ Read, write, connect, accept, parse, convert. The operation completes and return
 | `from_chars`     | `(ptr, errc)`                 |
 | `strtol`         | `(value, endptr, errno)`      |
 | `accept`         | `(status, peer_socket)`       |
+
+Some operations straddle the boundary. `connect` returns only a status code - no associated data. It is structurally a binary outcome: the connection was established or it was not. Windows `ConnectEx` accepts an optional send buffer, but the send byte count is available only through a separate `GetOverlappedResult` query - it is not part of the completion result. The completion itself delivers a status code. A bridge that recognizes status-only results can route `connect` through three channels without loss. `accept` cannot be reduced this way because the peer socket is associated data that would be destroyed on the error path.
 
 `std::from_chars` is synchronous. `read` may be synchronous or asynchronous. Both return compound results where the status and the associated data are inseparable. The partition follows from postcondition structure, not from how the operation is dispatched.
 
@@ -96,7 +98,7 @@ C++ has had two channels since exceptions were introduced: `return` and `throw`.
 
 The industry solved this decades ago: use the value channel whenever the result is not 100% failure. `std::from_chars` returns `{ptr, errc}` instead of throwing on parse failure. POSIX `read()` returns a byte count instead of raising a signal on EOF. Asio returns `(error_code, size_t)` as a pair. The error channel - `throw` - is reserved for genuine postcondition violations: `EBADF`, bad address, not a socket. Everything else goes through the value channel, keeping the pair intact. The reason is not performance. It is information preservation.
 
-The sender three-channel model reintroduced the problem the industry had already learned to avoid - and extended it from two channels to three. `set_value`, `set_error`, and `set_stopped` are mutually exclusive execution paths. A compound result that was a single return value must now be split across channels. The remaining sections examine what happens when the three-channel model meets each side of the partition.
+The sender three-channel model presents the same structural challenge, now across three mutually exclusive execution paths instead of two. `set_value`, `set_error`, and `set_stopped` are mutually exclusive. A compound result that was a single return value must now be split across channels. The remaining sections examine what happens when the three-channel model meets each side of the partition.
 
 ---
 
@@ -184,7 +186,7 @@ async_read(socket, buffer)
       });
 ```
 
-This works. But the programmer paid the cost of the channel model - the split, the adaptor, the wrapping - to undo the channel model. The channels are not helping. They are an obstacle being worked around. `let_error` is the same pattern: catch the error, re-emit through `set_value`. Channel laundering.
+This works. But the result is now `set_value(expected<size_t, error_code>)`. The error code is inside the `expected`, invisible to `when_all`, `upon_error`, and `retry`. This is Approach A1 ([D4053R1](https://wg21.link/d4053r1) Section 5) with the pair wrapped in `std::expected` instead of delivered as two arguments. The channel-based composition algebra is bypassed. `let_error` is the same pattern in reverse: catch the error, re-emit through `set_value`. Both recover the pair by routing everything through `set_value`.
 
 Consider a partial write. The application asks to write 1,000 bytes. The kernel accepts 500 before the connection dies. `set_error(ECONNRESET)` discards the 500. The application needs that number to know what was acknowledged by the peer - whether to retry, what offset to resume from, whether the transaction can be salvaged. The channel model destroyed it.
 
@@ -218,6 +220,16 @@ Even this mapping has costs. Zero-byte errors lose data - they go to `set_error`
 
 Both mappings demonstrate the same structural problem: any function from `(error_code, size_t)` to `{set_value, set_error, set_stopped}` must either lose data, embed domain-specific classification at the wrong layer, or bypass the channels entirely. The problem is not the mapping. The problem is that the mapping is required at all.
 
+### 5.2 Prior Engagement
+
+Dietmar K&uuml;hl enumerated five channel-routing options for I/O in [P2762R2](https://wg21.link/p2762r2)<sup>[3]</sup> (Section 4.2), including fused `set_value(error_code, n)`, multiple `set_value` overloads, `set_error` routing, hybrid severity-based classification, and an `error_code` reference argument. K&uuml;hl acknowledged the partial-success problem directly: "some of the error cases may have been partial successes. In that case, using the set_error channel taking just one argument is somewhat limiting." He did not resolve it, noting that "when substantial work is done and partial successes become reasonable, it is likely that intermediate results are to be produced and algorithms of a different shape are used anyway." P2762R2 chose `set_error` routing (Approach B in [D4053R1](https://wg21.link/d4053r1)) for its examples.
+
+Kirk Shoop identified the same heuristic difficulty in [P2471R1](https://wg21.link/p2471r1)<sup>[10]</sup> ("NetTS, ASIO and Sender Library Design Comparison," 2021), observing that completion tokens translating to senders "must use a heuristic to type-match the first arg" and that the mapping creates "many different implementations of asSender."
+
+[P3570R2](https://wg21.link/p3570r2)<sup>[4]</sup> ("Optional variants in sender/receiver," Fabio Fracassi, 2025) provides a mechanism for senders to present different completion types to coroutines than to direct receivers. The concrete use case is concurrent queues ([P0260](https://wg21.link/p0260)<sup>[11]</sup>): `set_error(conqueue_errc)` for receivers, `optional<T>` for coroutines. P3570 transforms *which channel* the coroutine sees, not the channel routing itself. It does not address compound I/O results: a sender completing with `set_error(ECONNRESET)` still discards the byte count regardless of how the coroutine receives the error.
+
+To the authors' knowledge, no published paper resolves the compound-result channel-routing problem identified in [P2430R0](https://wg21.link/p2430r0)<sup>[2]</sup>. The problem has been identified by Kohlhoff (2021), K&uuml;hl (2023), and Shoop (2021). It remains open.
+
 ---
 
 ## 6. Three Defenses, Three Concessions
@@ -242,15 +254,15 @@ Route "routine" errors like `ECONNRESET` through `set_value` and "exceptional" e
 
 This requires a taxonomy of error codes that does not exist in POSIX, Windows, or any OS API. It redefines `set_value` from "the operation succeeded" to "here is a result that might contain an error." And the classification must happen at the I/O layer, before the application - the only code with enough context to classify correctly - has seen the result. `ECONNRESET` is fatal in one protocol and expected in another. No context-free classification can get this right.
 
-### 6.4 The Fork
+### 6.4 The Observable Tradeoffs
 
-Each position concedes the thesis:
+Each position trades something the compound-result model preserves:
 
-- **(a)** loses I/O data that applications need
-- **(b)** makes the channels irrelevant for I/O
-- **(c)** redefines what the channels mean and classifies at the wrong layer
+- **(a)** trades I/O data for channel simplicity
+- **(b)** trades channel relevance for data preservation
+- **(c)** trades fixed channel semantics for a domain-specific classification
 
-There is no fourth position. The three-channel model either loses data, becomes unused, or changes its semantics when applied to I/O.
+The authors are not aware of a fourth position. The three observable outcomes when the three-channel model meets compound I/O results are data loss, channel bypass, or semantic redefinition. The authors welcome counterexamples (see [D4053R1](https://wg21.link/d4053r1) Section 9).
 
 ---
 
@@ -265,10 +277,11 @@ The finding is not that the three-channel model is wrong. It is that the model h
 | GPU dispatch     | Async      | Infrastructure   | Yes                       |
 | Thread pool      | Async      | Infrastructure   | Yes                       |
 | Timer            | Async      | Infrastructure   | Yes                       |
+| Connect          | Either     | Infrastructure   | Yes                       |
 | `from_chars`     | Sync       | Compound-result  | No                        |
 | `strtol`         | Sync       | Compound-result  | No                        |
 | Read / Write     | Either     | Compound-result  | No                        |
-| Connect / Accept | Either     | Compound-result  | No                        |
+| Accept           | Either     | Compound-result  | No                        |
 | DNS resolve      | Either     | Compound-result  | No                        |
 
 The reference implementation of `std::execution`<sup>[8]</sup> targets compile-time work graphs and GPU dispatch. Those are infrastructure operations with binary outcomes. The model is correct for its design domain. The compound-result operations - whether synchronous or asynchronous - are outside that domain.
@@ -286,6 +299,12 @@ Compound-result operations produce a status classification paired with associate
 Synchronous code handles compound results naturally - the function returns a struct and the caller inspects both fields. The partition becomes a problem when the sender three-channel model forces a routing decision that splits the pair before the application sees it.
 
 The partition is the same one Chris Kohlhoff identified in 2021<sup>[2]</sup>. It is the same one every OS kernel enforces by delivering status and byte count as a single completion. It is the reason `std::from_chars` returns a struct with two fields. It is the reason Asio delivers `(error_code, size_t)` as a pair. It is not new. It is forty years old.
+
+---
+
+## 9. Acknowledgments
+
+The author thanks Chris Kohlhoff for identifying the partial-success problem in [P2430R0](https://wg21.link/p2430r0)<sup>[2]</sup>, Dietmar K&uuml;hl for the channel-routing enumeration in [P2762R2](https://wg21.link/p2762r2)<sup>[3]</sup> and for `beman::execution`, Kirk Shoop for the completion-token heuristic analysis in [P2471R1](https://wg21.link/p2471r1)<sup>[10]</sup>, Fabio Fracassi for [P3570R2](https://wg21.link/p3570r2)<sup>[4]</sup>, Peter Dimov for the refined channel mapping, Micha&lstrok; Dominiak, Eric Niebler, and Lewis Baker for `std::execution`, Maikel Nadolski for work on `execution::task`, Steve Gerbino for co-developing the constructed comparison, and Ville Voutilainen for reflector discussion on the partition.
 
 ---
 
@@ -308,3 +327,7 @@ The partition is the same one Chris Kohlhoff identified in 2021<sup>[2]</sup>. I
 8. [stdexec](https://github.com/NVIDIA/stdexec) - Reference implementation of std::execution. https://github.com/NVIDIA/stdexec
 
 9. IEEE Std 1003.1 - POSIX `read()` / `write()` specification. https://pubs.opengroup.org/onlinepubs/9799919799/
+
+10. [P2471R1](https://wg21.link/p2471r1) - "NetTS, ASIO and Sender Library Design Comparison" (Kirk Shoop, 2021). https://wg21.link/p2471r1
+
+11. [P0260R19](https://wg21.link/p0260r19) - "C++ Concurrent Queues" (Detlef Vollmann, Lawrence Crowl, Chris Mysen, Gor Nishanov, 2025). https://wg21.link/p0260r19

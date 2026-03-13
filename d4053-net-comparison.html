@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>D4053R0: Network Library Comparison</title>
+  <title>D4053R0: Sender I/O: A Constructed Comparison</title>
   <style type="text/css">
 
 @font-face {
@@ -842,12 +842,12 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>Network Library Comparison</h1>
+<h1>Sender I/O: A Constructed Comparison</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
   <p><strong>Document Number:</strong> D4053R0</p>
-  <p><strong>Date:</strong> 2026-03-12</p>
+  <p><strong>Date:</strong> 2026-03-13</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Steve
 Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a></p>
@@ -865,60 +865,56 @@ Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a></p>
   (post-Croydon mailing)</a></li>
   </ul></li>
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#error-handling" id="toc-error-handling">2. Error
-  Handling</a>
+  <li><a href="#the-coroutine-native-echo-server" id="toc-the-coroutine-native-echo-server">2. The Coroutine-Native Echo
+  Server</a></li>
+  <li><a href="#why-io-results-are-different" id="toc-why-io-results-are-different">3. Why I/O Results Are
+  Different</a></li>
+  <li><a href="#constructing-the-sender-echo-server" id="toc-constructing-the-sender-echo-server">4. Constructing the
+  Sender Echo Server</a></li>
+  <li><a href="#approach-a1-route-through-set_value" id="toc-approach-a1-route-through-set_value">5. Approach A1: Route
+  Through <code>set_value</code></a>
   <ul>
-  <li><a href="#how-it-works" id="toc-how-it-works">How it
-  works</a></li>
+  <li><a href="#what-approach-a1-loses" id="toc-what-approach-a1-loses">What Approach A1 Loses</a></li>
   </ul></li>
-  <li><a href="#error-propagation" id="toc-error-propagation">3. Error
-  Propagation</a>
+  <li><a href="#approach-a2-split-across-channels-and-shared-state" id="toc-approach-a2-split-across-channels-and-shared-state">6.
+  Approach A2: Split Across Channels and Shared State</a>
   <ul>
-  <li><a href="#how-it-works-1" id="toc-how-it-works-1">How it
-  works</a></li>
+  <li><a href="#what-approach-a2-loses" id="toc-what-approach-a2-loses">What Approach A2 Loses</a></li>
   </ul></li>
-  <li><a href="#cancellation" id="toc-cancellation">4. Cancellation</a>
+  <li><a href="#approach-b-route-through-set_error" id="toc-approach-b-route-through-set_error">7. Approach B: Route
+  Through <code>set_error</code></a>
   <ul>
-  <li><a href="#how-it-works-2" id="toc-how-it-works-2">How it
-  works</a></li>
+  <li><a href="#what-approach-b-loses" id="toc-what-approach-b-loses">What Approach B Loses</a></li>
   </ul></li>
-  <li><a href="#symmetric-transfer" id="toc-symmetric-transfer">5.
-  Symmetric Transfer</a>
-  <ul>
-  <li><a href="#how-it-works-3" id="toc-how-it-works-3">How it
-  works</a></li>
-  </ul></li>
-  <li><a href="#accept-loop" id="toc-accept-loop">6. Accept
-  Loop</a></li>
-  <li><a href="#echo-session" id="toc-echo-session">7. Echo Session</a>
-  <ul>
-  <li><a href="#full-comparison" id="toc-full-comparison">Full
-  comparison</a></li>
-  </ul></li>
-  <li><a href="#support-machinery" id="toc-support-machinery">8. Support
-  Machinery</a>
-  <ul>
-  <li><a href="#what-each-header-implements" id="toc-what-each-header-implements">What each header
-  implements</a></li>
-  </ul></li>
-  <li><a href="#structured-concurrency" id="toc-structured-concurrency">9. Structured Concurrency</a>
-  <ul>
-  <li><a href="#four-properties-demonstrated" id="toc-four-properties-demonstrated">Four properties
-  demonstrated</a></li>
-  </ul></li>
-  <li><a href="#tcp-server-full-program" id="toc-tcp-server-full-program">10. TCP Server: Full Program</a></li>
-  <li><a href="#postcondition-analysis" id="toc-postcondition-analysis">11. Postcondition Analysis</a></li>
-  <li><a href="#summary" id="toc-summary">12. Summary</a></li>
+  <li><a href="#the-trade-off" id="toc-the-trade-off">8. The
+  Trade-Off</a></li>
+  <li><a href="#how-coroutines-achieve-structured-concurrency" id="toc-how-coroutines-achieve-structured-concurrency">9. How
+  Coroutines Achieve Structured Concurrency</a></li>
+  <li><a href="#invitation" id="toc-invitation">10. Invitation</a></li>
+  <li><a href="#acknowledgments" id="toc-acknowledgments">11.
+  Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>Two TCP echo servers built on different architectures - <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c">beman.net</a><sup>[2]</sup>
-(sender/receiver, <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[1]</sup>) and <a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409">Corosio</a><sup>[3]</sup>
-(coroutine-native, built on <a href="https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135">Capy</a><sup>[4]</sup>)
-- are compared source to source across ten dimensions. This paper is
-informational and proposes no action.</p>
+<p>Three sender-based TCP echo servers are constructed from the C++26
+specification and compared against a coroutine-native echo server (<a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>).
+Approach A1 routes I/O results through <code>set_value</code>, matching
+coroutine-native ergonomics but bypassing the channel-based composition
+algebra. Approach A2 routes the error code through
+<code>set_error</code> while capturing the byte count in shared state,
+restoring channel-based composition but removing the byte count from the
+completion signature and reintroducing shared mutable state. Approach B
+routes errors through <code>set_error</code>, retaining composition but
+converting every routine network event into an exception and discarding
+the byte count. No construction achieves both data preservation and
+channel-based composition without shared state or exceptions. The
+authors invite any reader to construct a sender-based echo server that
+preserves compound I/O results, retains channel-based composition, and
+avoids exception round-trips, using C++26 facilities. The authors will
+incorporate any such construction into a future revision and re-evaluate
+every finding.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -928,696 +924,505 @@ mailing)</h3>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The authors developed <a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409">Corosio</a><sup>[3]</sup>
-and have an interest in this space. This paper proposes no action. It
-presents direct source-to-source comparisons so the reader can make an
-informed assessment.</p>
+<p>The authors developed and maintain <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
+and believe coroutine-native I/O is the correct foundation for
+networking in C++. The findings in this paper are structural and hold
+regardless of which library implements the coroutine-native layer. This
+paper is one of a suite of four that examines the relationship between
+compound I/O results and the sender three-channel model. The authors
+provide information, ask nothing, and serve at the pleasure of the
+chair. This paper constructs the best sender-based echo server the
+authors can build from the C++26 specification, places it next to a
+coroutine-native echo server, and shows what each approach costs. The
+authors invite improvements to the sender construction (Section 10).</p>
 <hr />
-<h2 id="error-handling">2. Error Handling</h2>
-<p><strong>Claim:</strong> “Sender/receiver error handling composes
-generically across implementations.”</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - server.cpp</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;ERROR: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - echo_server.cpp</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="cf">break</span><span class="op">;</span></span></code></pre></div>
-<p>Every <code>ECONNRESET</code> - a routine network event - is
-<code>make_exception_ptr</code> + <code>rethrow_exception</code>. Two
-heap allocations and a table lookup per I/O error, by design.</p>
-<h3 id="how-it-works">How it works</h3>
-<p>The sender-to-coroutine bridge in <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_task.hpp"><code>demo_task.hpp</code></a><sup>[2]</sup>
-has no path that avoids exceptions:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// demo_task.hpp - sender_awaiter::set_error</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Error<span class="op">&gt;</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> set_error<span class="op">(</span>Error<span class="op">&amp;&amp;</span> err<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> <span class="dt">void</span> <span class="op">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span><span class="bu">std::</span>same_as<span class="op">&lt;</span><span class="bu">std::</span>decay_t<span class="op">&lt;</span>Error<span class="op">&gt;,</span> <span class="bu">std::</span>exception_ptr<span class="op">&gt;)</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">-&gt;</span>awaiter<span class="op">-&gt;</span>error <span class="op">=</span> err<span class="op">;</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">-&gt;</span>awaiter<span class="op">-&gt;</span>error <span class="op">=</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>make_exception_ptr<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Error<span class="op">&gt;(</span>err<span class="op">));</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">-&gt;</span>awaiter<span class="op">-&gt;</span>handle<span class="op">.</span>resume<span class="op">();</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">// demo_task.hpp - sender_awaiter::await_resume</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> await_resume<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="kw">this</span><span class="op">-&gt;</span>error<span class="op">)</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>rethrow_exception<span class="op">(</span><span class="kw">this</span><span class="op">-&gt;</span>error<span class="op">);</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(*</span><span class="kw">this</span><span class="op">-&gt;</span>result<span class="op">);</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>set_error</code> calls <code>make_exception_ptr</code>
-unconditionally. <code>await_resume</code> calls
-<code>rethrow_exception</code> unconditionally. This is not a bug; it is
-the only way the sender-to-coroutine bridge can surface errors through
-<code>co_await</code>.</p>
-<p>The echo handler wraps its entire body in <code>try/catch</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - server.cpp</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> make_client<span class="op">(</span><span class="kw">auto</span> client<span class="op">)</span> <span class="op">-&gt;</span> demo<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">char</span> buffer<span class="op">[</span><span class="dv">8</span><span class="op">];</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span><span class="kw">auto</span> size <span class="op">=</span> <span class="cf">co_await</span> net<span class="op">::</span>async_receive<span class="op">(</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                   client<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buffer<span class="op">)))</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>string_view message<span class="op">(+</span>buffer<span class="op">,</span> size<span class="op">);</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;received&lt;&quot;</span> <span class="op">&lt;&lt;</span> size <span class="op">&lt;&lt;</span> <span class="st">&quot;&gt;(&quot;</span> <span class="op">&lt;&lt;</span> message <span class="op">&lt;&lt;</span> <span class="st">&quot;)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> ssize <span class="op">=</span> <span class="cf">co_await</span> net<span class="op">::</span>async_send<span class="op">(</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                client<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buffer<span class="op">,</span> size<span class="op">));</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;sent&lt;&quot;</span> <span class="op">&lt;&lt;</span> ssize <span class="op">&lt;&lt;</span> <span class="st">&quot;/&quot;</span> <span class="op">&lt;&lt;</span> message<span class="op">.</span>size<span class="op">()</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                      <span class="op">&lt;&lt;</span> <span class="st">&quot;&gt;(&quot;</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>string_view<span class="op">(</span>buffer<span class="op">,</span> ssize<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;client done</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;ERROR: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>In Corosio, the error code is a value. No exception. No
-<code>make_exception_ptr</code>. No <code>rethrow_exception</code>:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - echo_server.cpp</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;&gt;</span> do_session<span class="op">()</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">buf_</span><span class="op">.</span>resize<span class="op">(</span><span class="dv">4096</span><span class="op">);</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="va">sock_</span><span class="op">.</span>read_some<span class="op">(</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>            capy<span class="op">::</span>mutable_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">.</span>data<span class="op">(),</span> <span class="va">buf_</span><span class="op">.</span>size<span class="op">()));</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">buf_</span><span class="op">.</span>resize<span class="op">(</span>n<span class="op">);</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>write<span class="op">(</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>            <span class="va">sock_</span><span class="op">,</span> capy<span class="op">::</span>const_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">.</span>data<span class="op">(),</span> <span class="va">buf_</span><span class="op">.</span>size<span class="op">()));</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec<span class="op">)</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="va">sock_</span><span class="op">.</span>close<span class="op">();</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<hr />
-<h2 id="error-propagation">3. Error Propagation</h2>
-<p><strong>Claim:</strong> “The three-channel model cleanly separates
-success from failure.”</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - initiate.hpp</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> exp<span class="op">{</span><span class="cf">co_await</span> <span class="op">(</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    beman<span class="op">::</span>net<span class="op">::</span>async_connect<span class="op">(</span>client<span class="op">)</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">|</span> beman<span class="op">::</span>net<span class="op">::</span>detail::into_expected</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">|</span> beman<span class="op">::</span>execution<span class="op">::</span>then<span class="op">(</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;&amp;</span> e<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(</span>e<span class="op">);</span> <span class="op">}))};</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(!</span>exp<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_yield</span> beman<span class="op">::</span>execution<span class="op">::</span>with_error<span class="op">(</span>exp<span class="op">.</span>error<span class="op">());</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span><span class="fu">connect</span><span class="op">(</span>ep<span class="op">);</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="cf">co_return</span><span class="op">;</span></span></code></pre></div>
-<p>Six lines and three adaptors to do what <code>if (ec)</code> does.
-The <code>then([](auto&amp;&amp; e) { return std::move(e); })</code> is
-an identity lambda - it does nothing, but the pipeline requires it to
-compile.</p>
-<h3 id="how-it-works-1">How it works</h3>
-<p>The error goes to <code>set_error</code> (failure channel).
-<code>into_expected</code> moves it back to <code>set_value</code>
-(success channel). <code>then</code> wraps it. The coroutine unwraps it.
-Then <code>co_yield with_error</code> puts it back in the failure
-channel. The error crosses the channel boundary three times to end up
-where it started.</p>
-<p>The <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_algorithm.hpp"><code>into_expected</code></a><sup>[2]</sup>
-implementation:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">// demo_algorithm.hpp - into_expected</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span>beman<span class="op">::</span>net<span class="op">::</span>detail::ex::sender Sender<span class="op">&gt;</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">auto</span> demo<span class="op">::</span><span class="dt">into_expected_t</span><span class="op">::</span><span class="kw">operator</span><span class="op">()(</span>Sender<span class="op">&amp;&amp;</span> s<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">value_type</span> <span class="op">=</span> ex<span class="op">::</span><span class="dt">value_types_of_t</span><span class="op">&lt;</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        Sender<span class="op">,</span> ex<span class="op">::</span>env<span class="op">&lt;&gt;,</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        demo<span class="op">::</span>detail::decayed_tuple_or_single_t<span class="op">,</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>type_identity_t<span class="op">&gt;;</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">error_type</span> <span class="op">=</span> ex<span class="op">::</span><span class="dt">error_types_of_t</span><span class="op">&lt;</span>Sender<span class="op">&gt;;</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Sender<span class="op">&gt;(</span>s<span class="op">)</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">|</span> beman<span class="op">::</span>net<span class="op">::</span>detail::ex::then<span class="op">(</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>              <span class="op">[]&lt;</span><span class="kw">typename</span><span class="op">...</span> A<span class="op">&gt;(</span>A<span class="op">&amp;&amp;...</span> a<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">return</span> <span class="bu">std::</span>expected<span class="op">&lt;</span><span class="dt">value_type</span><span class="op">,</span> <span class="dt">error_type</span><span class="op">&gt;(</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>                      <span class="bu">std::</span>in_place_t<span class="op">{},</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>A<span class="op">&gt;(</span>a<span class="op">)...);</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">|</span> beman<span class="op">::</span>net<span class="op">::</span>detail::ex::upon_error<span class="op">(</span></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>              <span class="op">[]&lt;</span><span class="kw">typename</span> E<span class="op">&gt;(</span>E<span class="op">&amp;&amp;</span> e<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">return</span> <span class="bu">std::</span>expected<span class="op">&lt;</span><span class="dt">value_type</span><span class="op">,</span> <span class="dt">error_type</span><span class="op">&gt;(</span></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>                      <span class="bu">std::</span>unexpect_t<span class="op">{},</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>E<span class="op">&gt;(</span>e<span class="op">));</span></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>              <span class="op">});</span></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<hr />
-<h2 id="cancellation">4. Cancellation</h2>
-<p><strong>Claim:</strong> “Senders provide structured cancellation that
-raw coroutines cannot express.”</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - server.cpp</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span></code></pre></div>
-<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(!</span>env<span class="op">-&gt;</span>stop_token<span class="op">.</span>stop_requested<span class="op">())</span> <span class="op">{</span></span></code></pre></div>
-<p>The sender-based server has no way to stop. <code>while (true)</code>
-runs forever. Timer expiry - expected control flow - is routed through
-<code>set_error</code>, converted to an exception, and caught by
-<code>catch (...)</code> { “timer fired” }.</p>
-<h3 id="how-it-works-2">How it works</h3>
-<p>To express “accept with a 1-second timeout” in beman.net requires
-four abstractions:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - server.cpp</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>stream<span class="op">,</span> ep<span class="op">]</span> <span class="op">=</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> demo<span class="op">::</span>when_any<span class="op">(</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>                net<span class="op">::</span>async_accept<span class="op">(</span>acceptor<span class="op">),</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>                demo<span class="op">::</span>into_error<span class="op">(</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>                    net<span class="op">::</span>resume_after<span class="op">(</span>ctxt<span class="op">.</span>get_scheduler<span class="op">(),</span> <span class="dv">1</span><span class="bu">s</span><span class="op">),</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>                    <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;&amp;...)</span> <span class="op">{</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">return</span> <span class="op">::</span><span class="bu">std::</span>error_code<span class="op">();</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}));</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;ep=&quot;</span> <span class="op">&lt;&lt;</span> ep <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        scp<span class="op">.</span>spawn<span class="op">(</span>make_client<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>stream<span class="op">)));</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;timer fired</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>when_any</code> races accept against timer.
-<code>into_error</code> converts the timer’s success into an error. A
-lambda manufactures an <code>error_code</code>. <code>catch (...)</code>
-detects which arm won. Four abstractions for one timeout. And the loop
-never exits.</p>
-<p>Corosio uses hierarchical stop tokens at three levels:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp: server level</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> tcp_server<span class="op">::</span>stop<span class="op">()</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span><span class="va">running_</span><span class="op">)</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="va">running_</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="va">impl_</span><span class="op">-&gt;</span>stop<span class="op">.</span>request_stop<span class="op">();</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>run_async<span class="op">(</span><span class="va">ex_</span><span class="op">,</span> <span class="bu">std::</span>stop_token<span class="op">{})(</span>do_stop<span class="op">());</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp: accept level</span></span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>tcp_server<span class="op">::</span>do_accept<span class="op">(</span>tcp_acceptor<span class="op">&amp;</span> acc<span class="op">)</span></span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> env <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>this_coro<span class="op">::</span>environment<span class="op">;</span></span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(!</span>env<span class="op">-&gt;</span>stop_token<span class="op">.</span>stop_requested<span class="op">())</span></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">&amp;</span> w   <span class="op">=</span> <span class="cf">co_await</span> pop<span class="op">();</span></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> acc<span class="op">.</span>accept<span class="op">(</span>w<span class="op">.</span>socket<span class="op">());</span></span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> push<span class="op">(</span>w<span class="op">);</span></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span><span class="op">;</span></span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        w<span class="op">.</span>run<span class="op">(</span>launcher<span class="op">{*</span><span class="kw">this</span><span class="op">,</span> w<span class="op">});</span></span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp: worker level</span></span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;&gt;</span></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>tcp_server<span class="op">::</span>do_stop<span class="op">()</span></span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span><span class="op">*</span> w <span class="op">=</span> <span class="va">active_head_</span><span class="op">;</span> w<span class="op">;</span> w <span class="op">=</span> w<span class="op">-&gt;</span><span class="va">next_</span><span class="op">)</span></span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>        w<span class="op">-&gt;</span><span class="va">stop_</span><span class="op">.</span>request_stop<span class="op">();</span></span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<hr />
-<h2 id="symmetric-transfer">5. Symmetric Transfer</h2>
-<p><strong>Claim:</strong> “Sender/receiver composition avoids unbounded
-stack growth.”</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - demo_task.hpp</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> await_suspend<span class="op">(</span>coroutine_handle<span class="op">&lt;</span>Promise<span class="op">&gt;</span> h<span class="op">)</span> <span class="op">-&gt;</span> <span class="dt">void</span> <span class="op">{</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">-&gt;</span>handle <span class="op">=</span> h<span class="op">;</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    ex<span class="op">::</span>start<span class="op">(</span><span class="kw">this</span><span class="op">-&gt;</span>state<span class="op">);</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb14"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> await_suspend<span class="op">(</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">,</span> io_env <span class="at">const</span><span class="op">*</span> env<span class="op">)</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> coroutine_handle<span class="op">&lt;&gt;;</span></span></code></pre></div>
-<p><code>await_suspend</code> returns <code>void</code>. If the sender
-completes synchronously inside <code>start()</code>,
-<code>set_value</code> calls <code>handle.resume()</code> while still on
-the <code>await_suspend</code> stack. Each synchronous completion adds a
-frame. There is no upper bound.</p>
-<h3 id="how-it-works-3">How it works</h3>
-<p>When <code>ex::start(this-&gt;state)</code> completes synchronously,
-the receiver’s <code>set_value</code> runs immediately:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">// demo_task.hpp - sender_awaiter::receiver::set_value</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> set_value<span class="op">(</span>Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> <span class="dt">void</span> <span class="op">{</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">-&gt;</span>awaiter<span class="op">-&gt;</span>result<span class="op">.</span>emplace<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">-&gt;</span>awaiter<span class="op">-&gt;</span>handle<span class="op">.</span>resume<span class="op">();</span>  <span class="co">// resumes on this stack</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>handle.resume()</code> is called while still on the
-<code>await_suspend</code> -&gt; <code>start</code> -&gt;
-<code>set_value</code> call chain. If the resumed coroutine co_awaits
-another synchronously-completing sender, the pattern nests. There is no
-tail call.</p>
-<p>This is not a demo limitation. <code>void</code> return from
-<code>await_suspend</code> is the only option when the
-sender-to-coroutine bridge does not own the resumption. Corosio’s
-awaitables return <code>coroutine_handle&lt;&gt;</code>, enabling the
-compiler to tail-call. Stack depth is constant regardless of call chain
-depth.</p>
-<hr />
-<h2 id="accept-loop">6. Accept Loop</h2>
-<p><strong>Claim:</strong> “Sender algorithms compose naturally to
-express concurrent I/O patterns.”</p>
-<p><a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp">beman.net</a><sup>[2]</sup>
-(22 lines):</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>scope<span class="op">.</span>spawn<span class="op">(</span><span class="bu">std::</span>invoke<span class="op">(</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;</span> scp<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> ctxt<span class="op">)</span> <span class="op">-&gt;</span> demo<span class="op">::</span>task<span class="op">&lt;&gt;</span> <span class="op">{</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        net<span class="op">::</span>ip<span class="op">::</span>tcp<span class="op">::</span>endpoint endpoint<span class="op">(</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>            net<span class="op">::</span>ip<span class="op">::</span>address_v4<span class="op">::</span>any<span class="op">(),</span> <span class="dv">12345</span><span class="op">);</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        net<span class="op">::</span>ip<span class="op">::</span>tcp<span class="op">::</span>acceptor acceptor<span class="op">(</span>ctxt<span class="op">,</span> endpoint<span class="op">);</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span> <span class="op">[</span>stream<span class="op">,</span> ep<span class="op">]</span> <span class="op">=</span></span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">co_await</span> demo<span class="op">::</span>when_any<span class="op">(</span></span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                        net<span class="op">::</span>async_accept<span class="op">(</span>acceptor<span class="op">),</span></span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>                        demo<span class="op">::</span>into_error<span class="op">(</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>                            net<span class="op">::</span>resume_after<span class="op">(</span></span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>                                ctxt<span class="op">.</span>get_scheduler<span class="op">(),</span> <span class="dv">1</span><span class="bu">s</span><span class="op">),</span></span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>                            <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;&amp;...)</span> <span class="op">{</span></span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>                                <span class="cf">return</span> <span class="op">::</span><span class="bu">std::</span>error_code<span class="op">();</span></span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>                            <span class="op">}));</span></span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;ep=&quot;</span> <span class="op">&lt;&lt;</span> ep <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>                scp<span class="op">.</span>spawn<span class="op">(</span>make_client<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>stream<span class="op">)));</span></span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;timer fired</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">},</span></span>
-<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>    scope<span class="op">,</span></span>
-<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    context<span class="op">));</span></span></code></pre></div>
-<p><a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/src/corosio/src/tcp_server.cpp">Corosio</a><sup>[3]</sup>
-(15 lines):</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>tcp_server<span class="op">::</span>do_accept<span class="op">(</span>tcp_acceptor<span class="op">&amp;</span> acc<span class="op">)</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> env <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>this_coro<span class="op">::</span>environment<span class="op">;</span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(!</span>env<span class="op">-&gt;</span>stop_token<span class="op">.</span>stop_requested<span class="op">())</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">&amp;</span> w   <span class="op">=</span> <span class="cf">co_await</span> pop<span class="op">();</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> acc<span class="op">.</span>accept<span class="op">(</span>w<span class="op">.</span>socket<span class="op">());</span></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> push<span class="op">(</span>w<span class="op">);</span></span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span><span class="op">;</span></span>
-<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>        w<span class="op">.</span>run<span class="op">(</span>launcher<span class="op">{*</span><span class="kw">this</span><span class="op">,</span> w<span class="op">});</span></span>
-<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Five abstractions to accept a connection: <code>std::invoke</code>
-(IILE to avoid coroutine capture), <code>when_any</code> (race accept
-against timer), <code>into_error</code> (convert timer success to
-error), <code>try/catch</code> (detect which arm won),
-<code>scope.spawn</code> (dispatch handler). Two abstractions in
-Corosio: <code>co_await</code> and <code>if</code>.</p>
-<p><code>std::invoke</code> is required because a coroutine lambda that
-captures by reference is use-after-free. The IILE passes
-<code>scope</code> and <code>context</code> as parameters instead. This
-is a coroutine safety workaround that the sender model forces by
-requiring the accept loop to be a lambda inside
-<code>scope.spawn</code>.</p>
-<hr />
-<h2 id="echo-session">7. Echo Session</h2>
-<p><strong>Claim:</strong> “The sender awaitable bridge gives coroutines
-seamless access to sender results.”</p>
-<div class="sourceCode" id="cb18"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - server.cpp</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(</span><span class="kw">auto</span> size <span class="op">=</span> <span class="cf">co_await</span> net<span class="op">::</span>async_receive<span class="op">(</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>           client<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buffer<span class="op">)))</span></span></code></pre></div>
-<div class="sourceCode" id="cb19"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - echo_server.cpp</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="va">sock_</span><span class="op">.</span>read_some<span class="op">(</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    capy<span class="op">::</span>mutable_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">.</span>data<span class="op">(),</span> <span class="va">buf_</span><span class="op">.</span>size<span class="op">()));</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="cf">break</span><span class="op">;</span></span></code></pre></div>
-<p>The “seamless” bridge discards the error code.
-<code>async_receive</code> produces both a byte count and a status, but
-the coroutine only sees the byte count. The status went to
-<code>set_error</code> and became an exception. The programmer cannot
-inspect both values from the same <code>co_await</code> expression.</p>
-<h3 id="full-comparison">Full comparison</h3>
-<p><a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp">beman.net</a><sup>[2]</sup>
-<code>make_client</code>:</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> make_client<span class="op">(</span><span class="kw">auto</span> client<span class="op">)</span> <span class="op">-&gt;</span> demo<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">char</span> buffer<span class="op">[</span><span class="dv">8</span><span class="op">];</span></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span><span class="kw">auto</span> size <span class="op">=</span> <span class="cf">co_await</span> net<span class="op">::</span>async_receive<span class="op">(</span></span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>                   client<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buffer<span class="op">)))</span></span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>string_view message<span class="op">(+</span>buffer<span class="op">,</span> size<span class="op">);</span></span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;received&lt;&quot;</span> <span class="op">&lt;&lt;</span> size <span class="op">&lt;&lt;</span> <span class="st">&quot;&gt;(&quot;</span> <span class="op">&lt;&lt;</span> message <span class="op">&lt;&lt;</span> <span class="st">&quot;)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> ssize <span class="op">=</span> <span class="cf">co_await</span> net<span class="op">::</span>async_send<span class="op">(</span></span>
-<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>                client<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buffer<span class="op">,</span> size<span class="op">));</span></span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;sent&lt;&quot;</span> <span class="op">&lt;&lt;</span> ssize <span class="op">&lt;&lt;</span> <span class="st">&quot;/&quot;</span> <span class="op">&lt;&lt;</span> message<span class="op">.</span>size<span class="op">()</span></span>
-<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>                      <span class="op">&lt;&lt;</span> <span class="st">&quot;&gt;(&quot;</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>string_view<span class="op">(</span>buffer<span class="op">,</span> ssize<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;client done</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;ERROR: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
-<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>while (auto size = co_await ...)</code> looks clean until you
-realize the error path is invisible - it is hiding inside the
-<code>try/catch</code> ten lines away.</p>
-<p><a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/example/echo-server/echo_server.cpp">Corosio</a><sup>[3]</sup>
+<h2 id="the-coroutine-native-echo-server">2. The Coroutine-Native Echo
+Server</h2>
+<p><a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>
 <code>do_session</code>:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;&gt;</span> do_session<span class="op">()</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">buf_</span><span class="op">.</span>resize<span class="op">(</span><span class="dv">4096</span><span class="op">);</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="va">sock_</span><span class="op">.</span>read_some<span class="op">(</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>            capy<span class="op">::</span>mutable_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">.</span>data<span class="op">(),</span> <span class="va">buf_</span><span class="op">.</span>size<span class="op">()));</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">buf_</span><span class="op">.</span>resize<span class="op">(</span>n<span class="op">);</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>write<span class="op">(</span></span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>            <span class="va">sock_</span><span class="op">,</span> capy<span class="op">::</span>const_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">.</span>data<span class="op">(),</span> <span class="va">buf_</span><span class="op">.</span>size<span class="op">()));</span></span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec<span class="op">)</span></span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>    <span class="va">sock_</span><span class="op">.</span>close<span class="op">();</span></span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;&gt;</span> do_session<span class="op">()</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="va">sock_</span><span class="op">.</span>read_some<span class="op">(</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>            capy<span class="op">::</span>mutable_buffer<span class="op">(</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>                <span class="va">buf_</span><span class="op">,</span> <span class="kw">sizeof</span> <span class="va">buf_</span><span class="op">));</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>write<span class="op">(</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>            <span class="va">sock_</span><span class="op">,</span> capy<span class="op">::</span>const_buffer<span class="op">(</span><span class="va">buf_</span><span class="op">,</span> n<span class="op">));</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec <span class="op">||</span> ec<span class="op">)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="va">sock_</span><span class="op">.</span>close<span class="op">();</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Each <code>co_await</code> yields <code>(error_code, size_t)</code>
+as a structured binding. The error code is a value. No exceptions. Both
+values are visible at the call site.</p>
 <hr />
-<h2 id="support-machinery">8. Support Machinery</h2>
-<p><strong>Claim:</strong> “std::execution provides the building blocks;
-users compose them into complete solutions.”</p>
+<h2 id="why-io-results-are-different">3. Why I/O Results Are
+Different</h2>
+<p>Infrastructure operations have binary outcomes:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Success</th>
+<th>Failure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>malloc</code></td>
+<td>Block returned</td>
+<td>Allocation failed</td>
+</tr>
+<tr>
+<td><code>fopen</code></td>
+<td>File handle returned</td>
+<td>Open failed</td>
+</tr>
+<tr>
+<td><code>pthread_create</code></td>
+<td>Thread running</td>
+<td>Creation failed</td>
+</tr>
+<tr>
+<td>GPU kernel launch</td>
+<td>Kernel running</td>
+<td>Launch failed</td>
+</tr>
+<tr>
+<td>Timer arm</td>
+<td>Timer armed</td>
+<td>Resource limit</td>
+</tr>
+</tbody>
+</table>
+<p>Every row is binary. The three channels - <code>set_value</code>,
+<code>set_error</code>, <code>set_stopped</code> - map unambiguously.
+The three-channel model is correct for this class.
+<code>std::execution</code> serves it well.</p>
+<p>I/O operations return compound results:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td><code>(status, bytes_transferred)</code></td>
+</tr>
+<tr>
+<td><code>write</code></td>
+<td><code>(status, bytes_written)</code></td>
+</tr>
+</tbody>
+</table>
+<p>Status and data, always paired. Both values are always present. Every
+OS delivers them together. io_uring carries <code>res</code> and
+<code>flags</code> in one CQE. IOCP returns a <code>BOOL</code> and
+<code>lpNumberOfBytesTransferred</code> in one call. POSIX
+<code>read()</code> returns <code>ssize_t</code> with <code>errno</code>
+set.</p>
+<p>Chris Kohlhoff identified this in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[5]</sup> (“Partial
+success scenarios with P2300,” 2021):</p>
+<blockquote>
+<p>“Due to the limitations of the <code>set_error</code> channel (which
+has a single ‘error’ argument) and <code>set_done</code> channel (which
+takes no arguments), partial results must be communicated down the
+<code>set_value</code> channel.”</p>
+</blockquote>
+<p>The remaining sections construct three approaches to routing compound
+results through three channels and show what each costs.</p>
+<hr />
+<h2 id="constructing-the-sender-echo-server">4. Constructing the Sender
+Echo Server</h2>
+<p>Three approaches exist for routing I/O results through the
+three-channel model. Approach A1 routes everything through
+<code>set_value</code>. Approach A2 routes the error code through
+<code>set_error</code> while capturing the byte count in shared state.
+Approach B routes errors through <code>set_error</code> and discards the
+byte count. We construct the best version of each from the C++26
+specification (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>).</p>
+<p>Dietmar Kühl enumerated five channel-routing options for I/O in <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[10]</sup> (Section
+4.2), including fused <code>set_value(error_code, n)</code>, multiple
+<code>set_value</code> overloads, <code>set_error</code> routing, hybrid
+severity-based classification, and an <code>error_code</code> reference
+argument. Kühl noted that “some of the error cases may have been partial
+successes” and that “using the set_error channel taking just one
+argument is somewhat limiting.” Kirk Shoop identified the same heuristic
+difficulty in <a href="https://wg21.link/p2471r1">P2471R1</a><sup>[11]</sup>, observing
+that completion tokens translating to senders “must use a heuristic to
+type-match the first arg” to distinguish errors from values. The
+approaches below correspond to Kühl’s options 1, 3, and a shared-state
+variant not in his enumeration.</p>
+<hr />
+<h2 id="approach-a1-route-through-set_value">5. Approach A1: Route
+Through <code>set_value</code></h2>
+<p>The I/O sender calls <code>set_value(error_code, size_t)</code> for
+all outcomes. Completion signature:
+<code>set_value_t(std::error_code, std::size_t)</code>.</p>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> Section
+4.4 specifies that <code>co_await</code> on a sender with multiple value
+arguments yields a <code>std::tuple</code>. Structured bindings
+work:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_write<span class="op">(</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec <span class="op">||</span> ec<span class="op">)</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The echo session is nearly identical to Corosio. The error code is a
+value. No exceptions. Both values are visible at the call site.</p>
+<h3 id="what-approach-a1-loses">What Approach A1 Loses</h3>
+<p>The I/O sender never calls <code>set_error</code> for I/O results.
+The channel-based composition algebra is bypassed:</p>
 <ul>
-<li>beman.net: <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_task.hpp"><code>demo_task.hpp</code></a><sup>[2]</sup>
-(254) + <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_algorithm.hpp"><code>demo_algorithm.hpp</code></a><sup>[2]</sup>
-(387) + <a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/demo_scope.hpp"><code>demo_scope.hpp</code></a><sup>[2]</sup>
-(91) = <strong>732 lines</strong></li>
-<li>Corosio: <code>#include &lt;boost/capy/task.hpp&gt;</code> =
-<strong>0 lines</strong> (library provides the task type)</li>
+<li><p><strong><code>when_all</code></strong> cancels sibling operations
+when one completes with <code>set_error</code> or
+<code>set_stopped</code> ([exec.when.all]). An I/O failure arriving
+through <code>set_value</code> looks like success to
+<code>when_all</code>. Siblings continue.</p></li>
+<li><p><strong><code>upon_error</code></strong> intercepts
+<code>set_error</code> ([exec.then]). It is unreachable for these
+senders.</p></li>
+<li><p><strong><code>retry</code></strong> (stdexec, not in the C++26
+working draft) intercepts <code>set_error</code> and restarts the
+operation. An I/O failure arriving through <code>set_value</code> does
+not trigger it.</p></li>
 </ul>
-<p>732 lines of “demo” headers to run an 88-line echo server. These are
-not scaffolding. They implement a task type, a sender-to-coroutine
-bridge, structured concurrency, and an error channel adaptor -
-functionality that <code>std::execution</code> does not provide.</p>
-<h3 id="what-each-header-implements">What each header implements</h3>
+<p>The three-channel model reduces to one channel with a structured
+result. <code>set_error</code> serves no purpose for I/O senders under
+Approach A1. (<code>set_stopped</code> retains its cancellation
+role.)</p>
+<hr />
+<h2 id="approach-a2-split-across-channels-and-shared-state">6. Approach
+A2: Split Across Channels and Shared State</h2>
+<p>A variation of Approach A1 routes the error code through
+<code>set_error</code> while capturing the byte count into shared state
+before the channel split. A <code>let_error</code> handler recovers both
+values:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>size_t n <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>            async_read<span class="op">(</span>sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">))</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>            async_write<span class="op">(</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">))</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The error code reaches <code>upon_error</code>. <code>when_all</code>
+would cancel siblings. <code>retry</code> would fire. The three channels
+are all in use.</p>
+<h3 id="what-approach-a2-loses">What Approach A2 Loses</h3>
+<p>The byte count is not part of any completion signature. It is
+smuggled through a captured variable that the sender algorithms cannot
+see:</p>
 <ul>
-<li><code>demo_task.hpp</code> (254 lines): task type, promise,
-<code>sender_awaiter</code>, operation state. This is what
-<code>std::execution::task</code> is supposed to be.</li>
-<li><code>demo_algorithm.hpp</code> (387 lines): <code>when_any</code>,
-<code>into_error</code>, <code>into_expected</code>. Three sender
-algorithms that do not exist in <code>std::execution</code>.</li>
-<li><code>demo_scope.hpp</code> (91 lines): structured concurrency
-scope. <code>counting_scope</code> is not in C++26.</li>
+<li><p><strong><code>retry</code></strong> fires on
+<code>set_error</code>, but the byte count is in <code>n</code>, not in
+the error channel. A generic retry algorithm cannot inspect the partial
+transfer count to decide whether retrying is safe.</p></li>
+<li><p><strong><code>upon_error</code></strong> receives
+<code>error_code</code> alone. The byte count in <code>n</code> reflects
+the <em>previous</em> successful stage, not the failed one. The I/O
+sender called <code>set_error</code> without delivering the byte count
+to any channel.</p></li>
+<li><p><strong>Shared mutable state.</strong> The byte count lives in a
+captured <code>std::size_t</code> that the programmer must coordinate
+across continuation boundaries. Shared mutable state between sender
+stages is the concurrency hazard the sender model was designed to
+eliminate.</p></li>
+</ul>
+<p>Approach A2 uses all three channels, but the byte count bypasses
+them. The composition algebra operates on the error code alone. The
+compound result is still split - one half in a channel, the other in a
+side variable. This is Approach A1 with the error code moved to
+<code>set_error</code> and the byte count moved to shared state.</p>
+<hr />
+<h2 id="approach-b-route-through-set_error">7. Approach B: Route Through
+<code>set_error</code></h2>
+<p>The I/O sender calls <code>set_value(size_t)</code> on success and
+<code>set_error(error_code)</code> on any non-zero status. Completion
+signatures: <code>set_value_t(std::size_t)</code> and
+<code>set_error_t(std::error_code)</code>.</p>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>
+specifies that <code>set_error</code> is converted to an exception via
+<code>AS-EXCEPT-PTR</code> ([exec.general] p8). For
+<code>error_code</code>, this is
+<code>make_exception_ptr(system_error(ec))</code>, rethrown in
+<code>await_resume</code>. There is no non-throwing path:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> n <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> async_write<span class="op">(</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="bu">std::</span>system_error <span class="at">const</span><span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ECONNRESET, EPIPE, EOF arrive here</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="what-approach-b-loses">What Approach B Loses</h3>
+<ul>
+<li><p><strong>Information.</strong> The byte count is discarded on any
+error. A <code>write</code> that sends 500 of 1,000 bytes before
+<code>ECONNRESET</code> produces <code>set_error(ECONNRESET)</code>. The
+500 is gone.</p></li>
+<li><p><strong>Non-throwing error handling.</strong> Every
+<code>ECONNRESET</code> - a routine network event - requires
+<code>make_exception_ptr</code> plus
+<code>rethrow_exception</code>.</p></li>
+<li><p><strong>Visible error path.</strong> The error hides in a
+<code>catch</code> block separated from the <code>co_await</code> site.
+The programmer cannot inspect the error code and the byte count at the
+same call site.</p></li>
 </ul>
 <hr />
-<h2 id="structured-concurrency">9. Structured Concurrency</h2>
-<p><strong>Claim:</strong> “Senders provide structured concurrency that
-coroutine approaches lack.”</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - demo_scope.hpp</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="op">~</span>scope<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="dv">0</span><span class="bu">u</span> <span class="op">&lt;</span> <span class="kw">this</span><span class="op">-&gt;</span>count<span class="op">)</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;ERROR: scope destroyed with live jobs: &quot;</span></span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>                  <span class="op">&lt;&lt;</span> <span class="kw">this</span><span class="op">-&gt;</span>count <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb23"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> tcp_server<span class="op">::</span>start<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="va">active_accepts_</span> <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        detail::throw_logic_error<span class="op">(</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;tcp_server::start: previous session not joined&quot;</span><span class="op">);</span></span></code></pre></div>
-<p>The sender-based scope prints to stderr when destroyed with live jobs
-but does not block, does not join, and does not prevent the program from
-continuing. The coroutine-based server throws if you violate the
-lifecycle. Structured concurrency means enforcement, not
-diagnostics.</p>
-<h3 id="four-properties-demonstrated">Four properties demonstrated</h3>
-<p><strong>(a) RAII ownership.</strong> The <a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/include/boost/corosio/tcp_server.hpp"><code>launcher</code></a><sup>[3]</sup>
-class is move-only and must be invoked exactly once. If destroyed
-without invoking, the worker returns to the pool automatically. If the
-coroutine setup throws, a stack guard returns the worker.
-Double-invocation throws <code>logic_error</code>:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.hpp: launcher</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="op">~</span>launcher<span class="op">()</span></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="va">w_</span><span class="op">)</span></span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">srv_</span><span class="op">-&gt;</span>push_sync<span class="op">(*</span><span class="va">w_</span><span class="op">);</span></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Executor<span class="op">&gt;</span></span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="kw">operator</span><span class="op">()(</span>Executor <span class="at">const</span><span class="op">&amp;</span> ex<span class="op">,</span> capy<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> task<span class="op">)</span></span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span><span class="va">w_</span><span class="op">)</span></span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>        detail::throw_logic_error<span class="op">();</span></span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">*</span> w <span class="op">=</span> <span class="bu">std::</span>exchange<span class="op">(</span><span class="va">w_</span><span class="op">,</span> <span class="kw">nullptr</span><span class="op">);</span></span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    <span class="va">srv_</span><span class="op">-&gt;</span>active_push<span class="op">(</span>w<span class="op">);</span></span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> <span class="dt">guard_t</span></span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>        tcp_server<span class="op">*</span> srv<span class="op">;</span></span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>        worker_base<span class="op">*</span> w<span class="op">;</span></span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>        <span class="op">~</span><span class="dt">guard_t</span><span class="op">()</span></span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>w<span class="op">)</span></span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>                srv<span class="op">-&gt;</span>push_sync<span class="op">(*</span>w<span class="op">);</span></span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> guard<span class="op">{</span><span class="va">srv_</span><span class="op">,</span> w<span class="op">};</span></span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... launch coroutine ...</span></span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>    guard<span class="op">.</span>w <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span> <span class="co">// dismiss on success</span></span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Compare with beman.net’s spawn:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">// beman.net - demo_scope.hpp</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span>ex<span class="op">::</span>sender Sender<span class="op">&gt;</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> spawn<span class="op">(</span>Sender<span class="op">&amp;&amp;</span> sender<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">++</span><span class="kw">this</span><span class="op">-&gt;</span>count<span class="op">;</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> job<span class="op">&lt;</span>Sender<span class="op">&gt;(</span><span class="kw">this</span><span class="op">,</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Sender<span class="op">&gt;(</span>sender<span class="op">));</span></span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Raw <code>new</code>. No corresponding <code>delete</code> in the
-spawn path. The receiver’s <code>complete()</code> calls
-<code>delete this-&gt;state</code> later.</p>
-<p><strong>(b) Hierarchical cancellation.</strong> Three levels of stop
-token propagation:</p>
-<pre><code>server.stop()
-  -&gt; impl_-&gt;stop.request_stop()         // stops accept loops
-    -&gt; do_accept checks stop_requested() // exits accept loop
-    -&gt; do_stop() iterates active workers
-      -&gt; w-&gt;stop_.request_stop()         // stops each worker</code></pre>
-<p>beman.net’s <code>demo::scope</code> has <code>stop()</code> but no
-hierarchy. Workers do not receive individual stop tokens.</p>
-<p><strong>(c) Join semantics.</strong> <code>tcp_server::join()</code>
-blocks until all accept loops complete:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Corosio - tcp_server.cpp</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> tcp_server<span class="op">::</span>join<span class="op">()</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>unique_lock lock<span class="op">(</span><span class="va">impl_</span><span class="op">-&gt;</span>join_mutex<span class="op">);</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    <span class="va">impl_</span><span class="op">-&gt;</span>join_cv<span class="op">.</span>wait<span class="op">(</span>lock<span class="op">,</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">[</span><span class="kw">this</span><span class="op">]</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">active_accepts_</span> <span class="op">==</span> <span class="dv">0</span><span class="op">;</span> <span class="op">});</span></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>demo::scope</code> has no <code>join()</code>. Its destructor
-prints an error but does not block.</p>
-<p><strong>(d) Bounded resources.</strong> Workers are preallocated via
-<code>set_workers()</code>. No <code>new</code> per connection. The pool
-is fixed. <code>demo::scope::spawn</code> calls
-<code>new job&lt;Sender&gt;(...)</code> per spawn - unbounded heap
-allocation.</p>
-<hr />
-<h2 id="tcp-server-full-program">10. TCP Server: Full Program</h2>
-<p><strong>Claim:</strong> “A sender-based networking library is as
-straightforward to use as a callback-based one.”</p>
-<p><a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c/examples/server.cpp">beman.net</a><sup>[2]</sup>
-<code>main()</code>:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>unitbuf<span class="op">;</span></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;example server</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>        demo<span class="op">::</span>scope     scope<span class="op">;</span></span>
-<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>        net<span class="op">::</span>io_context context<span class="op">;</span></span>
-<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>        scope<span class="op">.</span>spawn<span class="op">(</span><span class="bu">std::</span>invoke<span class="op">(</span></span>
-<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>            <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;</span> scp<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> ctxt<span class="op">)</span> <span class="op">-&gt;</span> demo<span class="op">::</span>task<span class="op">&lt;&gt;</span> <span class="op">{</span></span>
-<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>                net<span class="op">::</span>ip<span class="op">::</span>tcp<span class="op">::</span>endpoint endpoint<span class="op">(</span></span>
-<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>                    net<span class="op">::</span>ip<span class="op">::</span>address_v4<span class="op">::</span>any<span class="op">(),</span> <span class="dv">12345</span><span class="op">);</span></span>
-<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>                net<span class="op">::</span>ip<span class="op">::</span>tcp<span class="op">::</span>acceptor acceptor<span class="op">(</span>ctxt<span class="op">,</span> endpoint<span class="op">);</span></span>
-<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>                <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>                        <span class="kw">auto</span> <span class="op">[</span>stream<span class="op">,</span> ep<span class="op">]</span> <span class="op">=</span></span>
-<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>                            <span class="cf">co_await</span> demo<span class="op">::</span>when_any<span class="op">(</span></span>
-<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>                                net<span class="op">::</span>async_accept<span class="op">(</span>acceptor<span class="op">),</span></span>
-<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>                                demo<span class="op">::</span>into_error<span class="op">(</span></span>
-<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>                                    net<span class="op">::</span>resume_after<span class="op">(</span></span>
-<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a>                                        ctxt<span class="op">.</span>get_scheduler<span class="op">(),</span> <span class="dv">1</span><span class="bu">s</span><span class="op">),</span></span>
-<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>                                    <span class="op">[](</span><span class="kw">auto</span><span class="op">&amp;&amp;...)</span> <span class="op">{</span></span>
-<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>                                        <span class="cf">return</span> <span class="op">::</span><span class="bu">std::</span>error_code<span class="op">();</span></span>
-<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a>                                    <span class="op">}));</span></span>
-<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>                        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;ep=&quot;</span> <span class="op">&lt;&lt;</span> ep <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>                        scp<span class="op">.</span>spawn<span class="op">(</span>make_client<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>stream<span class="op">)));</span></span>
-<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
-<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>                        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;timer fired</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
-<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
-<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a>            <span class="op">},</span></span>
-<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>            scope<span class="op">,</span></span>
-<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>            context<span class="op">));</span></span>
-<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span>run<span class="op">();</span></span>
-<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> ex<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;EXCEPTION: &quot;</span> <span class="op">&lt;&lt;</span> ex<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a>        abort<span class="op">();</span></span>
-<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409/example/echo-server/echo_server.cpp">Corosio</a><sup>[3]</sup>
-<code>main()</code>:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">int</span> argc<span class="op">,</span> <span class="dt">char</span><span class="op">*</span> argv<span class="op">[])</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>argc <span class="op">!=</span> <span class="dv">3</span><span class="op">)</span></span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span></span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;Usage: echo_server &lt;port&gt; &lt;max-workers&gt;</span><span class="sc">\n</span><span class="st">&quot;</span></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;Example:</span><span class="sc">\n</span><span class="st">&quot;</span></span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;    echo_server 8080 10</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> port_int <span class="op">=</span> <span class="bu">std::</span>atoi<span class="op">(</span>argv<span class="op">[</span><span class="dv">1</span><span class="op">]);</span></span>
-<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> port <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="bu">std::</span>uint16_t<span class="op">&gt;(</span>port_int<span class="op">);</span></span>
-<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> max_workers <span class="op">=</span> <span class="bu">std::</span>atoi<span class="op">(</span>argv<span class="op">[</span><span class="dv">2</span><span class="op">]);</span></span>
-<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>    corosio<span class="op">::</span>io_context ioc<span class="op">;</span></span>
-<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>    echo_server server<span class="op">(</span>ioc<span class="op">,</span> max_workers<span class="op">);</span></span>
-<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> ec <span class="op">=</span> server<span class="op">.</span>bind<span class="op">(</span>corosio<span class="op">::</span>endpoint<span class="op">(</span>port<span class="op">));</span></span>
-<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Bind failed: &quot;</span> <span class="op">&lt;&lt;</span> ec<span class="op">.</span>message<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
-<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Echo server listening on port &quot;</span> <span class="op">&lt;&lt;</span> port</span>
-<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a>              <span class="op">&lt;&lt;</span> <span class="st">&quot; with &quot;</span> <span class="op">&lt;&lt;</span> max_workers <span class="op">&lt;&lt;</span> <span class="st">&quot; workers</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
-<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a>    server<span class="op">.</span>start<span class="op">();</span></span>
-<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a>    ioc<span class="op">.</span>run<span class="op">();</span></span>
-<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EXIT_SUCCESS<span class="op">;</span></span>
-<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>beman.net’s <code>main()</code> requires the programmer to understand
-<code>std::invoke</code>, IILE parameter passing,
-<code>demo::scope</code>, <code>demo::task</code>,
-<code>demo::when_any</code>, <code>demo::into_error</code>, and
-exception-based error handling before writing a single line of
-networking code. Corosio’s <code>main()</code> is a conventional object
-lifecycle: create, bind, start, run.</p>
-<hr />
-<h2 id="postcondition-analysis">11. Postcondition Analysis</h2>
-<p><strong>Claim:</strong> “The three-channel model correctly partitions
-I/O outcomes into success, error, and cancellation.”</p>
-<pre><code>beman.net:  error_code -&gt; set_error -&gt; exception_ptr -&gt; rethrow -&gt; catch
-Corosio:    error_code -&gt; io_result -&gt; structured binding -&gt; if (ec)</code></pre>
-<p>An I/O read always produces a byte count and a status code. Both
-values are always present. The operation always satisfies its
-postcondition. beman.net routes the status code through
-<code>set_error</code> - the channel for postcondition violations. But
-the postcondition was not violated. The error code describes the
-<em>kind</em> of success.</p>
-<p>This is not a naming quibble. The channel mismatch is why
-<code>into_expected</code> exists (to move the status code back to the
-value channel), why every I/O error becomes an exception (the bridge can
-only surface <code>set_error</code> as <code>rethrow</code>), and why
-<code>co_yield with_error</code> is needed (to propagate an error code
-that was already an error code before the three-channel model touched
-it). Every absurdity in the preceding sections traces to this single
-architectural decision.</p>
-<hr />
-<h2 id="summary">12. Summary</h2>
+<h2 id="the-trade-off">8. The Trade-Off</h2>
+<p>Each sender approach pays a cost the coroutine-native approach does
+not.</p>
 <table>
 <colgroup>
-<col style="width: 25%" />
-<col style="width: 42%" />
-<col style="width: 31%" />
+<col style="width: 29%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 19%" />
 </colgroup>
 <thead>
 <tr>
-<th></th>
-<th>beman.net</th>
+<th>Property</th>
+<th>A1 (<code>set_value</code>)</th>
+<th>A2 (shared state)</th>
+<th>B (<code>set_error</code>)</th>
 <th>Corosio</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Error return</td>
-<td><code>catch (const std::exception&amp;)</code></td>
-<td><code>if (ec)</code></td>
+<td>Error code at call site</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No (in <code>catch</code>)</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>I/O error mechanism</td>
-<td><code>make_exception_ptr</code> + <code>rethrow</code></td>
-<td><code>error_code</code> value</td>
+<td>Byte count at call site</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No (discarded)</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Error propagation</td>
-<td><code>into_expected</code> + <code>then</code> +
-<code>co_yield</code></td>
-<td><code>if (ec) co_return</code></td>
+<td>Partial write preserved</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Channel mapping</td>
-<td>error crosses boundary 3 times</td>
-<td>direct</td>
+<td>Byte count in completion sig</td>
+<td>Yes</td>
+<td>No (side state)</td>
+<td>No (discarded)</td>
+<td>Yes (return value)</td>
 </tr>
 <tr>
-<td>Cancellation</td>
-<td><code>catch (...)</code> for timer expiry</td>
-<td><code>stop_token</code></td>
+<td><code>when_all</code> cancels on I/O error</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes (value-based)</td>
 </tr>
 <tr>
-<td>Accept loop exit</td>
-<td><code>while (true)</code> (no exit)</td>
-<td><code>while (!stop_requested())</code></td>
+<td>Error handler reachable</td>
+<td>No (<code>upon_error</code>)</td>
+<td>Yes (<code>upon_error</code>)</td>
+<td>Yes (<code>upon_error</code>)</td>
+<td>Yes (<code>if (ec)</code>)</td>
 </tr>
 <tr>
-<td>Symmetric transfer</td>
-<td><code>void</code> (unbounded stack growth)</td>
-<td><code>coroutine_handle&lt;&gt;</code> return</td>
+<td>Retry on I/O error</td>
+<td>No (<code>retry</code>)</td>
+<td>Yes (<code>retry</code>)</td>
+<td>Yes (<code>retry</code>)</td>
+<td>Yes (<code>retry_after</code>)</td>
 </tr>
 <tr>
-<td>Concurrency spawn</td>
-<td><code>new job&lt;Sender&gt;(...)</code> (heap per spawn)</td>
-<td>preallocated worker pool</td>
+<td>Retry sees byte count</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Scope enforcement</td>
-<td><code>~scope()</code> prints to stderr</td>
-<td><code>start()</code> throws on violation</td>
+<td>Exception on <code>ECONNRESET</code></td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
 </tr>
 <tr>
-<td>Scope join</td>
-<td>none</td>
-<td><code>join()</code> blocks on CV</td>
+<td>Shared mutable state required</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
 </tr>
 <tr>
-<td>Hierarchical stop</td>
-<td>none</td>
-<td>3-level stop token propagation</td>
-</tr>
-<tr>
-<td>Support machinery</td>
-<td>732 lines of demo headers</td>
-<td>0 (library provides task)</td>
-</tr>
-<tr>
-<td>Full program complexity</td>
-<td><code>std::invoke</code> + IILE + 5 abstractions</td>
-<td>create, bind, start, run</td>
+<td>Channels used for I/O</td>
+<td>1 of 3</td>
+<td>3 of 3</td>
+<td>3 of 3</td>
+<td>Values (no channels)</td>
 </tr>
 </tbody>
 </table>
+<p>Infrastructure operations (Section 3) face no such trade-off. Their
+outcomes are binary. The three channels map unambiguously.</p>
+<p>The echo server is deliberately minimal. The compound-result problem
+is per-operation: every <code>read</code> returns
+<code>(status, bytes_transferred)</code> regardless of the protocol
+built on top of it. A TLS handshake, an HTTP/2 stream multiplexer, and a
+database wire protocol all issue reads and writes with the same
+completion shape. Adding protocol complexity adds more call sites with
+the same trade-off, not a different trade-off. The echo server isolates
+the structural problem. A more complex example would demonstrate the
+same table at every I/O boundary, with additional protocol logic between
+them. An HTTP/2 multiplexer issuing concurrent reads on multiple streams
+via <code>when_all</code> faces the same per-stream choice: Approach A1
+preserves the byte count but <code>when_all</code> does not cancel
+siblings on I/O failure; Approach B cancels siblings but discards the
+byte count and throws on <code>ECONNRESET</code>.</p>
+<hr />
+<h2 id="how-coroutines-achieve-structured-concurrency">9. How Coroutines
+Achieve Structured Concurrency</h2>
+<p>Coroutines alone are suspendable functions. They do not compose. The
+structure comes from the execution context - the event loop, the thread
+pool, the io_uring submission queue. The execution context collects
+suspended coroutines, dispatches completions, propagates stop tokens,
+and enforces lifetime boundaries. <code>when_all</code> launches
+coroutines into the execution context, maintains a completion counter,
+and requests cancellation of siblings via stop tokens when the first
+coroutine completes. Each cancelled sibling decrements the counter as it
+completes; <code>when_all</code> resumes the caller when the counter
+reaches zero. The compound result is visible to the application before
+the cancellation decision is made. The classification happens with full
+protocol context, not at a context-free channel router.</p>
+<p>The sender model provides structured concurrency through the type
+system: completion signatures, channel dispatch, and compile-time
+composition. The coroutine-native model provides structured concurrency
+through the runtime: the execution context manages the same concerns at
+the point where the application has already inspected the result. Both
+models provide structured concurrency. They differ in where the compound
+result is visible when the composition decision is made.</p>
+<hr />
+<h2 id="invitation">10. Invitation</h2>
+<p>The authors invite any reader to construct a sender-based echo server
+that:</p>
+<ul>
+<li>preserves compound I/O results (error code and byte count visible at
+the call site),</li>
+<li>retains channel-based composition (<code>when_all</code>,
+<code>upon_error</code> fire on I/O errors),</li>
+<li>avoids exception round-trips for routine error codes, and</li>
+<li>uses only facilities in C++26 or in-progress proposals (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>, <a href="https://wg21.link/p3149">P3149</a><sup>[6]</sup>).</li>
+</ul>
+<p>The authors will incorporate any such construction into a future
+revision and re-evaluate every finding in this paper. If the sender
+approach, when done correctly, matches the coroutine-native ergonomics,
+this paper will say so.</p>
+<hr />
+<h2 id="acknowledgments">11. Acknowledgments</h2>
+<p>The authors thank Dietmar Kühl for the channel-routing enumeration in
+<a href="https://wg21.link/p2762r2">P2762R2</a><sup>[10]</sup> and for
+<code>beman::execution</code>, Chris Kohlhoff for identifying the
+partial-success problem in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[5]</sup>, Kirk Shoop
+for the completion-token heuristic analysis in <a href="https://wg21.link/p2471r1">P2471R1</a><sup>[11]</sup>, Peter Dimov
+for the refined channel mapping in <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup>, Michał
+Dominiak, Eric Niebler, and Lewis Baker for <code>std::execution</code>,
+Ian Petersen, Jessica Wong, and Kirk Shoop for <code>async_scope</code>,
+Fabio Fracassi for <a href="https://wg21.link/p3570r2">P3570R2</a><sup>[12]</sup>, Ville
+Voutilainen and Jens Maurer for reflector discussion, and Herb Sutter
+for identifying the need for constructed comparisons.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
-<li><a href="https://wg21.link/p2762r2">P2762R2</a> -
-“Sender/Receiver-Based Networking” (Dietmar Kühl, 2024).
-https://wg21.link/p2762r2</li>
-<li><a href="https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c">bemanproject/net</a>
-- Sender/receiver networking library. Commit ee861c7.
-https://github.com/bemanproject/net/tree/ee861c73865e71a06816dadfa3dee29ed298d63c</li>
-<li><a href="https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409">cppalliance/corosio</a>
-- Coroutine-native networking library. Commit 6d10efa.
-https://github.com/cppalliance/corosio/tree/6d10efacf6a8f96bcff314943ba30f84aa701409</li>
-<li><a href="https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135">cppalliance/capy</a>
-- Coroutine I/O primitives library. Commit 18c30d2.
-https://github.com/cppalliance/capy/tree/18c30d2197ac8804f9426005576d4f9b80a76135</li>
+<li><p><a href="https://wg21.link/p2300r10">P2300R10</a> -
+“std::execution” (Michał Dominiak et al., 2024).
+https://wg21.link/p2300r10</p></li>
+<li><p><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a
+Coroutine Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
+https://wg21.link/p3552r3</p></li>
+<li><p><a href="https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb">cppalliance/corosio</a>
+- Coroutine-native networking library. Commit ce1c43e.
+https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb</p></li>
+<li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
+Coroutine I/O primitives library.
+https://github.com/cppalliance/capy</p></li>
+<li><p><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial
+success scenarios with P2300” (Chris Kohlhoff, 2021).
+https://wg21.link/p2430r0</p></li>
+<li><p><a href="https://wg21.link/p3149">P3149</a> - “async_scope -
+Creating scopes for non-sequential concurrency” (Ian Petersen, Jessica
+Wong, Kirk Shoop, et al., 2024). https://wg21.link/p3149</p></li>
+<li><p><a href="https://wg21.link/d4054r0">D4054R0</a> - “Two Error
+Models” (Vinnie Falco, 2026). https://wg21.link/d4054r0</p></li>
+<li><p>IEEE Std 1003.1 - POSIX <code>read()</code> /
+<code>write()</code> specification.
+https://pubs.opengroup.org/onlinepubs/9799919799/</p></li>
+<li><p><a href="https://wg21.link/p4007r0">P4007R0</a> - “Senders and
+Coroutines” (Vinnie Falco, Mungo Gill, 2026).
+https://wg21.link/p4007r0</p></li>
+<li><p><a href="https://wg21.link/p2762r2">P2762R2</a> -
+“Sender/Receiver Interface For Networking” (Dietmar Kühl, 2023).
+https://wg21.link/p2762r2</p></li>
+<li><p><a href="https://wg21.link/p2471r1">P2471R1</a> - “NetTS, ASIO
+and Sender Library Design Comparison” (Kirk Shoop, 2021).
+https://wg21.link/p2471r1</p></li>
+<li><p><a href="https://wg21.link/p3570r2">P3570R2</a> - “Optional
+variants in sender/receiver” (Fabio Fracassi, 2025).
+https://wg21.link/p3570r2</p></li>
 </ol>
 
 </body>
