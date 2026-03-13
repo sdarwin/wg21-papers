@@ -10,7 +10,7 @@ audience: LEWG
 
 ## Abstract
 
-A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with zero allocations, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A. This paper is informational and proposes no action.
+A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with zero allocations, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
 
 ---
 
@@ -24,7 +24,7 @@ A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<
 
 ## 1. Disclosure
 
-The authors developed [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, which is not used in this paper. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). Source code links refer to pinned commit [60bf781](https://github.com/cppalliance/capy/tree/60bf781d09024ce0f9cbd1505684249184331692)<sup>[4]</sup>.
+The authors developed and maintain [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The authors provide information, ask nothing, and serve at the pleasure of the chair. [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, which is not used in this paper. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). Source code links refer to pinned commit [60bf781](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup>.
 
 ---
 
@@ -74,6 +74,8 @@ The sender executed on thread 9560, the `beman::execution::run_loop` thread. The
 
 The bridge consumes any `std::execution` sender. Scheduler hops work. Stop token propagation works. `set_value`, `set_error`, and `set_stopped` are handled. The operation state is stored inline with zero allocations. Any sender pipeline - `when_all`, `then`, `let_value`, `on` - works through the bridge.
 
+An `IoAwaitable` coroutine can suspend into a sender pipeline that schedules work on a GPU, a thread pool, or any other execution context. When the sender completes, the bridge dispatches the resumption back to the coroutine's originating executor (`env_->executor.post(cont_)`). The coroutine resumes in the correct context with the sender's result, regardless of where the sender executed. This is the interop path for coroutine-native I/O code that needs to offload compute to a GPU scheduler and resume on the I/O event loop.
+
 The bridge does not use `execution::task`.
 
 ---
@@ -101,7 +103,7 @@ The sender bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]
 
 ## 7. Acknowledgments
 
-The authors thank Ville Voutilainen and Jens Maurer for reflector discussion on dispatch patterns, Herb Sutter for identifying the need for tutorials and documentation, Mark Hoemmen for insights on `std::linalg` and the layered abstraction model, and Dietmar K&uuml;hl for `beman::execution`.
+The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for the channel-routing enumeration in [P2762R2](https://wg21.link/p2762r2)<sup>[7]</sup>, Micha&lstrok; Dominiak, Eric Niebler, and Lewis Baker for `std::execution`, Chris Kohlhoff for identifying the partial-success problem in [P2430R0](https://wg21.link/p2430r0)<sup>[8]</sup>, Kirk Shoop for the completion-token heuristic analysis in [P2471R1](https://wg21.link/p2471r1)<sup>[9]</sup>, Fabio Fracassi for [P3570R2](https://wg21.link/p3570r2)<sup>[10]</sup>, Ville Voutilainen and Jens Maurer for reflector discussion on dispatch patterns, Herb Sutter for identifying the need for tutorials and documentation, Mark Hoemmen for insights on `std::linalg` and the layered abstraction model, and Peter Dimov for the refined channel mapping.
 
 ---
 
@@ -113,11 +115,19 @@ The authors thank Ville Voutilainen and Jens Maurer for reflector discussion on 
 
 3. [P4003R0](https://wg21.link/p4003r0) - "IoAwaitable" (Vinnie Falco, 2026). https://wg21.link/p4003r0
 
-4. [cppalliance/capy](https://github.com/cppalliance/capy/tree/60bf781d09024ce0f9cbd1505684249184331692) - Coroutine primitives library. Commit 60bf781. https://github.com/cppalliance/capy/tree/60bf781d09024ce0f9cbd1505684249184331692
+4. [cppalliance/capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16) - Coroutine primitives library. Commit f046646. https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16
 
 5. [bemanproject/execution](https://github.com/bemanproject/execution) - Community implementation of `std::execution`. https://github.com/bemanproject/execution
 
 6. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
+
+7. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver Interface For Networking" (Dietmar K&uuml;hl, 2023). https://wg21.link/p2762r2
+
+8. [P2430R0](https://wg21.link/p2430r0) - "Partial success scenarios with P2300" (Chris Kohlhoff, 2021). https://wg21.link/p2430r0
+
+9. [P2471R1](https://wg21.link/p2471r1) - "NetTS, ASIO and Sender Library Design Comparison" (Kirk Shoop, 2021). https://wg21.link/p2471r1
+
+10. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
 
 ---
 
@@ -128,6 +138,7 @@ The authors thank Ville Voutilainen and Jens Maurer for reflector discussion on 
 
 #include <beman/execution/execution.hpp>
 
+#include <cassert>
 #include <coroutine>
 #include <cstring>
 #include <exception>
@@ -251,6 +262,7 @@ struct sender_awaitable
                 Sender>)
         : sndr_(std::move(o.sndr_))
     {
+        assert(!o.op_constructed_);
     }
 
     sender_awaitable(
