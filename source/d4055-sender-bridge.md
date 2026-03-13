@@ -10,7 +10,7 @@ audience: LEWG
 
 ## Abstract
 
-A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with zero allocations, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
+An `IoAwaitable` bridge ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with inline operation state, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
 
 ---
 
@@ -24,7 +24,7 @@ A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<
 
 ## 1. Disclosure
 
-The authors developed and maintain [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The authors provide information, ask nothing, and serve at the pleasure of the chair. [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, which is not used in this paper. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). Source code links refer to pinned commit [60bf781](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup>.
+The authors developed and maintain [Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [D4053R0](https://wg21.link/d4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [D4054R0](https://wg21.link/d4054r0)<sup>[11]</sup>, "Two Error Models"; and [D4056R0](https://wg21.link/d4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code." The authors provide information, ask nothing, and serve at the pleasure of the chair. [Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup> is a coroutine primitives library. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, which is not used in this paper. The bridge depends on [Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). Source code links refer to pinned commit [f046646](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup>.
 
 ---
 
@@ -53,7 +53,7 @@ capy::task<int> compute(auto sched)
 
 `await_sender` returns a `sender_awaitable` that satisfies `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>). Any coroutine type whose promise propagates `io_env` through `await_suspend(h, io_env const*)` can use it. `capy::task` is one such type. It is not the only one.
 
-The bridge is one class template. The complete implementation is in Appendix A. It was tested against `beman::execution`<sup>[5]</sup>.
+Appendix A contains the complete bridge implementation. It was tested against `beman::execution`<sup>[5]</sup>.
 
 ---
 
@@ -66,15 +66,15 @@ main thread: 32208
 result: 1764
 ```
 
-The sender executed on thread 9560, the `beman::execution::run_loop` thread. The coroutine resumed on thread 34356, the Capy thread pool. The value 1764 crossed the bridge. The bridge allocated zero bytes.
+The sender executed on thread 9560, the `beman::execution::run_loop` thread. The coroutine resumed on thread 34356, the Capy thread pool. The value 1764 crossed the bridge. The bridge allocated zero bytes on this path.
 
 ---
 
 ## 4. What the Bridge Does
 
-The bridge consumes any `std::execution` sender. Scheduler hops work. Stop token propagation works. `set_value`, `set_error`, and `set_stopped` are handled. The operation state is stored inline with zero allocations. Any sender pipeline - `when_all`, `then`, `let_value`, `on` - works through the bridge.
+The bridge consumes any `std::execution` sender. Scheduler hops work. Stop token propagation works. `set_value`, `set_error`, and `set_stopped` are handled. The operation state is stored inline. Any sender pipeline - `when_all`, `then`, `let_value`, `on` - works through the bridge.
 
-An `IoAwaitable` coroutine can suspend into a sender pipeline that schedules work on a GPU, a thread pool, or any other execution context. When the sender completes, the bridge dispatches the resumption back to the coroutine's originating executor (`env_->executor.post(cont_)`). The coroutine resumes in the correct context with the sender's result, regardless of where the sender executed. This is the interop path for coroutine-native I/O code that needs to offload compute to a GPU scheduler and resume on the I/O event loop.
+An `IoAwaitable` coroutine can suspend into a sender pipeline that schedules work on a GPU, a thread pool, or any other execution context. When the sender completes, the bridge dispatches the resumption back to the coroutine's originating executor (`env_->executor.post(cont_)`). The coroutine resumes in the correct context with the sender's result, regardless of where the sender executed. The bridge is the interop path for coroutine-native I/O code that needs to offload compute to a GPU scheduler and resume on the I/O event loop.
 
 The bridge does not use `execution::task`.
 
@@ -95,9 +95,9 @@ The bridge does not use `execution::task`.
 
 ## 6. The Narrowest Abstraction
 
-[Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It provides `task`, executors, stop tokens, frame allocators, and buffer sequences. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, a separate library that depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup>.
+[Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup> is a coroutine primitives library. It provides `task`, executors, stop tokens, frame allocators, and buffer sequences. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, a separate library that depends on [Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup>.
 
-The sender bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `std::execution`. It does not depend on [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. It does not depend on any platform I/O API. A user who needs I/O adds [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. A user who needs sender interop adds the bridge. A user who needs neither does not pay for either. The coroutine type does not change between these configurations.
+The sender bridge depends on [Capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup> and `std::execution`. It does not depend on [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. It does not depend on any platform I/O API. A user who needs I/O adds [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. A user who needs sender interop adds the bridge. A user who needs neither does not pay for either. The coroutine type does not change between these configurations.
 
 ---
 
@@ -111,9 +111,9 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 1. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
 
-2. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
+2. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
 
-3. [P4003R0](https://wg21.link/p4003r0) - "IoAwaitable" (Vinnie Falco, 2026). https://wg21.link/p4003r0
+3. [P4003R0](https://wg21.link/p4003r0) - "Coroutines for I/O" (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026). https://wg21.link/p4003r0
 
 4. [cppalliance/capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16) - Coroutine primitives library. Commit f046646. https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16
 
@@ -128,6 +128,10 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 9. [P2471R1](https://wg21.link/p2471r1) - "NetTS, ASIO and Sender Library Design Comparison" (Kirk Shoop, 2021). https://wg21.link/p2471r1
 
 10. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
+
+11. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
+
+12. [D4056R0](https://wg21.link/d4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4056r0
 
 ---
 
@@ -144,8 +148,10 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 #include <exception>
 #include <new>
 #include <stop_token>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace boost::capy {

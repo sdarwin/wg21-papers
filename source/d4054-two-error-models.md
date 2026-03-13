@@ -23,7 +23,7 @@ Operations partition naturally into two classes based on their postcondition str
 
 ## 1. Disclosure
 
-The author developed [P4007R0](https://wg21.link/p4007r0)<sup>[6]</sup> ("Senders and Coroutines") and believes coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The author provides information, asks nothing, and serves at the pleasure of the chair. The analysis below holds regardless of whether any alternative design exists. Every claim is sourced to published committee papers, OS specifications, or cited implementations.
+The author developed [P4007R0](https://wg21.link/p4007r0)<sup>[6]</sup> ("Senders and Coroutines") and believes coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [D4053R0](https://wg21.link/d4053r0)<sup>[5]</sup>, "Sender I/O: A Constructed Comparison"; [D4055R0](https://wg21.link/d4055r0)<sup>[12]</sup>, "Consuming Senders from Coroutine-Native Code"; and [D4056R0](https://wg21.link/d4056r0)<sup>[13]</sup>, "Producing Senders from Coroutine-Native Code." The author provides information, asks nothing, and serves at the pleasure of the chair. The analysis below holds regardless of whether any alternative design exists. Every claim is sourced to published committee papers, OS specifications, or cited implementations.
 
 ---
 
@@ -88,7 +88,7 @@ The compound-result pattern is not a design preference. It is how systems report
 
 - **C++ Standard Library.** `std::from_chars` returns `from_chars_result{ptr, ec}`. The pointer and the error code arrive together in one struct. The caller inspects both at the same call site.
 
-Three OS families, the C++ standard library, the same shape: status and data arrive as a pair because they are a single result.
+Across three OS families and the C++ standard library, the same shape appears: status and data arrive as a pair because they are a single result.
 
 ### 2.4 Where the Partition Becomes a Problem
 
@@ -146,9 +146,9 @@ The status code is not a failure signal. It is a vocabulary:
 - `EWOULDBLOCK` - nothing available now; try again
 - `EOF` - the peer closed the connection gracefully
 
-Each requires different application handling. None indicates that the operation failed to operate. `ECONNRESET` means "fatal, abort the transaction" in an HTTP request handler, but "done, expected closure" in a long-polling connection that the server intentionally drops. The same error code, classified differently depending on the protocol state the application holds.
+Each requires different application handling. None indicates that the operation failed to operate. `ECONNRESET` means "fatal, abort the transaction" in an HTTP request handler, but "done, expected closure" in a long-polling connection that the server intentionally drops. The same error code is classified differently depending on the protocol state the application holds.
 
-Partial results are normal. A `write` that sends 500 of 1,000 bytes before `ECONNRESET` produces `(ECONNRESET, 500)`. Both values are needed. The 500 tells the application how much of the message was acknowledged. The status tells it why the rest was not.
+Partial results are normal. A `write` that sends 500 of 1,000 bytes before `ECONNRESET` produces `(ECONNRESET, 500)`. Both values are needed. The 500 tells the application how much of the message the API accepted for that operation. The status tells it why the rest was not.
 
 Chris Kohlhoff identified this in [P2430R0](https://wg21.link/p2430r0)<sup>[2]</sup> ("Partial success scenarios with P2300," 2021):
 
@@ -186,7 +186,7 @@ async_read(socket, buffer)
       });
 ```
 
-This works. But the result is now `set_value(expected<size_t, error_code>)`. The error code is inside the `expected`, invisible to `when_all`, `upon_error`, and `retry`. This is Approach A1 ([D4053R1](https://wg21.link/d4053r1) Section 5) with the pair wrapped in `std::expected` instead of delivered as two arguments. The channel-based composition algebra is bypassed. `let_error` is the same pattern in reverse: catch the error, re-emit through `set_value`. Both recover the pair by routing everything through `set_value`.
+This works. But the result is now `set_value(expected<size_t, error_code>)`. The error code is inside the `expected`, invisible to `when_all`, `upon_error`, and `retry`. This is Approach A1 ([D4053R0](https://wg21.link/d4053r0)<sup>[5]</sup> Section 5) with the pair wrapped in `std::expected` instead of delivered as two arguments. The channel-based composition algebra is bypassed. `let_error` is the same pattern in reverse: catch the error, re-emit through `set_value`. Both recover the pair by routing everything through `set_value`.
 
 Consider a partial write. The application asks to write 1,000 bytes. The kernel accepts 500 before the connection dies. `set_error(ECONNRESET)` discards the 500. The application needs that number to know what was acknowledged by the peer - whether to retry, what offset to resume from, whether the transaction can be salvaged. The channel model destroyed it.
 
@@ -203,7 +203,7 @@ else
     set_error(std::move(rcvr), ec);
 ```
 
-All non-zero error codes go to `set_error`. The byte count is discarded unconditionally. Total information loss on any error.
+All non-zero error codes go to `set_error`. The byte count is discarded unconditionally. Total byte-count loss on any error.
 
 **The refined mapping.** Peter Dimov proposed a convention in [P4007R0](https://wg21.link/p4007r0)<sup>[6]</sup> (Section 3.6) that preserves partial results by discriminating the channel based on the byte count and error code category:
 
@@ -222,13 +222,13 @@ Both mappings demonstrate the same structural problem: any function from `(error
 
 ### 5.2 Prior Engagement
 
-Dietmar K&uuml;hl enumerated five channel-routing options for I/O in [P2762R2](https://wg21.link/p2762r2)<sup>[3]</sup> (Section 4.2), including fused `set_value(error_code, n)`, multiple `set_value` overloads, `set_error` routing, hybrid severity-based classification, and an `error_code` reference argument. K&uuml;hl acknowledged the partial-success problem directly: "some of the error cases may have been partial successes. In that case, using the set_error channel taking just one argument is somewhat limiting." He did not resolve it, noting that "when substantial work is done and partial successes become reasonable, it is likely that intermediate results are to be produced and algorithms of a different shape are used anyway." P2762R2 chose `set_error` routing (Approach B in [D4053R1](https://wg21.link/d4053r1)) for its examples.
+Dietmar K&uuml;hl enumerated five channel-routing options for I/O in [P2762R2](https://wg21.link/p2762r2)<sup>[3]</sup> (Section 4.2), including fused `set_value(error_code, n)`, multiple `set_value` overloads, `set_error` routing, hybrid severity-based classification, and an `error_code` reference argument. K&uuml;hl acknowledged the partial-success problem directly: "some of the error cases may have been partial successes. In that case, using the set_error channel taking just one argument is somewhat limiting." He did not resolve it, noting that "when substantial work is done and partial successes become reasonable, it is likely that intermediate results are to be produced and algorithms of a different shape are used anyway." P2762R2 chose `set_error` routing (Approach B in [D4053R0](https://wg21.link/d4053r0)<sup>[5]</sup>) for its examples.
 
 Kirk Shoop identified the same heuristic difficulty in [P2471R1](https://wg21.link/p2471r1)<sup>[10]</sup> ("NetTS, ASIO and Sender Library Design Comparison," 2021), observing that completion tokens translating to senders "must use a heuristic to type-match the first arg" and that the mapping creates "many different implementations of asSender."
 
-[P3570R2](https://wg21.link/p3570r2)<sup>[4]</sup> ("Optional variants in sender/receiver," Fabio Fracassi, 2025) provides a mechanism for senders to present different completion types to coroutines than to direct receivers. The concrete use case is concurrent queues ([P0260](https://wg21.link/p0260)<sup>[11]</sup>): `set_error(conqueue_errc)` for receivers, `optional<T>` for coroutines. P3570 transforms *which channel* the coroutine sees, not the channel routing itself. It does not address compound I/O results: a sender completing with `set_error(ECONNRESET)` still discards the byte count regardless of how the coroutine receives the error.
+[P3570R2](https://wg21.link/p3570r2)<sup>[4]</sup> ("Optional variants in sender/receiver," Fabio Fracassi, 2025) provides a mechanism for senders to present different completion types to coroutines than to direct receivers. The concrete use case is concurrent queues ([P0260R19](https://wg21.link/p0260r19)<sup>[11]</sup>): `set_error(conqueue_errc)` for receivers, `optional<T>` for coroutines. P3570 transforms *which channel* the coroutine sees, not the channel routing itself. It does not address compound I/O results: a sender completing with `set_error(ECONNRESET)` still discards the byte count regardless of how the coroutine receives the error.
 
-To the authors' knowledge, no published paper resolves the compound-result channel-routing problem identified in [P2430R0](https://wg21.link/p2430r0)<sup>[2]</sup>. The problem has been identified by Kohlhoff (2021), K&uuml;hl (2023), and Shoop (2021). It remains open.
+To the author's knowledge, no published paper resolves the compound-result channel-routing problem identified in [P2430R0](https://wg21.link/p2430r0)<sup>[2]</sup>. The problem has been identified by Kohlhoff (2021), K&uuml;hl (2023), and Shoop (2021). It remains open.
 
 ---
 
@@ -240,7 +240,7 @@ Three positions are available to defend the three-channel model for I/O. Each co
 
 Argue that the byte count does not matter when an error occurs. `set_error(ECONNRESET)` is sufficient; the partial transfer count is unneeded.
 
-This contradicts POSIX semantics, where `write()` returns the number of bytes written even when a subsequent call would fail. It contradicts Asio's `(error_code, size_t)` convention, which has delivered both values for twenty years. It contradicts network programming practice across every language and framework. Partial writes are normal. The byte count is how the application knows what was acknowledged.
+This contradicts POSIX semantics, where `write()` returns the number of bytes written even when a subsequent call would fail. It contradicts Asio's `(error_code, size_t)` convention, which has delivered both values for twenty years. It contradicts network programming practice across every language and framework. Partial writes are normal. The byte count is how the application knows how much of the message the API accepted for that operation.
 
 ### 6.2 Route Everything Through `set_value`
 
@@ -262,7 +262,7 @@ Each position trades something the compound-result model preserves:
 - **(b)** trades channel relevance for data preservation
 - **(c)** trades fixed channel semantics for a domain-specific classification
 
-The authors are not aware of a fourth position. The three observable outcomes when the three-channel model meets compound I/O results are data loss, channel bypass, or semantic redefinition. The authors welcome counterexamples (see [D4053R1](https://wg21.link/d4053r1) Section 9).
+The author is not aware of a fourth position. The three observable outcomes when the three-channel model meets compound I/O results are data loss, channel bypass, or semantic redefinition. The author welcomes counterexamples (see [D4053R0](https://wg21.link/d4053r0)<sup>[5]</sup> Section 9).
 
 ---
 
@@ -284,7 +284,7 @@ The finding is not that the three-channel model is wrong. It is that the model h
 | Accept           | Either     | Compound-result  | No                        |
 | DNS resolve      | Either     | Compound-result  | No                        |
 
-The reference implementation of `std::execution`<sup>[8]</sup> targets compile-time work graphs and GPU dispatch. Those are infrastructure operations with binary outcomes. The model is correct for its design domain. The compound-result operations - whether synchronous or asynchronous - are outside that domain.
+The reference implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>) - [stdexec](https://github.com/NVIDIA/stdexec)<sup>[8]</sup> - targets compile-time work graphs and GPU dispatch. Those are infrastructure operations with binary outcomes. The model is correct for its design domain. The compound-result operations - whether synchronous or asynchronous - are outside that domain.
 
 ---
 
@@ -318,7 +318,7 @@ The author thanks Chris Kohlhoff for identifying the partial-success problem in 
 
 4. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
 
-5. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
+5. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
 
 6. [P4007R0](https://wg21.link/p4007r0) - "Senders and Coroutines" (Vinnie Falco, Mungo Gill, 2026). https://wg21.link/p4007r0
 
@@ -326,8 +326,12 @@ The author thanks Chris Kohlhoff for identifying the partial-success problem in 
 
 8. [stdexec](https://github.com/NVIDIA/stdexec) - Reference implementation of std::execution. https://github.com/NVIDIA/stdexec
 
-9. IEEE Std 1003.1 - POSIX `read()` / `write()` specification. https://pubs.opengroup.org/onlinepubs/9799919799/
+9. IEEE Std 1003.1-2024 - POSIX `read()` / `write()` specification. https://pubs.opengroup.org/onlinepubs/9799919799/
 
 10. [P2471R1](https://wg21.link/p2471r1) - "NetTS, ASIO and Sender Library Design Comparison" (Kirk Shoop, 2021). https://wg21.link/p2471r1
 
 11. [P0260R19](https://wg21.link/p0260r19) - "C++ Concurrent Queues" (Detlef Vollmann, Lawrence Crowl, Chris Mysen, Gor Nishanov, 2025). https://wg21.link/p0260r19
+
+12. [D4055R0](https://wg21.link/d4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4055r0
+
+13. [D4056R0](https://wg21.link/d4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4056r0
