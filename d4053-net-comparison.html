@@ -874,32 +874,47 @@ Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a></p>
   <li><a href="#approach-a1-route-through-set_value" id="toc-approach-a1-route-through-set_value">5. Approach A1: Route
   Through <code>set_value</code></a>
   <ul>
-  <li><a href="#what-approach-a1-loses" id="toc-what-approach-a1-loses">What Approach A1 Loses</a></li>
+  <li><a href="#what-a1-loses" id="toc-what-a1-loses">What A1
+  Loses</a></li>
   </ul></li>
   <li><a href="#approach-a2-split-across-channels-and-shared-state" id="toc-approach-a2-split-across-channels-and-shared-state">6.
   Approach A2: Split Across Channels and Shared State</a>
   <ul>
-  <li><a href="#what-approach-a2-loses" id="toc-what-approach-a2-loses">What Approach A2 Loses</a></li>
+  <li><a href="#what-a2-loses" id="toc-what-a2-loses">What A2
+  Loses</a></li>
   </ul></li>
   <li><a href="#approach-b-route-through-set_error" id="toc-approach-b-route-through-set_error">7. Approach B: Route
   Through <code>set_error</code></a>
   <ul>
-  <li><a href="#what-approach-b-loses" id="toc-what-approach-b-loses">What Approach B Loses</a></li>
+  <li><a href="#what-b-loses" id="toc-what-b-loses">What B
+  Loses</a></li>
   </ul></li>
-  <li><a href="#the-trade-off" id="toc-the-trade-off">8. The
-  Trade-Off</a></li>
-  <li><a href="#how-coroutines-achieve-structured-concurrency" id="toc-how-coroutines-achieve-structured-concurrency">9. How
+  <li><a href="#approach-c-decompose-with-let_value" id="toc-approach-c-decompose-with-let_value">8. Approach C: Decompose
+  with <code>let_value</code></a>
+  <ul>
+  <li><a href="#return-type-constraint" id="toc-return-type-constraint">Return-Type Constraint</a></li>
+  <li><a href="#what-c-loses" id="toc-what-c-loses">What C
+  Loses</a></li>
+  </ul></li>
+  <li><a href="#the-trade-off" id="toc-the-trade-off">9. The
+  Trade-Off</a>
+  <ul>
+  <li><a href="#when-the-byte-count-determines-correctness" id="toc-when-the-byte-count-determines-correctness">When the Byte
+  Count Determines Correctness</a></li>
+  </ul></li>
+  <li><a href="#how-coroutines-achieve-structured-concurrency" id="toc-how-coroutines-achieve-structured-concurrency">10. How
   Coroutines Achieve Structured Concurrency</a></li>
-  <li><a href="#invitation" id="toc-invitation">10. Invitation</a></li>
-  <li><a href="#acknowledgments" id="toc-acknowledgments">11.
+  <li><a href="#invitation" id="toc-invitation">11. Invitation</a></li>
+  <li><a href="#acknowledgments" id="toc-acknowledgments">12.
   Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>Three sender-based TCP echo servers are constructed from the C++26
-specification and compared against a coroutine-native echo server (<a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>).
+<p>Four sender-based TCP echo servers are constructed from the C++26
+specification (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>) and compared
+against a coroutine-native echo server (<a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>).
 Approach A1 routes I/O results through <code>set_value</code>, matching
 coroutine-native ergonomics but bypassing the channel-based composition
 algebra. Approach A2 routes the error code through
@@ -908,13 +923,24 @@ restoring channel-based composition but removing the byte count from the
 completion signature and reintroducing shared mutable state. Approach B
 routes errors through <code>set_error</code>, retaining composition but
 converting every routine network event into an exception and discarding
-the byte count. No construction achieves both data preservation and
+the byte count. Approach C uses <code>let_value</code> to decompose an
+A1-style compound result and re-route the error code to
+<code>set_error</code>, restoring channel-based composition without
+shared state or exceptions but discarding the byte count on the error
+path. No construction achieves both full data preservation and
 channel-based composition without shared state or exceptions. The
 authors invite any reader to construct a sender-based echo server that
 preserves compound I/O results, retains channel-based composition, and
 avoids exception round-trips, using C++26 facilities. The authors will
 incorporate any such construction into a future revision and re-evaluate
 every finding.</p>
+<p>This paper is one of a suite of five that examines the relationship
+between compound I/O results and the sender three-channel model. The
+companion papers are <a href="https://wg21.link/d4050r0">D4050R0</a><sup>[15]</sup>, “On Task
+Type Diversity”; <a href="https://wg21.link/d4054r0">D4054R0</a><sup>[7]</sup>, “Two Error
+Models”; <a href="https://wg21.link/d4055r0">D4055R0</a><sup>[13]</sup>,
+“Consuming Senders from Coroutine-Native Code”; and <a href="https://wg21.link/d4056r0">D4056R0</a><sup>[14]</sup>, “Producing
+Senders from Coroutine-Native Code.”</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -928,14 +954,9 @@ mailing)</h3>
 and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
 and believe coroutine-native I/O is the correct foundation for
 networking in C++. The findings in this paper are structural and hold
-regardless of which library implements the coroutine-native layer. This
-paper is one of a suite of four that examines the relationship between
-compound I/O results and the sender three-channel model. The authors
-provide information, ask nothing, and serve at the pleasure of the
-chair. This paper constructs the best sender-based echo server the
-authors can build from the C++26 specification, places it next to a
-coroutine-native echo server, and shows what each approach costs. The
-authors invite improvements to the sender construction (Section 10).</p>
+regardless of which library implements the coroutine-native layer. The
+authors provide information, ask nothing, and serve at the pleasure of
+the chair.</p>
 <hr />
 <h2 id="the-coroutine-native-echo-server">2. The Coroutine-Native Echo
 Server</h2>
@@ -957,9 +978,7 @@ Server</h2>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="va">sock_</span><span class="op">.</span>close<span class="op">();</span></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Each <code>co_await</code> yields <code>(error_code, size_t)</code>
-as a structured binding. The error code is a value. No exceptions. Both
-values are visible at the call site.</p>
+<p>Both values visible. No exceptions.</p>
 <hr />
 <h2 id="why-io-results-are-different">3. Why I/O Results Are
 Different</h2>
@@ -1000,10 +1019,7 @@ Different</h2>
 </tr>
 </tbody>
 </table>
-<p>Every row is binary. The three channels - <code>set_value</code>,
-<code>set_error</code>, <code>set_stopped</code> - map unambiguously.
-The three-channel model is correct for this class.
-<code>std::execution</code> serves it well.</p>
+<p>Every row is binary. The three channels map unambiguously.</p>
 <p>I/O operations return compound results:</p>
 <table>
 <thead>
@@ -1023,211 +1039,208 @@ The three-channel model is correct for this class.
 </tr>
 </tbody>
 </table>
-<p>Status and data, always paired. Both values are always present. Every
-OS delivers them together. io_uring carries <code>res</code> and
-<code>flags</code> in one CQE. IOCP returns a <code>BOOL</code> and
-<code>lpNumberOfBytesTransferred</code> in one call. POSIX
-<code>read()</code> returns <code>ssize_t</code> with <code>errno</code>
-set.</p>
-<p>Chris Kohlhoff identified this in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[5]</sup> (“Partial
-success scenarios with P2300,” 2021):</p>
+<p>Every OS delivers both values together.<sup>[8]</sup> Chris Kohlhoff
+identified the consequence for senders in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[5]</sup>:</p>
 <blockquote>
 <p>“Due to the limitations of the <code>set_error</code> channel (which
 has a single ‘error’ argument) and <code>set_done</code> channel (which
 takes no arguments), partial results must be communicated down the
 <code>set_value</code> channel.”</p>
 </blockquote>
-<p>The remaining sections construct three approaches to routing compound
-results through three channels and show what each costs.</p>
+<p>Four approaches follow.</p>
 <hr />
 <h2 id="constructing-the-sender-echo-server">4. Constructing the Sender
 Echo Server</h2>
-<p>Three approaches exist for routing I/O results through the
-three-channel model. Approach A1 routes everything through
-<code>set_value</code>. Approach A2 routes the error code through
-<code>set_error</code> while capturing the byte count in shared state.
-Approach B routes errors through <code>set_error</code> and discards the
-byte count. We construct the best version of each from the C++26
-specification (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>).</p>
-<p>Dietmar Kühl enumerated five channel-routing options for I/O in <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[10]</sup> (Section
-4.2), including fused <code>set_value(error_code, n)</code>, multiple
-<code>set_value</code> overloads, <code>set_error</code> routing, hybrid
-severity-based classification, and an <code>error_code</code> reference
-argument. Kühl noted that “some of the error cases may have been partial
-successes” and that “using the set_error channel taking just one
-argument is somewhat limiting.” Kirk Shoop identified the same heuristic
-difficulty in <a href="https://wg21.link/p2471r1">P2471R1</a><sup>[11]</sup>, observing
-that completion tokens translating to senders “must use a heuristic to
-type-match the first arg” to distinguish errors from values. The
-approaches below correspond to Kühl’s options 1, 3, and a shared-state
-variant not in his enumeration.</p>
+<p>Each approach is constructed from <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup> and <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>.</p>
+<p>Kühl enumerated five channel-routing options in <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[10]</sup> Section 4.2
+and noted: “some of the error cases may have been partial
+successes…using the set_error channel taking just one argument is
+somewhat limiting.” Shoop identified the same difficulty in <a href="https://wg21.link/p2471r1">P2471R1</a><sup>[11]</sup>: completion
+tokens translating to senders “must use a heuristic to type-match the
+first arg.”</p>
+<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>
+Section 1.3 demonstrates the pattern:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> read_socket_async<span class="op">(</span>socket<span class="op">,</span> span<span class="op">{</span>buff<span class="op">})</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">|</span> execution<span class="op">::</span>let_value<span class="op">(</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>          <span class="op">[](</span>error_code err<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>             <span class="dt">size_t</span> bytes_read<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>              <span class="cf">if</span> <span class="op">(</span>err <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                  <span class="co">// partial success</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>              <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                  <span class="co">// full success</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>              <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>          <span class="op">});</span></span></code></pre></div>
+<p>Approach A1 piped into Approach C. The example does not show what
+happens to <code>bytes_read</code> when the error must reach
+<code>set_error</code>.</p>
 <hr />
 <h2 id="approach-a1-route-through-set_value">5. Approach A1: Route
 Through <code>set_value</code></h2>
 <p>The I/O sender calls <code>set_value(error_code, size_t)</code> for
-all outcomes. Completion signature:
-<code>set_value_t(std::error_code, std::size_t)</code>.</p>
-<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> Section
-4.4 specifies that <code>co_await</code> on a sender with multiple value
-arguments yields a <code>std::tuple</code>. Structured bindings
-work:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_write<span class="op">(</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec <span class="op">||</span> ec<span class="op">)</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The echo session is nearly identical to Corosio. The error code is a
-value. No exceptions. Both values are visible at the call site.</p>
-<h3 id="what-approach-a1-loses">What Approach A1 Loses</h3>
-<p>The I/O sender never calls <code>set_error</code> for I/O results.
-The channel-based composition algebra is bypassed:</p>
-<ul>
-<li><p><strong><code>when_all</code></strong> cancels sibling operations
-when one completes with <code>set_error</code> or
-<code>set_stopped</code> ([exec.when.all]). An I/O failure arriving
-through <code>set_value</code> looks like success to
-<code>when_all</code>. Siblings continue.</p></li>
-<li><p><strong><code>upon_error</code></strong> intercepts
-<code>set_error</code> ([exec.then]). It is unreachable for these
-senders.</p></li>
-<li><p><strong><code>retry</code></strong> (stdexec, not in the C++26
-working draft) intercepts <code>set_error</code> and restarts the
-operation. An I/O failure arriving through <code>set_value</code> does
-not trigger it.</p></li>
-</ul>
-<p>The three-channel model reduces to one channel with a structured
-result. <code>set_error</code> serves no purpose for I/O senders under
-Approach A1. (<code>set_stopped</code> retains its cancellation
-role.)</p>
-<hr />
-<h2 id="approach-a2-split-across-channels-and-shared-state">6. Approach
-A2: Split Across Channels and Shared State</h2>
-<p>A variation of Approach A1 routes the error code through
-<code>set_error</code> while capturing the byte count into shared state
-before the channel split. A <code>let_error</code> handler recovers both
-values:</p>
+all outcomes. Structured bindings work (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> Section
+4.4):</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>size_t n <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>            async_read<span class="op">(</span>sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">))</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>            async_write<span class="op">(</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">))</span></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The error code reaches <code>upon_error</code>. <code>when_all</code>
-would cancel siblings. <code>retry</code> would fire. The three channels
-are all in use.</p>
-<h3 id="what-approach-a2-loses">What Approach A2 Loses</h3>
-<p>The byte count is not part of any completion signature. It is
-smuggled through a captured variable that the sender algorithms cannot
-see:</p>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> <span class="op">[</span>wec<span class="op">,</span> wn<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> async_write<span class="op">(</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>wec <span class="op">||</span> ec<span class="op">)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Nearly identical to Corosio. Both values visible. No exceptions.</p>
+<h3 id="what-a1-loses">What A1 Loses</h3>
+<p>The I/O sender never calls <code>set_error</code>. The composition
+algebra is bypassed:</p>
 <ul>
-<li><p><strong><code>retry</code></strong> fires on
-<code>set_error</code>, but the byte count is in <code>n</code>, not in
-the error channel. A generic retry algorithm cannot inspect the partial
-transfer count to decide whether retrying is safe.</p></li>
-<li><p><strong><code>upon_error</code></strong> receives
-<code>error_code</code> alone. The byte count in <code>n</code> reflects
-the <em>previous</em> successful stage, not the failed one. The I/O
-sender called <code>set_error</code> without delivering the byte count
-to any channel.</p></li>
-<li><p><strong>Shared mutable state.</strong> The byte count lives in a
-captured <code>std::size_t</code> that the programmer must coordinate
-across continuation boundaries. Shared mutable state between sender
-stages is the concurrency hazard the sender model was designed to
-eliminate.</p></li>
+<li><strong><code>when_all</code></strong> does not cancel siblings on
+I/O failure - the failure arrived through <code>set_value</code>.</li>
+<li><strong><code>upon_error</code></strong> is unreachable.</li>
+<li><strong><code>retry</code></strong> does not fire.</li>
 </ul>
-<p>Approach A2 uses all three channels, but the byte count bypasses
-them. The composition algebra operates on the error code alone. The
-compound result is still split - one half in a channel, the other in a
-side variable. This is Approach A1 with the error code moved to
-<code>set_error</code> and the byte count moved to shared state.</p>
+<p>The model reduces to one channel. <code>set_error</code> serves no
+purpose for I/O senders under A1.</p>
 <hr />
-<h2 id="approach-b-route-through-set_error">7. Approach B: Route Through
-<code>set_error</code></h2>
-<p>The I/O sender calls <code>set_value(size_t)</code> on success and
-<code>set_error(error_code)</code> on any non-zero status. Completion
-signatures: <code>set_value_t(std::size_t)</code> and
-<code>set_error_t(std::error_code)</code>.</p>
-<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>
-specifies that <code>set_error</code> is converted to an exception via
-<code>AS-EXCEPT-PTR</code> ([exec.general] p8). For
-<code>error_code</code>, this is
-<code>make_exception_ptr(system_error(ec))</code>, rethrown in
-<code>await_resume</code>. There is no non-throwing path:</p>
+<h2 id="approach-a2-split-across-channels-and-shared-state">6. Approach
+A2: Split Across Channels and Shared State</h2>
+<p>Route the error code through <code>set_error</code>; capture the byte
+count in shared state:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(;;)</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> n <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> async_write<span class="op">(</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="bu">std::</span>system_error <span class="at">const</span><span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ECONNRESET, EPIPE, EOF arrive here</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="what-approach-b-loses">What Approach B Loses</h3>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>size_t n <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            async_read<span class="op">(</span>sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">))</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> <span class="op">(</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>            async_write<span class="op">(</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">))</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> then<span class="op">([&amp;](</span><span class="bu">std::</span>size_t bytes<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>                  n <span class="op">=</span> bytes<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>              <span class="op">})</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> upon_error<span class="op">(</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>                  <span class="op">[&amp;](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                      <span class="co">// ec visible, n stale</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                  <span class="op">}));</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>All three channels in use. <code>upon_error</code> reachable.
+<code>when_all</code> cancels siblings. <code>retry</code> fires.</p>
+<h3 id="what-a2-loses">What A2 Loses</h3>
+<p>The byte count bypasses the channels:</p>
 <ul>
-<li><p><strong>Information.</strong> The byte count is discarded on any
-error. A <code>write</code> that sends 500 of 1,000 bytes before
-<code>ECONNRESET</code> produces <code>set_error(ECONNRESET)</code>. The
-500 is gone.</p></li>
-<li><p><strong>Non-throwing error handling.</strong> Every
-<code>ECONNRESET</code> - a routine network event - requires
-<code>make_exception_ptr</code> plus
-<code>rethrow_exception</code>.</p></li>
-<li><p><strong>Visible error path.</strong> The error hides in a
-<code>catch</code> block separated from the <code>co_await</code> site.
-The programmer cannot inspect the error code and the byte count at the
-same call site.</p></li>
+<li><strong><code>retry</code></strong> fires on <code>set_error</code>
+but the byte count is in <code>n</code>, not in the error channel.</li>
+<li><strong><code>upon_error</code></strong> receives
+<code>error_code</code> alone. <code>n</code> reflects the previous
+stage, not the failed one.</li>
+<li><strong>Shared mutable state</strong> across continuation boundaries
+- the hazard the sender model was designed to eliminate.</li>
+</ul>
+<p>A1 with the error code moved to <code>set_error</code> and the byte
+count moved to shared state.</p>
+<hr />
+<h2 id="approach-b-route-through-set_error">7. Approach B: Route Through
+<code>set_error</code></h2>
+<p><code>set_value(size_t)</code> on success,
+<code>set_error(error_code)</code> on failure. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup> converts
+<code>set_error</code> to an exception via <code>AS-EXCEPT-PTR</code>.
+No non-throwing path:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> do_session<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> sock<span class="op">,</span> <span class="kw">auto</span><span class="op">&amp;</span> buf<span class="op">)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(;;)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span> n <span class="op">=</span> <span class="cf">co_await</span> async_read<span class="op">(</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">));</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">co_await</span> async_write<span class="op">(</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>                sock<span class="op">,</span> net<span class="op">::</span>const_buffer<span class="op">(</span>buf<span class="op">,</span> n<span class="op">));</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="bu">std::</span>system_error <span class="at">const</span><span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ECONNRESET, EPIPE, EOF arrive here</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="what-b-loses">What B Loses</h3>
+<ul>
+<li><strong>Byte count.</strong> 500 of 1,000 bytes written before
+<code>ECONNRESET</code> - gone.</li>
+<li><strong>Non-throwing path.</strong> Every <code>ECONNRESET</code>
+requires <code>make_exception_ptr</code> +
+<code>rethrow_exception</code>.</li>
+<li><strong>Visible error path.</strong> The error hides in
+<code>catch</code>, separated from the <code>co_await</code> site.</li>
 </ul>
 <hr />
-<h2 id="the-trade-off">8. The Trade-Off</h2>
+<h2 id="approach-c-decompose-with-let_value">8. Approach C: Decompose
+with <code>let_value</code></h2>
+<p>Pipe A1 into <code>let_value</code>, inspect both values, re-route
+the error code to <code>set_error</code>:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>async_read<span class="op">(</span>sock<span class="op">,</span> net<span class="op">::</span>buffer<span class="op">(</span>buf<span class="op">))</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">|</span> let_value<span class="op">(</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>          <span class="op">[](</span><span class="bu">std::</span>error_code ec<span class="op">,</span> <span class="bu">std::</span>size_t n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>              <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">return</span> just_error<span class="op">(</span>ec<span class="op">);</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>              <span class="cf">return</span> just<span class="op">(</span>n<span class="op">);</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>          <span class="op">})</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">|</span> upon_error<span class="op">([](</span><span class="bu">std::</span>error_code ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>          <span class="co">// reachable</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      <span class="op">});</span></span></code></pre></div>
+<p>The handler sees both values. Downstream, <code>upon_error</code> is
+reachable, <code>when_all</code> cancels siblings, <code>retry</code>
+fires.</p>
+<h3 id="return-type-constraint">Return-Type Constraint</h3>
+<p><code>let_value</code> requires its callable to return a single
+sender type. <code>just(n)</code> and <code>just_error(ec)</code> are
+different types. The code above is simplified for exposition - the
+branches cannot be written as a simple <code>if</code>/<code>else</code>
+returning different sender types without additional machinery. The
+callable must return a type-erased sender, a variant sender, or use a
+helper that unifies the return type. This is an additional ergonomic and
+potentially runtime cost that Approaches A1, A2, and B do not incur.</p>
+<h3 id="what-c-loses">What C Loses</h3>
+<p><code>just_error(ec)</code> carries only the error code.
+<code>set_error</code> takes a single argument.</p>
+<ul>
+<li><strong><code>retry</code></strong> never sees the byte count.</li>
+<li><strong><code>upon_error</code></strong> receives
+<code>error_code</code> alone.</li>
+<li><strong>Partial write.</strong> 500 of 1,000 bytes before
+<code>ECONNRESET</code> - gone once <code>just_error</code> emits.</li>
+</ul>
+<p>C is a hybrid of A1 and B. The decomposition point moves to
+application code - an improvement. The byte count is still lost on the
+error path. The return-type constraint adds friction the
+coroutine-native approach does not have.</p>
+<hr />
+<h2 id="the-trade-off">9. The Trade-Off</h2>
 <p>Each sender approach pays a cost the coroutine-native approach does
 not.</p>
 <table>
 <colgroup>
-<col style="width: 29%" />
-<col style="width: 17%" />
-<col style="width: 17%" />
-<col style="width: 17%" />
-<col style="width: 19%" />
+<col style="width: 25%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 16%" />
 </colgroup>
 <thead>
 <tr>
@@ -1235,6 +1248,7 @@ not.</p>
 <th>A1 (<code>set_value</code>)</th>
 <th>A2 (shared state)</th>
 <th>B (<code>set_error</code>)</th>
+<th>C (<code>let_value</code>)</th>
 <th>Corosio</th>
 </tr>
 </thead>
@@ -1244,6 +1258,7 @@ not.</p>
 <td>Yes</td>
 <td>Yes</td>
 <td>No (in <code>catch</code>)</td>
+<td>Yes (in handler)</td>
 <td>Yes</td>
 </tr>
 <tr>
@@ -1251,6 +1266,7 @@ not.</p>
 <td>Yes</td>
 <td>Yes</td>
 <td>No (discarded)</td>
+<td>Yes (in handler)</td>
 <td>Yes</td>
 </tr>
 <tr>
@@ -1258,6 +1274,7 @@ not.</p>
 <td>Yes</td>
 <td>Yes</td>
 <td>No</td>
+<td>No (on error path)</td>
 <td>Yes</td>
 </tr>
 <tr>
@@ -1265,11 +1282,13 @@ not.</p>
 <td>Yes</td>
 <td>No (side state)</td>
 <td>No (discarded)</td>
+<td>No (on error path)</td>
 <td>Yes (return value)</td>
 </tr>
 <tr>
 <td><code>when_all</code> cancels on I/O error</td>
 <td>No</td>
+<td>Yes</td>
 <td>Yes</td>
 <td>Yes</td>
 <td>Yes (value-based)</td>
@@ -1279,6 +1298,7 @@ not.</p>
 <td>No (<code>upon_error</code>)</td>
 <td>Yes (<code>upon_error</code>)</td>
 <td>Yes (<code>upon_error</code>)</td>
+<td>Yes (<code>upon_error</code>)</td>
 <td>Yes (<code>if (ec)</code>)</td>
 </tr>
 <tr>
@@ -1286,10 +1306,12 @@ not.</p>
 <td>No (<code>retry</code>)</td>
 <td>Yes (<code>retry</code>)</td>
 <td>Yes (<code>retry</code>)</td>
+<td>Yes (<code>retry</code>)</td>
 <td>Yes (<code>retry_after</code>)</td>
 </tr>
 <tr>
 <td>Retry sees byte count</td>
+<td>No</td>
 <td>No</td>
 <td>No</td>
 <td>No</td>
@@ -1301,11 +1323,13 @@ not.</p>
 <td>No</td>
 <td>Yes</td>
 <td>No</td>
+<td>No</td>
 </tr>
 <tr>
 <td>Shared mutable state required</td>
 <td>No</td>
 <td>Yes</td>
+<td>No</td>
 <td>No</td>
 <td>No</td>
 </tr>
@@ -1314,77 +1338,92 @@ not.</p>
 <td>1 of 3</td>
 <td>3 of 3</td>
 <td>3 of 3</td>
+<td>3 of 3</td>
 <td>Values (no channels)</td>
 </tr>
 </tbody>
 </table>
-<p>Infrastructure operations (Section 3) face no such trade-off. Their
-outcomes are binary. The three channels map unambiguously.</p>
+<p>Infrastructure operations face no such trade-off. Their outcomes are
+binary.</p>
 <p>The echo server is deliberately minimal. The compound-result problem
-is per-operation: every <code>read</code> returns
-<code>(status, bytes_transferred)</code> regardless of the protocol
-built on top of it. A TLS handshake, an HTTP/2 stream multiplexer, and a
-database wire protocol all issue reads and writes with the same
-completion shape. Adding protocol complexity adds more call sites with
-the same trade-off, not a different trade-off. The echo server isolates
-the structural problem. A more complex example would demonstrate the
-same table at every I/O boundary, with additional protocol logic between
-them. An HTTP/2 multiplexer issuing concurrent reads on multiple streams
-via <code>when_all</code> faces the same per-stream choice: Approach A1
-preserves the byte count but <code>when_all</code> does not cancel
-siblings on I/O failure; Approach B cancels siblings but discards the
-byte count and throws on <code>ECONNRESET</code>.</p>
+is per-operation. Adding protocol complexity adds more call sites with
+the same trade-off, not a different one.</p>
+<h3 id="when-the-byte-count-determines-correctness">When the Byte Count
+Determines Correctness</h3>
+<p>Many HTTP servers - including Google’s - skip TLS
+<code>close_notify</code>. The composed read returns
+<code>(stream_truncated, n)</code>. If <code>n</code> equals
+<code>Content-Length</code>, the body is complete and the truncation is
+harmless. If <code>n</code> is less, the body is incomplete. The byte
+count determines correctness.</p>
+<p>Coroutine-native:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> tls_read<span class="op">(</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    stream<span class="op">,</span> body_buf<span class="op">);</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec <span class="op">==</span> stream_truncated</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;&amp;</span> n <span class="op">==</span> content_length<span class="op">)</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    ec <span class="op">=</span> <span class="op">{};</span>  <span class="co">// body complete, ignore truncation</span></span></code></pre></div>
+<p>Under B, <code>set_error(stream_truncated)</code> arrives with no
+byte count. Under C, the <code>let_value</code> handler sees both values
+- but only if it has the HTTP framing context. A generic TLS adapter
+does not. Once <code>just_error(stream_truncated)</code> emits, the byte
+count is gone.</p>
+<p><a href="https://wg21.link/d4056r0">D4056R0</a><sup>[14]</sup> names
+this boundary the <strong>abstraction floor</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Region</th>
+<th>What the code sees</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Above the floor</td>
+<td><code>error_code</code> alone - composition works</td>
+</tr>
+<tr>
+<td>Below the floor</td>
+<td><code>(error_code, size_t)</code> - both values intact</td>
+</tr>
+</tbody>
+</table>
+<p>The coroutine-native model has no such boundary.</p>
+<p>An HTTP/2 multiplexer issuing concurrent reads via
+<code>when_all</code> faces the same table at every I/O boundary.</p>
 <hr />
-<h2 id="how-coroutines-achieve-structured-concurrency">9. How Coroutines
-Achieve Structured Concurrency</h2>
-<p>Coroutines alone are suspendable functions. They do not compose. The
-structure comes from the execution context - the event loop, the thread
-pool, the io_uring submission queue. The execution context collects
-suspended coroutines, dispatches completions, propagates stop tokens,
-and enforces lifetime boundaries. <code>when_all</code> launches
-coroutines into the execution context, maintains a completion counter,
-and requests cancellation of siblings via stop tokens when the first
-coroutine completes. Each cancelled sibling decrements the counter as it
-completes; <code>when_all</code> resumes the caller when the counter
-reaches zero. The compound result is visible to the application before
-the cancellation decision is made. The classification happens with full
-protocol context, not at a context-free channel router.</p>
-<p>The sender model provides structured concurrency through the type
-system: completion signatures, channel dispatch, and compile-time
-composition. The coroutine-native model provides structured concurrency
-through the runtime: the execution context manages the same concerns at
-the point where the application has already inspected the result. Both
-models provide structured concurrency. They differ in where the compound
-result is visible when the composition decision is made.</p>
+<h2 id="how-coroutines-achieve-structured-concurrency">10. How
+Coroutines Achieve Structured Concurrency</h2>
+<p><a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
+provides <code>when_all</code> and <code>when_any</code> as
+coroutine-native primitives. Both models provide structured concurrency.
+They differ in where the compound result is visible when the composition
+decision is made.</p>
 <hr />
-<h2 id="invitation">10. Invitation</h2>
-<p>The authors invite any reader to construct a sender-based echo server
-that:</p>
+<h2 id="invitation">11. Invitation</h2>
+<p>Construct a sender-based echo server that:</p>
 <ul>
-<li>preserves compound I/O results (error code and byte count visible at
-the call site),</li>
+<li>preserves compound I/O results on the error path,</li>
 <li>retains channel-based composition (<code>when_all</code>,
-<code>upon_error</code> fire on I/O errors),</li>
+<code>upon_error</code>, <code>retry</code>),</li>
 <li>avoids exception round-trips for routine error codes, and</li>
-<li>uses only facilities in C++26 or in-progress proposals (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>, <a href="https://wg21.link/p3149">P3149</a><sup>[6]</sup>).</li>
+<li>uses C++26 facilities (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>, <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[2]</sup>, <a href="https://wg21.link/p3149r9">P3149R9</a><sup>[6]</sup>).</li>
 </ul>
-<p>The authors will incorporate any such construction into a future
-revision and re-evaluate every finding in this paper. If the sender
-approach, when done correctly, matches the coroutine-native ergonomics,
-this paper will say so.</p>
+<p>The authors will incorporate any such construction and re-evaluate
+every finding.</p>
 <hr />
-<h2 id="acknowledgments">11. Acknowledgments</h2>
+<h2 id="acknowledgments">12. Acknowledgments</h2>
 <p>The authors thank Dietmar Kühl for the channel-routing enumeration in
 <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[10]</sup> and for
 <code>beman::execution</code>, Chris Kohlhoff for identifying the
 partial-success problem in <a href="https://wg21.link/p2430r0">P2430R0</a><sup>[5]</sup>, Kirk Shoop
 for the completion-token heuristic analysis in <a href="https://wg21.link/p2471r1">P2471R1</a><sup>[11]</sup>, Peter Dimov
-for the refined channel mapping in <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup>, Michał
-Dominiak, Eric Niebler, and Lewis Baker for <code>std::execution</code>,
-Ian Petersen, Jessica Wong, and Kirk Shoop for <code>async_scope</code>,
-Fabio Fracassi for <a href="https://wg21.link/p3570r2">P3570R2</a><sup>[12]</sup>, Ville
-Voutilainen and Jens Maurer for reflector discussion, and Herb Sutter
-for identifying the need for constructed comparisons.</p>
+for the refined channel mapping in <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[9]</sup>, “Senders and
+Coroutines,” Michał Dominiak, Eric Niebler, and Lewis Baker for
+<code>std::execution</code>, Ian Petersen, Jessica Wong, and Kirk Shoop
+for <code>async_scope</code>, and Fabio Fracassi for <a href="https://wg21.link/p3570r2">P3570R2</a><sup>[12]</sup>, “Optional
+variants in sender/receiver.” The authors also thank Ville Voutilainen
+and Jens Maurer for reflector discussion, and Herb Sutter for
+identifying the need for constructed comparisons.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
@@ -1394,21 +1433,22 @@ https://wg21.link/p2300r10</p></li>
 <li><p><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a
 Coroutine Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
 https://wg21.link/p3552r3</p></li>
-<li><p><a href="https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb">cppalliance/corosio</a>
-- Coroutine-native networking library. Commit ce1c43e.
-https://github.com/cppalliance/corosio/tree/ce1c43e623fb7b0e198ffac52be9267eccf04ecb</p></li>
+<li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
+Coroutine-native networking library.
+https://github.com/cppalliance/corosio</p></li>
 <li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
 Coroutine I/O primitives library.
 https://github.com/cppalliance/capy</p></li>
 <li><p><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial
 success scenarios with P2300” (Chris Kohlhoff, 2021).
 https://wg21.link/p2430r0</p></li>
-<li><p><a href="https://wg21.link/p3149">P3149</a> - “async_scope -
-Creating scopes for non-sequential concurrency” (Ian Petersen, Jessica
-Wong, Kirk Shoop, et al., 2024). https://wg21.link/p3149</p></li>
+<li><p><a href="https://wg21.link/p3149r9">P3149R9</a> -
+“<code>async_scope</code> - Creating scopes for non-sequential
+concurrency” (Ian Petersen, Jessica Wong, Kirk Shoop, et al., 2025).
+https://wg21.link/p3149r9</p></li>
 <li><p><a href="https://wg21.link/d4054r0">D4054R0</a> - “Two Error
 Models” (Vinnie Falco, 2026). https://wg21.link/d4054r0</p></li>
-<li><p>IEEE Std 1003.1 - POSIX <code>read()</code> /
+<li><p>IEEE Std 1003.1-2024 - POSIX <code>read()</code> /
 <code>write()</code> specification.
 https://pubs.opengroup.org/onlinepubs/9799919799/</p></li>
 <li><p><a href="https://wg21.link/p4007r0">P4007R0</a> - “Senders and
@@ -1423,6 +1463,14 @@ https://wg21.link/p2471r1</p></li>
 <li><p><a href="https://wg21.link/p3570r2">P3570R2</a> - “Optional
 variants in sender/receiver” (Fabio Fracassi, 2025).
 https://wg21.link/p3570r2</p></li>
+<li><p><a href="https://wg21.link/d4055r0">D4055R0</a> - “Consuming
+Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
+https://wg21.link/d4055r0</p></li>
+<li><p><a href="https://wg21.link/d4056r0">D4056R0</a> - “Producing
+Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
+https://wg21.link/d4056r0</p></li>
+<li><p><a href="https://wg21.link/d4050r0">D4050R0</a> - “On Task Type
+Diversity” (Vinnie Falco, 2026). https://wg21.link/d4050r0</p></li>
 </ol>
 
 </body>

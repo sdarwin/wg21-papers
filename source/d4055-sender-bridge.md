@@ -10,7 +10,9 @@ audience: LEWG
 
 ## Abstract
 
-A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with zero allocations, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
+An `IoAwaitable` bridge ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with inline operation state, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
+
+This paper is one of a suite of five that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [D4050R0](https://wg21.link/d4050r0)<sup>[13]</sup>, "On Task Type Diversity"; [D4053R0](https://wg21.link/d4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [D4054R0](https://wg21.link/d4054r0)<sup>[11]</sup>, "Two Error Models"; and [D4056R0](https://wg21.link/d4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code."
 
 ---
 
@@ -24,7 +26,7 @@ A coroutine type satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<
 
 ## 1. Disclosure
 
-The authors developed and maintain [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The findings in this paper are structural and hold regardless of which library implements the coroutine-native layer. This paper is one of a suite of four that examines the relationship between compound I/O results and the sender three-channel model. The authors provide information, ask nothing, and serve at the pleasure of the chair. [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, which is not used in this paper. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). Source code links refer to pinned commit [60bf781](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16)<sup>[4]</sup>.
+The authors developed [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> (coroutine primitives, no sockets, no platform I/O) and `beman::execution`<sup>[5]</sup>. The authors provide information, ask nothing, and serve at the pleasure of the chair.
 
 ---
 
@@ -51,9 +53,7 @@ capy::task<int> compute(auto sched)
 }
 ```
 
-`await_sender` returns a `sender_awaitable` that satisfies `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>). Any coroutine type whose promise propagates `io_env` through `await_suspend(h, io_env const*)` can use it. `capy::task` is one such type. It is not the only one.
-
-The bridge is one class template. The complete implementation is in Appendix A. It was tested against `beman::execution`<sup>[5]</sup>.
+`await_sender` returns a `sender_awaitable` satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>). Any coroutine type that propagates `io_env` through `await_suspend(h, io_env const*)` can use it. Complete implementation in Appendix A.
 
 ---
 
@@ -66,17 +66,32 @@ main thread: 32208
 result: 1764
 ```
 
-The sender executed on thread 9560, the `beman::execution::run_loop` thread. The coroutine resumed on thread 34356, the Capy thread pool. The value 1764 crossed the bridge. The bridge allocated zero bytes.
+The sender ran on the `run_loop` thread. The coroutine resumed on the Capy thread pool. Zero bytes allocated beyond the coroutine frame.
 
 ---
 
 ## 4. What the Bridge Does
 
-The bridge consumes any `std::execution` sender. Scheduler hops work. Stop token propagation works. `set_value`, `set_error`, and `set_stopped` are handled. The operation state is stored inline with zero allocations. Any sender pipeline - `when_all`, `then`, `let_value`, `on` - works through the bridge.
+The bridge consumes any `std::execution` sender. Operation state stored inline. `set_value`, `set_error`, `set_stopped` handled. Any pipeline - `when_all`, `then`, `let_value`, `on` - works.
 
-An `IoAwaitable` coroutine can suspend into a sender pipeline that schedules work on a GPU, a thread pool, or any other execution context. When the sender completes, the bridge dispatches the resumption back to the coroutine's originating executor (`env_->executor.post(cont_)`). The coroutine resumes in the correct context with the sender's result, regardless of where the sender executed. This is the interop path for coroutine-native I/O code that needs to offload compute to a GPU scheduler and resume on the I/O event loop.
+The bridge inspects error completion signatures at compile time. If the sender advertises `set_error(std::error_code)`, `await_resume` returns `io_result<T>`:
 
-The bridge does not use `execution::task`.
+```cpp
+auto [ec, val] = co_await await_sender(sndr);
+```
+
+No exceptions for `error_code`. Otherwise `await_resume` returns `T` directly; genuine exceptions are rethrown. Static dispatch.
+
+This is the consuming side of the **abstraction floor** ([D4056R0](https://wg21.link/d4056r0)<sup>[12]</sup> Section 4):
+
+| Region          | What the code sees                           |
+| --------------- | -------------------------------------------- |
+| Above the floor | `error_code` alone - composition works       |
+| Below the floor | `(error_code, size_t)` - both values intact  |
+
+When the sender completes, the bridge posts the resumption back to the coroutine's originating executor. The coroutine resumes in the correct context regardless of where the sender executed.
+
+Does not use `execution::task`.
 
 ---
 
@@ -86,8 +101,8 @@ The bridge does not use `execution::task`.
 | --------------------------------------- | ------------------ | ------ |
 | Routine I/O errors become exceptions    | Yes                | No     |
 | Type erasure on connect                 | Yes                | No     |
-| `dispatch` adapter for compound results | Yes                | No     |
-| Zero allocations in the bridge          | No                 | Yes    |
+| `AS-EXCEPT-PTR` for `error_code`        | Yes                | No     |
+| Zero allocations beyond coroutine frame | No                 | Yes    |
 
 `std::execution::task` is not necessary to consume senders.
 
@@ -95,9 +110,7 @@ The bridge does not use `execution::task`.
 
 ## 6. The Narrowest Abstraction
 
-[Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> is a coroutine primitives library. It provides `task`, executors, stop tokens, frame allocators, and buffer sequences. It contains no sockets, no timers, and no platform-specific I/O APIs. Networking is in [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>, a separate library that depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup>.
-
-The sender bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `std::execution`. It does not depend on [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. It does not depend on any platform I/O API. A user who needs I/O adds [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. A user who needs sender interop adds the bridge. A user who needs neither does not pay for either. The coroutine type does not change between these configurations.
+The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `std::execution`. No platform I/O dependency. The coroutine type does not change when the bridge is added.
 
 ---
 
@@ -111,11 +124,11 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 1. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
 
-2. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
+2. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
 
-3. [P4003R0](https://wg21.link/p4003r0) - "IoAwaitable" (Vinnie Falco, 2026). https://wg21.link/p4003r0
+3. [P4003R0](https://wg21.link/p4003r0) - "Coroutines for I/O" (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026). https://wg21.link/p4003r0
 
-4. [cppalliance/capy](https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16) - Coroutine primitives library. Commit f046646. https://github.com/cppalliance/capy/tree/f0466466e63baf0cc3d6034bc35eec24694f5d16
+4. [cppalliance/capy](https://github.com/cppalliance/capy) - Coroutine primitives library. https://github.com/cppalliance/capy
 
 5. [bemanproject/execution](https://github.com/bemanproject/execution) - Community implementation of `std::execution`. https://github.com/bemanproject/execution
 
@@ -129,23 +142,31 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 10. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
 
+11. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
+
+12. [D4056R0](https://wg21.link/d4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4056r0
+
+13. [D4050R0](https://wg21.link/d4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/d4050r0
+
 ---
 
 ## Appendix A. Bridge Implementation
 
 ```cpp
+#include <boost/capy/error.hpp>
 #include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/io_result.hpp>
 
 #include <beman/execution/execution.hpp>
 
-#include <cassert>
 #include <coroutine>
-#include <cstring>
 #include <exception>
 #include <new>
 #include <stop_token>
+#include <system_error>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace boost::capy {
@@ -153,6 +174,8 @@ namespace boost::capy {
 namespace detail {
 
 struct stopped_t {};
+
+struct operation_cancelled {};
 
 struct bridge_env
 {
@@ -174,19 +197,64 @@ using sender_single_value_t =
         std::tuple,
         std::type_identity_t>;
 
+template<class Sender>
+struct has_error_code_completion
+{
+    template<class... Es>
+    struct checker
+    {
+        static constexpr bool value =
+            (std::is_same_v<
+                Es, std::error_code> || ...);
+    };
+
+    static constexpr bool value =
+        beman::execution::error_types_of_t<
+            Sender,
+            bridge_env,
+            checker>::value;
+};
+
+template<class Sender>
+constexpr bool has_error_code_v =
+    has_error_code_completion<Sender>::value;
+
+// Variant when sender can complete with
+// set_error(error_code): separate slot for
+// error_code so it is not wrapped in
+// exception_ptr.
 template<class ValueTuple>
+using ec_result_variant = std::variant<
+    std::monostate,
+    ValueTuple,
+    std::error_code,
+    std::exception_ptr,
+    stopped_t>;
+
+// Variant when sender does not complete with
+// set_error(error_code).
+template<class ValueTuple>
+using no_ec_result_variant = std::variant<
+    std::monostate,
+    ValueTuple,
+    std::exception_ptr,
+    stopped_t>;
+
+template<class ValueTuple, bool HasEc>
+using result_variant = std::conditional_t<
+    HasEc,
+    ec_result_variant<ValueTuple>,
+    no_ec_result_variant<ValueTuple>>;
+
+template<class ValueTuple, bool HasEc>
 struct bridge_receiver
 {
     using receiver_concept =
         beman::execution::receiver_t;
 
-    std::variant<
-        std::monostate,
-        ValueTuple,
-        std::exception_ptr,
-        stopped_t>*         result_;
-    std::coroutine_handle<> cont_;
-    io_env const*           env_;
+    result_variant<ValueTuple, HasEc>* result_;
+    std::coroutine_handle<>            cont_;
+    io_env const*                      env_;
 
     auto get_env() const noexcept -> bridge_env
     {
@@ -205,21 +273,35 @@ struct bridge_receiver
     void set_error(E&& e) && noexcept
     {
         if constexpr (
+            HasEc &&
+            std::is_same_v<
+                std::decay_t<E>,
+                std::error_code>)
+            result_->template emplace<2>(
+                std::forward<E>(e));
+        else if constexpr (
             std::is_same_v<
                 std::decay_t<E>,
                 std::exception_ptr>)
-            result_->template emplace<2>(
+        {
+            constexpr auto idx = HasEc ? 3 : 2;
+            result_->template emplace<idx>(
                 std::forward<E>(e));
+        }
         else
-            result_->template emplace<2>(
+        {
+            constexpr auto idx = HasEc ? 3 : 2;
+            result_->template emplace<idx>(
                 std::make_exception_ptr(
                     std::forward<E>(e)));
+        }
         env_->executor.post(cont_);
     }
 
     void set_stopped() && noexcept
     {
-        result_->template emplace<3>(
+        constexpr auto idx = HasEc ? 4 : 3;
+        result_->template emplace<idx>(
             stopped_t{});
         env_->executor.post(cont_);
     }
@@ -230,22 +312,24 @@ struct bridge_receiver
 template<class Sender>
 struct sender_awaitable
 {
+    static constexpr bool has_ec =
+        detail::has_error_code_v<Sender>;
+
     using value_tuple =
         detail::sender_single_value_t<Sender>;
+    using variant_type =
+        detail::result_variant<
+            value_tuple, has_ec>;
     using receiver_type =
-        detail::bridge_receiver<value_tuple>;
+        detail::bridge_receiver<
+            value_tuple, has_ec>;
     using op_state_type = decltype(
         beman::execution::connect(
             std::declval<Sender>(),
             std::declval<receiver_type>()));
 
     Sender sndr_;
-
-    std::variant<
-        std::monostate,
-        value_tuple,
-        std::exception_ptr,
-        detail::stopped_t> result_{};
+    variant_type result_{};
 
     alignas(op_state_type)
     unsigned char op_buf_[sizeof(op_state_type)];
@@ -262,7 +346,6 @@ struct sender_awaitable
                 Sender>)
         : sndr_(std::move(o.sndr_))
     {
-        assert(!o.op_constructed_);
     }
 
     sender_awaitable(
@@ -306,13 +389,85 @@ struct sender_awaitable
 
     auto await_resume()
     {
+        if constexpr (has_ec)
+            return await_resume_ec();
+        else
+            return await_resume_no_ec();
+    }
+
+private:
+    // Sender can complete with
+    // set_error(error_code). Return io_result
+    // so the error code is a value, not an
+    // exception.
+    auto await_resume_ec()
+    {
+        // exception_ptr at index 3
+        if(result_.index() == 3)
+            std::rethrow_exception(
+                std::get<3>(result_));
+
+        if constexpr (
+            std::tuple_size_v<
+                value_tuple> == 0)
+        {
+            // stopped at index 4
+            if(result_.index() == 4)
+                return io_result<>{
+                    make_error_code(
+                        error::canceled)};
+            if(result_.index() == 2)
+                return io_result<>{
+                    std::get<2>(result_)};
+            return io_result<>{};
+        }
+        else if constexpr (
+            std::tuple_size_v<
+                value_tuple> == 1)
+        {
+            using T = std::tuple_element_t<
+                0, value_tuple>;
+            if(result_.index() == 4)
+                return io_result<T>{
+                    make_error_code(
+                        error::canceled)};
+            if(result_.index() == 2)
+                return io_result<T>{
+                    std::get<2>(result_)};
+            return io_result<T>{
+                {},
+                std::get<0>(
+                    std::get<1>(
+                        std::move(result_)))};
+        }
+        else
+        {
+            if(result_.index() == 4)
+                return io_result<value_tuple>{
+                    make_error_code(
+                        error::canceled)};
+            if(result_.index() == 2)
+                return io_result<value_tuple>{
+                    std::get<2>(result_)};
+            return io_result<value_tuple>{
+                {},
+                std::get<1>(
+                    std::move(result_))};
+        }
+    }
+
+    // Sender does not complete with
+    // set_error(error_code). Return the value
+    // directly; rethrow exceptions.
+    auto await_resume_no_ec()
+    {
+        // exception_ptr at index 2
         if(result_.index() == 2)
             std::rethrow_exception(
                 std::get<2>(result_));
+        // stopped at index 3
         if(result_.index() == 3)
-            throw std::runtime_error(
-                "sender completed with "
-                "set_stopped");
+            throw detail::operation_cancelled{};
 
         if constexpr (
             std::tuple_size_v<
