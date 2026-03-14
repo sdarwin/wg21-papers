@@ -878,7 +878,6 @@ outline: none;
   Fragmentation</a></li>
   <li><a href="#closing-argument" id="toc-closing-argument">Closing
   Argument</a></li>
-  <li><a href="#the-verdict" id="toc-the-verdict">The Verdict</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
@@ -902,7 +901,7 @@ mailing)</h3>
 and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[2]</sup>
 and believe coroutine-native I/O is the correct foundation for
 networking in C++. We provide evidence, we state our case, and we defer
-respectfully to the chair to deliver the verdict.</p>
+respectfully to the committee.</p>
 <hr />
 <h2 id="opening-statement">Opening Statement</h2>
 <p>We present five exhibits. Taken individually, each documents a
@@ -1233,30 +1232,7 @@ complexity.</p>
 <p>The five exhibits suggest the opposite of universality. The framework
 is powerful within a bounded scope. Networking lies outside that
 scope.</p>
-<hr />
-<h2 id="the-verdict">The Verdict</h2>
-<p>Networking requires three properties that <code>std::execution</code>
-does not provide for I/O:</p>
-<ul>
-<li><p><strong>Compound-result preservation.</strong> The status code
-and the byte count must remain visible at the same call site. The
-three-channel model splits them across mutually exclusive paths
-(Exhibits A, B).</p></li>
-<li><p><strong>Value-based error handling.</strong> Routine network
-events - <code>ECONNRESET</code>, <code>EPIPE</code>, <code>EOF</code> -
-must not become exceptions. <code>AS-EXCEPT-PTR</code> converts every
-<code>set_error(error_code)</code> into an exception (Exhibits B,
-D).</p></li>
-<li><p><strong>Task type stability.</strong> A function returning
-<code>task&lt;T&gt;</code> must compose with every other function
-returning <code>task&lt;T&gt;</code>. The <code>Environment</code>
-parameter breaks this property (Exhibit E).</p></li>
-</ul>
-<p>The coroutine-native model provides all three. The abstraction floor
-(Exhibit C) and the bidirectional bridges (Exhibits C, D) demonstrate
-that the two models compose at well-defined boundaries without requiring
-either to become the other.</p>
-<p>We have presented the evidence. We ask the reader to find that
+<p>We have presented the evidence. We submit that
 <code>std::execution</code> is not universal - that it serves the
 domains for which it was designed, and that networking is not among
 them. Ship <code>std::execution</code> for those domains. Pursue a

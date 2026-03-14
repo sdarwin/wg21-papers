@@ -23,7 +23,7 @@ Five companion papers establish that `std::execution` cannot serve as the founda
 
 ## Disclosure
 
-We developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[1]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[2]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. We provide evidence, we state our case, and we defer respectfully to the chair to deliver the verdict.
+We developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[1]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[2]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. We provide evidence, we state our case, and we defer respectfully to the committee.
 
 ---
 
@@ -171,21 +171,7 @@ But when a framework claims universality, the burden of evidence is proportional
 
 The five exhibits suggest the opposite of universality. The framework is powerful within a bounded scope. Networking lies outside that scope.
 
----
-
-## The Verdict
-
-Networking requires three properties that `std::execution` does not provide for I/O:
-
-- **Compound-result preservation.** The status code and the byte count must remain visible at the same call site. The three-channel model splits them across mutually exclusive paths (Exhibits A, B).
-
-- **Value-based error handling.** Routine network events - `ECONNRESET`, `EPIPE`, `EOF` - must not become exceptions. `AS-EXCEPT-PTR` converts every `set_error(error_code)` into an exception (Exhibits B, D).
-
-- **Task type stability.** A function returning `task<T>` must compose with every other function returning `task<T>`. The `Environment` parameter breaks this property (Exhibit E).
-
-The coroutine-native model provides all three. The abstraction floor (Exhibit C) and the bidirectional bridges (Exhibits C, D) demonstrate that the two models compose at well-defined boundaries without requiring either to become the other.
-
-We have presented the evidence. We ask the reader to find that `std::execution` is not universal - that it serves the domains for which it was designed, and that networking is not among them. Ship `std::execution` for those domains. Pursue a coroutine-native design for networking.
+We have presented the evidence. We submit that `std::execution` is not universal - that it serves the domains for which it was designed, and that networking is not among them. Ship `std::execution` for those domains. Pursue a coroutine-native design for networking.
 
 ---
 
