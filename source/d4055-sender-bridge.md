@@ -1,6 +1,6 @@
 ---
 title: "Consuming Senders from Coroutine-Native Code"
-document: D4055R0
+document: P4055R0
 date: 2026-03-13
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -10,9 +10,9 @@ audience: LEWG
 
 ## Abstract
 
-An `IoAwaitable` bridge ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` senders with inline operation state, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
+An `IoAwaitable` bridge ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>) senders with inline operation state, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
 
-This paper is one of a suite of five that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [D4050R0](https://wg21.link/d4050r0)<sup>[13]</sup>, "On Task Type Diversity"; [D4053R0](https://wg21.link/d4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [D4054R0](https://wg21.link/d4054r0)<sup>[11]</sup>, "Two Error Models"; and [D4056R0](https://wg21.link/d4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[13]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[11]</sup>, "Two Error Models"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[14]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -27,6 +27,8 @@ This paper is one of a suite of five that examines the relationship between comp
 ## 1. Disclosure
 
 The authors developed [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> (coroutine primitives, no sockets, no platform I/O) and `beman::execution`<sup>[5]</sup>. The authors provide information, ask nothing, and serve at the pleasure of the chair.
+
+The authors regard `std::execution` as an important contribution to C++ and support its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The authors' position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
 ---
 
@@ -53,7 +55,7 @@ capy::task<int> compute(auto sched)
 }
 ```
 
-`await_sender` returns a `sender_awaitable` satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>). Any coroutine type that propagates `io_env` through `await_suspend(h, io_env const*)` can use it. Complete implementation in Appendix A.
+`await_sender` returns a `sender_awaitable` satisfying `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>). Any coroutine type that propagates `io_env` through `await_suspend(h, io_env const*)` can use it. The two-argument form is deliberate: the compiler rejects any coroutine type that does not propagate `io_env`, enforcing the sandbox boundary at compile time. Complete implementation in Appendix A.
 
 ---
 
@@ -72,7 +74,7 @@ The sender ran on the `run_loop` thread. The coroutine resumed on the Capy threa
 
 ## 4. What the Bridge Does
 
-The bridge consumes any `std::execution` sender. Operation state stored inline. `set_value`, `set_error`, `set_stopped` handled. Any pipeline - `when_all`, `then`, `let_value`, `on` - works.
+The bridge consumes any `std::execution` sender whose value completion signature is a single type or `void`. Operation state stored inline. `set_value`, `set_error`, `set_stopped` handled. Standard pipelines - `when_all`, `then`, `let_value`, `on` - compose with the bridge.
 
 The bridge inspects error completion signatures at compile time. If the sender advertises `set_error(std::error_code)`, `await_resume` returns `io_result<T>`:
 
@@ -80,9 +82,9 @@ The bridge inspects error completion signatures at compile time. If the sender a
 auto [ec, val] = co_await await_sender(sndr);
 ```
 
-No exceptions for `error_code`. Otherwise `await_resume` returns `T` directly; genuine exceptions are rethrown. Static dispatch.
+No exceptions for `error_code`. Otherwise `await_resume` returns `T` directly; genuine exceptions are rethrown. Static dispatch. The `operation_cancelled` type in Appendix A is illustrative; a production implementation would use a project-appropriate cancellation exception.
 
-This is the consuming side of the **abstraction floor** ([D4056R0](https://wg21.link/d4056r0)<sup>[12]</sup> Section 4):
+This is the consuming side of the **abstraction floor** ([P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup> Section 4):
 
 | Region          | What the code sees                           |
 | --------------- | -------------------------------------------- |
@@ -103,6 +105,7 @@ Does not use `execution::task`.
 | Type erasure on connect                 | Yes                | No     |
 | `AS-EXCEPT-PTR` for `error_code`        | Yes                | No     |
 | Zero allocations beyond coroutine frame | No                 | Yes    |
+| Usable from `std::execution::task`      | Yes                | No     |
 
 `std::execution::task` is not necessary to consume senders.
 
@@ -124,7 +127,7 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 1. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
 
-2. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
+2. [P4053R0](https://wg21.link/p4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4053r0
 
 3. [P4003R0](https://wg21.link/p4003r0) - "Coroutines for I/O" (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026). https://wg21.link/p4003r0
 
@@ -142,11 +145,13 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 10. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
 
-11. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
+11. [P4054R0](https://wg21.link/p4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4054r0
 
-12. [D4056R0](https://wg21.link/d4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4056r0
+12. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
 
-13. [D4050R0](https://wg21.link/d4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/d4050r0
+13. [P4050R0](https://wg21.link/p4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/p4050r0
+
+14. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 ---
 

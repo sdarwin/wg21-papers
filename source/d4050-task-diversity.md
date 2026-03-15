@@ -1,7 +1,7 @@
 ---
-title: "On Task Type Diversity"
-document: D4050R0
-date: 2026-03-11
+title: "On the Diversity of Coroutine Task Types"
+document: P4050R0
+date: 2026-03-15
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
 audience: LEWG
@@ -9,9 +9,9 @@ audience: LEWG
 
 ## Abstract
 
-Seven coroutine libraries independently converged on a one-parameter task type. Each enforces domain-specific safety invariants through the promise. The only production two-parameter coroutine type - Asio's `awaitable<T, Executor>` - provides a type-erased default; users who opt out for performance immediately hit type incompatibility. `std::execution::task` ([P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>) adds a second template parameter with no default at all. This paper documents why the invariants differ by design and recommends that `std::execution::task` be scoped to the sender domain.
+`std::execution::task<T, Environment>` ([P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>) is proposed as a lingua franca for coroutine-based asynchronous code. The `Environment` parameter is an open query-response protocol whose interoperability surface is defined by a single concept: `queryable`, which is `destructible`. This paper asks a simple question: when two libraries define different environments, how does one task `co_await` the other? The answer, traced step by step through the specification, is that no general conversion exists. The query set is open by design, and the only adaptation mechanism - `write_env` - requires the caller to know every missing query by name. The risk to the ecosystem is structural, documented by the specification itself, by NVIDIA's reference implementation, by the only production precedent (Boost.Asio), and by `task`'s own author.
 
-This paper is one of a suite of five. The companion papers are [D4053R0](https://wg21.link/d4053r0)<sup>[12]</sup>, "Sender I/O: A Constructed Comparison"; [D4054R0](https://wg21.link/d4054r0)<sup>[13]</sup>, "Two Error Models"; [D4055R0](https://wg21.link/d4055r0)<sup>[14]</sup>, "Consuming Senders from Coroutine-Native Code"; and [D4056R0](https://wg21.link/d4056r0)<sup>[15]</sup>, "Producing Senders from Coroutine-Native Code."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4053R0](https://wg21.link/p4053r0)<sup>[9]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[10]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[11]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[13]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -25,25 +25,278 @@ This paper is one of a suite of five. The companion papers are [D4053R0](https:/
 
 ## 1. Disclosure
 
-The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The frame allocator gap (Section 3) was identified by Peter Dimov. The cross-library bridges (Section 5) were authored by Klemens Morgenstern. Neither is a co-author. The authors provide information, ask nothing, and serve at the pleasure of the chair.
+The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[34]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[33]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The cross-library bridges (Section 8) were authored by Klemens Morgenstern. The frame allocator gap was identified by Peter Dimov. Neither is a co-author. The author provides information, asks nothing, and serves at the pleasure of the chair.
+
+The author regards `std::execution` as an important contribution to C++ and supports its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The author's position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
 ---
 
-## 2. Coroutine Types in Production
+## 2. Dietmar K&uuml;hl
 
-folly::coro and Boost.Cobalt are in production at scale. cppcoro was deployed at Facebook before folly::coro replaced it. Asio's `awaitable` is included as the only production two-parameter coroutine type.
+The findings documented in this paper and in [P3801R0](https://wg21.link/p3801r0)<sup>[6]</sup> are not engineering failures. They are structural consequences of making `task` serve two masters. Dietmar K&uuml;hl responded to every concern with professionalism and technical precision, and wrote [P3796R1](https://wg21.link/p3796r1)<sup>[7]</sup> to collect the issues himself.
 
-| Library            | Declaration                                       | Params | Source                       |
-|--------------------|---------------------------------------------------|:------:|------------------------------|
-| asyncpp            | `template<class T> class task`                    | 1      | [task.hpp][asyncpp-task]     |
-| Boost.Cobalt       | `template<class T> class task`                    | 1      | [task.hpp][cobalt-task]      |
-| Capy               | `template<class T = void> struct task`            | 1      | [task.hpp][capy-task]        |
-| cppcoro            | `template<typename T> class task`                 | 1      | [task.hpp][cppcoro-task]     |
-| aiopp              | `template<typename Result> class Task`            | 1      | [task.hpp][aiopp-task]       |
-| libcoro            | `template<typename return_type> class task`       | 1      | [task.hpp][libcoro-task]     |
-| folly::coro        | `template<typename T> class Task`                 | 1      | [Task.h][folly-task]         |
-| Boost.Asio         | `template<class T, class Executor = any_io_executor> class awaitable` | **2** | [awaitable.hpp][asio-awaitable] |
-| P3552R3 (std)      | `template<class T, class Environment> class task` | **2**  | [task.hpp][p3552-task]       |
+**The Environment parameter is not Dietmar's design choice. It is a structural requirement imposed by P2300.**
+
+### 2.1 The Best Possible P3552R3
+
+Out of respect for K&uuml;hl's work, this paper evaluates only the strongest possible version of his design.
+
+[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> is underspecified in several areas. The `Environment` parameter lacks a default. The allocator delivery timing is being addressed in [P3980R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html)<sup>[8]</sup>. The symmetric transfer gap is acknowledged in [P3796R1](https://wg21.link/p3796r1)<sup>[7]</sup> and [P3801R0](https://wg21.link/p3801r0)<sup>[6]</sup>. The author has contributed fixes to some of these gaps directly.
+
+This paper grants [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> every benefit of the doubt. We assume a default `Environment` will be provided. We assume the engineering gaps will be closed. We do not argue from underspecification. We evaluate the design on its strongest possible terms.
+
+Three topics are off-limits. Allocator timing - how and when the frame allocator reaches `operator new` - is being addressed in [P3980R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html)<sup>[8]</sup> and by the author's own contributions. Allocator propagation - how the allocator flows to child operations through the environment - is an engineering problem with known solutions. Categorization of compound I/O results into the three channels (`set_value`, `set_error`, `set_stopped`) is the subject of [P4054R0](https://wg21.link/p4054r0)<sup>[10]</sup> and [P4053R0](https://wg21.link/p4053r0)<sup>[9]</sup>, not this paper.
+
+---
+
+## 3. The Claim
+
+A standard task type provides a lingua franca. It eliminates pairwise bridges. It gives the ecosystem a common type that every library can accept and return. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> Section 3 states: "The `task` coroutine provided by the standard library may not always fit user's needs." SG1 discussion notes on [P1056R1](https://wg21.link/p1056r1)<sup>[35]</sup> record: "There can be more than one `task` type for different needs."
+
+The claim is that `std::execution::task` serves as that lingua franca. This paper stress-tests that claim.
+
+---
+
+## 4. `destructible`
+
+[P2300R10](https://wg21.link/p2300r10)<sup>[3]</sup> defines `queryable` in [exec.queryable.concept]<sup>[24]</sup> as follows:
+
+```cpp
+template<class T>
+  concept queryable = destructible<T>;
+```
+
+We will return to this.
+
+---
+
+## 5. Two Libraries, Two Environments
+
+The `Environment` parameter is an extension point. Two libraries will define two environments. The progression below begins with empty environments and escalates through standard type mismatches, custom queries, and NVIDIA's deployed GPU environment. Each step is individually reasonable. No step is recoverable.
+
+### 5.1 From trivial to standard divergence
+
+| Library A                                    | Library B                                  |
+| -------------------------------------------- | ------------------------------------------ |
+| `struct env_a {};`                           | `struct env_b {};`                         |
+| `task<int, env_a> compute();`                | `task<int, env_b> fetch();`                |
+
+Both environments are empty. Both produce identical default behavior. The types are incompatible - a function accepting `task<int, env_a>` cannot accept `task<int, env_b>`. A converting constructor (`env_a(auto const&)`) compiles but discards everything; the moment either environment carries state, the constructor must know what to extract.
+
+The problem deepens with standard nested types. If Library A binds a concrete scheduler for performance - exactly what Asio users do when they replace `any_io_executor` with `io_context::executor_type` - the types diverge further:
+
+```cpp
+struct env_a {
+    using scheduler_type = my_thread_pool;
+};
+```
+
+Library B uses the default type-erased `task_scheduler`. The `scheduler_type` mismatch means the inner task cannot extract the scheduler it needs. Add a second axis - `allocator_type` - and the construction protocol cannot reconcile the choices. Still just standard nested types. No custom queries yet. Already incompatible.
+
+### 5.2 Custom queries and `write_env`
+
+Library A needs to propagate tenant context in a multi-tenant service:
+
+```cpp
+struct get_tenant_id_t
+    : forwarding_query_t {};
+inline constexpr get_tenant_id_t
+    get_tenant_id{};
+
+struct env_a {
+    using scheduler_type = my_thread_pool;
+    tenant_id tid;
+    auto query(get_tenant_id_t) const
+        -> tenant_id { return tid; }
+};
+```
+
+One custom query. Completely reasonable. Library B knows nothing about `get_tenant_id`. [P2300R10](https://wg21.link/p2300r10)<sup>[3]</sup> provides `write_env` in [exec.write.env] - the caller names each missing query and provides its value by hand:
+
+```cpp
+auto adapted = write_env(
+    compute(),
+    prop{get_tenant_id, my_tid});
+```
+
+It compiles. It works. But the moment Library B also defines a custom query - `get_connection_pool` - the caller must inject `get_tenant_id` into one side *and* `get_connection_pool` into the other. The caller must know every custom query from every library, by name, and inject them all manually. There is no discovery mechanism - no way to ask an environment "what queries do you need?" For two libraries with one custom query each, a determined caller can make it work. Tedious, but possible.
+
+### 5.3 What do real domains look like?
+
+NVIDIA's reference implementation defines custom forwarding queries in [nvexec/stream/common.cuh](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh)<sup>[36]</sup>:
+
+```cpp
+struct get_stream_provider_t
+    : __query<get_stream_provider_t>
+{
+    static constexpr auto
+    query(forwarding_query_t) noexcept
+        -> bool { return true; }
+};
+```
+
+The `stream_provider` carries a CUDA stream, pinned and managed memory resources, a stream pool, a task hub, and a priority level:
+
+```cpp
+struct stream_provider
+{
+    cudaError_t status_{cudaSuccess};
+    std::optional<cudaStream_t> own_stream_{};
+    context context_;
+    std::mutex custodian_;
+    std::vector<std::function<void()>>
+        cemetery_;
+};
+```
+
+Where `context` carries:
+
+```cpp
+struct context
+{
+    std::pmr::memory_resource*
+        pinned_resource_;
+    std::pmr::memory_resource*
+        managed_resource_;
+    stream_pools_t* stream_pools_;
+    queue::task_hub* hub_;
+    stream_priority priority_;
+};
+```
+
+This is injected into the environment via `make_stream_env`:
+
+```cpp
+auto make_stream_env(
+    BaseEnv&& base_env,
+    stream_provider* sp) noexcept
+{
+    return __env::__join(
+        prop{get_stream_provider, sp},
+        static_cast<BaseEnv&&>(base_env));
+}
+```
+
+This is not hypothetical. This is deployed code in the `std::execution` reference implementation. Now imagine a networking domain with its own custom queries:
+
+| GPU domain (nvexec)                                 | Network domain                               |
+| --------------------------------------------------- | -------------------------------------------- |
+| `get_stream_provider` -> `stream_provider*`         | `get_ssl_context` -> `ssl::context*`         |
+| `get_stream` -> `cudaStream_t`                      | `get_connection_pool` -> `pool*`             |
+| pinned/managed memory resources, stream pool, ...   | ...                                          |
+
+Neither environment can construct itself from the other. The caller would need to inject `get_stream_provider` - which requires a `stream_provider*` pointing to a live object managing CUDA resources - plus `get_ssl_context`, `get_connection_pool`, and every other custom query from every domain involved. The caller must construct the domain-specific objects correctly, manage their lifetimes, and know the semantic requirements of each query. `write_env` does not help with any of this. It is a syntactic mechanism for injecting key-value pairs. The semantic burden is entirely on the caller.
+
+### 5.4 What about the standard queries?
+
+The standard defines eight forwarding queries: `get_scheduler`, `get_allocator`, `get_stop_token`, `get_domain`, `get_delegation_scheduler`, `get_forward_progress_guarantee`, `get_completion_scheduler<Tag>`, and `get_await_completion_adaptor`.
+
+A conversion layer could forward these. But NVIDIA already defines custom queries (`get_stream_provider`, `get_stream`) that are not in this list. Any domain that needs custom queries - GPU, networking, database, audio - is outside the standard set. The standard queries are the *minimum*. The `Environment` parameter exists precisely so domains can add *more*. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> itself demonstrates a custom `get_value_t` query in its own Section 4.7.
+
+The design *encourages* custom queries. A conversion that handles only standard queries defeats the purpose of the open protocol.
+
+### 5.5 `destructible`
+
+No general conversion exists. The query set is open by design. `write_env` requires foreknowledge of every query. Forwarding standard queries misses the custom queries that justify the Environment's existence.
+
+Good stewardship of the standard means shipping features narrow and widening with evidence. The committee has practiced this consistently - `std::string_view`, `std::span`, the Lakos Rule.
+
+Every concept in the sender/receiver model eventually bottoms out at `queryable`:
+
+| Concept      | Refines                                             |
+| ------------ | --------------------------------------------------- |
+| `scheduler`  | `queryable`, `copyable`, `equality_comparable`, ... |
+| `sender`     | `queryable`, `move_constructible`, ...              |
+| `receiver`   | `queryable`, `move_constructible`, ...              |
+| `queryable`  |                                                     |
+
+| [exec]       | [exec.queryable.concept] |
+| ------------ | ------------------------ |
+| 6,607 lines  | 2 lines                  |
+
+`queryable` is `destructible`. It cannot be narrowed after C++26 ships.
+
+**N libraries with N different environments produce N incompatible task types with no general conversion path.**
+
+Jonathan M&uuml;ller wrote in [P3801R0](https://wg21.link/p3801r0)<sup>[6]</sup>:
+
+> "As a standardization committee, we are drafting a standard that should outlive us. We are not working on some open-source library, we are designing the foundation for an entire ecosystem."
+
+### 5.6 If `Environment` has a default, who customizes it?
+
+| Nobody                        | Somebody                        |
+| ----------------------------- | ------------------------------- |
+| The parameter is unnecessary. | The lingua franca breaks.       |
+
+---
+
+## 6. The Asio Precedent
+
+The only production two-parameter coroutine type is Asio's `awaitable<T, Executor>`. Asio provides a type-erased default - `any_io_executor` - that works for the majority of users. Most users stay on the default and succeed. But when users deviate - for performance, for concrete executor binding - the type incompatibility surfaces. Five independent reports illustrate the kind of failure the `Environment` parameter will produce at greater scale:
+
+- A user cannot `co_await` a custom awaitable inside an Asio coroutine (StackOverflow #69280674<sup>[16]</sup>, 11 upvotes, 3,014 views): "I am struggling to find out how to implement custom awaitable functions."
+- A user describes Asio's executor behavior in coroutines as "rather confusing" and "very irritating" (StackOverflow #78593944<sup>[17]</sup>, 990 views).
+- A user hits compilation errors from a concrete executor type (StackOverflow #79115751<sup>[18]</sup>).
+- A user cannot `co_await` across `io_context` boundaries (StackOverflow #73517163<sup>[19]</sup>).
+- A user cannot create custom awaitable functions (GitHub asio #795<sup>[20]</sup>).
+
+Asio's case is mild. The executor concept has a closed interface. `any_io_executor` provides an escape hatch at the cost of one virtual dispatch per operation. Users who need performance can opt into a concrete executor and accept the type incompatibility.
+
+[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s `Environment` has an open interface. The query set is unbounded by design - no fixed set of operations to erase against. The escape hatch that saved Asio cannot exist here. The mild case already exhibits the predicted symptoms. The `Environment` is structurally riskier.
+
+---
+
+## 7. Design Intent
+
+The C++20 coroutine mechanism separates the return type from the promise type by design. Nicol Bolas explained the rationale on StackOverflow<sup>[14]</sup>:
+
+> "That a function is a coroutine is intended to be an *implementation detail* of the function. Nothing in a function declaration requires it to be a coroutine. Including the return type."
+
+The separation was designed so that a library can change its internals from callbacks to coroutines without changing the return type. `task<T, Environment>` puts sender policy in the return type, violating this separation.
+
+Bolas continued<sup>[14]</sup>:
+
+> "Separating the two is intended to allow existing types that support continuations to be re-implemented internally as coroutines."
+
+When the Environment changes, the return type changes, and every caller breaks. The separation was designed to prevent exactly this.
+
+Gor Nishanov formalized the consequence in [P1362R0](https://wg21.link/p1362r0)<sup>[4]</sup> Section 3.7:
+
+> "The separation is based on the observation that coroutine types and awaitables could be developed independently of each other by different library vendors. In a product, one could use N coroutine types that describe how coroutine behaves and M awaitables describing how a particular asynchronous API should be consumed. Users can freely mix and match coroutines and awaitables as needed."
+
+Nishanov quantified the cost of violating this separation in the same section:
+
+> "[A design that] does not separate their customization points into separate categories and every coroutine_suspend/coroutine_resume depends both on the promise and the awaitable...would require providing implementation for N * M customization points, whereas Coroutine TS will get by with just N + M."
+
+The `Environment` parameter reintroduces this coupling. K libraries with K different environments require K*(K-1)/2 pairwise `write_env` adaptations, each requiring foreknowledge of every custom query on the other side. The Environment ties the task type to the execution context, collapsing the promise/awaitable separation back into the N*M cost Nishanov warned against.
+
+Nishanov reinforced the principle in [P0975R0](https://wg21.link/p0975r0)<sup>[5]</sup>:
+
+> "Unlike most other languages that support coroutines, C++ coroutines are open and not tied to any particular runtime or generator type and allow libraries to imbue coroutines with meaning."
+
+And at CppCon 2017<sup>[22]</sup>:
+
+> "Different category of people have different desires for their asynchronous runtime so coroutines are open ended, they can hook up to anything you want."
+
+The coroutine mechanism was designed to prevent the problem that Section 5 documents. The `Environment` reintroduces it.
+
+---
+
+## 8. The Ecosystem
+
+Nine coroutine libraries are surveyed below. Asio is the most widely deployed C++ async library; the standard proposal carries normative weight. The convergence argument is not about counting libraries - it is about independent design decisions. Seven independent teams, solving different problems, all arrived at one parameter. The two that added a second parameter both needed an escape hatch: Asio provides `any_io_executor`; [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> does not.
+
+| Library            | Declaration                                                                           | Params | Source                          |
+| ------------------ | ------------------------------------------------------------------------------------- | :----: | ------------------------------- |
+| asyncpp            | `template<class T> class task`                                                        |   1    | [task.hpp][asyncpp-task]        |
+| Boost.Cobalt       | `template<class T> class task`                                                        |   1    | [task.hpp][cobalt-task]         |
+| Capy               | `template<class T = void> struct task`                                                |   1    | [task.hpp][capy-task]           |
+| cppcoro            | `template<typename T> class task`                                                     |   1    | [task.hpp][cppcoro-task]        |
+| aiopp              | `template<typename Result> class Task`                                                |   1    | [task.hpp][aiopp-task]          |
+| libcoro            | `template<typename return_type> class task`                                           |   1    | [task.hpp][libcoro-task]        |
+| folly::coro        | `template<typename T> class Task`                                                     |   1    | [Task.h][folly-task]            |
+| Boost.Asio         | `template<class T, class Executor = any_io_executor> class awaitable`                 | **2**  | [awaitable.hpp][asio-awaitable] |
+| P3552R3 (std)      | `template<class T, class Environment> class task`                                     | **2**  | [task.hpp][p3552-task]          |
 
 [asyncpp-task]: https://github.com/petiaccja/asyncpp/blob/master/include/asyncpp/task.hpp
 [cobalt-task]: https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/task.hpp
@@ -55,132 +308,32 @@ folly::coro and Boost.Cobalt are in production at scale. cppcoro was deployed at
 [asio-awaitable]: https://www.boost.org/doc/libs/latest/doc/html/boost_asio/reference/awaitable.html
 [p3552-task]: https://github.com/bemanproject/task/blob/main/include/beman/task/detail/task.hpp
 
-The interface converged. The machinery diverged. Cobalt embeds intrusive list nodes for cancellation. folly::coro integrates with Facebook's fiber scheduler. Asio's `awaitable` is coupled to `io_context`. Capy propagates `io_env` through `await_suspend(h, io_env const*)`, delivering executor, stop token, and frame allocator at the suspension point.
+The interface converged. The machinery diverged:
 
-Asio's `awaitable` provides a type-erased default (`any_io_executor`). Users who replace it with `io_context::executor_type` for performance immediately hit type incompatibility: `await_transform` rejects the mismatch.<sup>[26]</sup>
+| Library        | Invariant enforced through promise                                |
+| -------------- | ----------------------------------------------------------------- |
+| folly::coro    | Cancellation token, fiber scheduler, async stack traces           |
+| Boost.Cobalt   | Intrusive list cancellation, Asio executor binding                |
+| Google `Co`    | Immovable prvalue-only `co_await` - prevents dangling references  |
+| Capy           | `io_env` propagation: executor, stop token, frame allocator       |
+| cppcoro        | Symmetric transfer, lazy start                                    |
+| P3552R3 `task` | `affine_on` scheduler, sender environment, stop token via connect |
 
-[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> adds a second template parameter: `Environment`. No default. The parameter exists because `task` is both a coroutine return type and a sender. Every function that returns `task` is coupled to the sender environment model.
+Jonathan M&uuml;ller describes Google's approach in [P3801R0](https://wg21.link/p3801r0)<sup>[6]</sup>:
 
-As of [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>, the wording declares `template<class T, class Environment> class task` with no default for `Environment` ([[execution.syn]](https://eel.is/c++draft/execution.syn)<sup>[16]</sup>, [[task.class]](https://eel.is/c++draft/task.class)<sup>[16]</sup>). The design section states that "any empty type provides the default behaviour" but does not name or standardize such a type. The paper's own examples use `task<int>` with one parameter - ill-formed against its own wording. A future revision may add a default. Even so, the fragmentation argument in Section 2.4 holds: the `Environment` parameter exists so that users provide non-default environments, and the moment they do, the types diverge permanently.
+> "Google's coroutine library has a pure library solution: Their default coroutine type `Co` is immovable and `co_await` takes it by-value. That way you can only `co_await` prvalue coroutines, which makes it impossible to have dangling references."
 
-Generic code that accepts `task<T>` does not accept `task<T, MyEnvironment>`. The moment any library in the dependency chain provides a non-default `Environment`, every function in the chain must agree on the type:
+Google needed a safety property that no other library provides. One template parameter. The promise enforces the invariant. Callers see `Co<T>`. The one-parameter design let them build it without fragmenting the ecosystem.
 
-```cpp
-void spawn_work(std::execution::task<void> work);
-
-std::execution::task<void, net_env> do_network();
-
-spawn_work(do_network());  // does not compile:
-                           // task<void, net_env> is not task<void>
-```
-
-Both are "the standard task." They do not compile together. No shipped code outside the reference implementation uses a non-default `Environment`. The parameter solves a problem that seven independent libraries solved without it.
-
-**One-parameter task types compose by construction. Two-parameter task types fragment by default.**
-
-### 2.1 The Allocator Ceremony
-
-[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> Section 4.6 shows how to enable allocator awareness. The user must define a custom environment struct and use it in every function signature:
-
-```cpp
-struct alloc_env {
-    using allocator_type =
-        std::pmr::polymorphic_allocator<std::byte>;
-};
-
-std::execution::task<std::string, alloc_env>
-read_body(tcp_socket& sock);
-
-std::execution::task<json, alloc_env>
-parse(std::string_view body);
-
-std::execution::task<void, alloc_env>
-write_response(tcp_socket& sock, std::string_view body);
-```
-
-Every production library:
-
-```cpp
-task<std::string> read_body(tcp_socket& sock);
-task<json>        parse(std::string_view body);
-task<void>        write_response(tcp_socket& sock,
-                                 std::string_view body);
-```
-
-No standard allocator-aware environment type is provided. Two users who independently define semantically identical structs produce incompatible task types.
-
-### 2.2 Two Empty Structs
-
-Two libraries define empty environments. Identical behavior. Incompatible types:
-
-```cpp
-// Library A
-struct env_a {};
-std::execution::task<int, env_a> compute();
-
-// Library B
-struct env_b {};
-std::execution::task<int, env_b> fetch();
-
-// Both environments are empty. Both produce identical
-// default behavior. The types are incompatible.
-```
-
-The standard task type fragments on contact with itself.
-
-### 2.3 Library Upgrade Breaks Downstream
-
-A library that upgrades from the default environment to a custom one changes the return type and breaks every downstream caller:
-
-```cpp
-// v1.0: default environment
-std::execution::task<response> http_get(url_view);
-
-// v2.0: needs allocator awareness
-std::execution::task<response, http_env> http_get(url_view);
-
-// Every downstream caller has a type mismatch.
-```
-
-Networking can use thread-local propagation for frame allocators. GPU can use device memory APIs. HFT can enforce zero allocation at compile time. Solutions exist when the promise serves its domain.
-
-### 2.4 Adding a Default Does Not Prevent Fragmentation
-
-A default delays fragmentation; it does not prevent it. The `Environment` parameter exists so that users provide non-default environments. The moment they do, fragmentation begins - and it is viral: every function in the call chain must agree on the type.
-
-Asio demonstrates the mild case. Asio's second parameter is an executor - a narrow concept with a fixed interface (`execute(f)`). Type erasure works: `any_io_executor` wraps any executor behind virtual dispatch. The default covers most users. Even so, users who replace `any_io_executor` with `io_context::executor_type` for performance immediately hit type incompatibility: `await_transform` rejects the mismatch<sup>[26]</sup>, cross-context `co_await` fails at the type level<sup>[27]</sup>, and custom awaitables cannot compose with Asio's `awaitable` without matching the executor type<sup>[28]</sup>. The friction is documented across multiple StackOverflow questions. This is the mild case because the escape hatch exists - users can always fall back to `any_io_executor` at the cost of one virtual dispatch per operation.
-
-[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s `Environment` is the severe case. The environment is not a narrow concept with a fixed interface. It is an open query-response protocol: `get_stop_token`, `get_scheduler`, `get_allocator`, and any user-defined query, each with a different return type. The set of queries is unbounded. A type-erased `any_environment` would require `std::any`-style dynamic dispatch for every query, each with a different return type. This is technically possible. It destroys the compile-time composition that is the sender model's entire value proposition - completion signatures become runtime-dependent, `then` and `let_value` cannot deduce return types, and the zero-overhead property that justifies the model's complexity is gone. An `any_environment` that preserves the sender model's compile-time properties does not exist and cannot exist, because the query set is open-ended. The fragmentation is not a performance trade-off with an escape hatch. It is a choice between fragmentation and abandoning the properties that make the sender model worth having.
-
-**The diversity in the table above is not fragmentation. It is fitness.**
+Domain-specific task types interoperate through the C++20 awaitable protocol. The [cross_await](https://github.com/klemens-morgenstern/cross_await)<sup>[25]</sup> repository (Klemens Morgenstern) contains four cross-library composition examples, 51-105 lines each. Sender bridges follow the same pattern ([P4055R0](https://wg21.link/p4055r0)<sup>[11]</sup>, [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>). The ecosystem independently arrived at the design that avoids the problem documented in Section 5.
 
 ---
 
-## 3. Why the Invariants Differ
+## 9. Concepts Mitigate the Risk
 
-Every production library extends the C++20 awaitable protocol with domain-specific safety invariants. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s `await_transform` + `affine_on` maintains executor continuity and stop token propagation for recognized senders within `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[9]</sup>). Four gaps remain. Sections 3.1, 3.2, and 3.4 are engineering gaps with papers in progress - they may be closed in future revisions. Section 3.3 is architectural: the sender model's deferred delivery and the networking model's immediate delivery are contradictory requirements that no single task type can satisfy.
+The fix is a general pattern: define a concept that constrains awaitables, not task types. The promise remains the extension point. The return type stays clean.
 
-### 3.1 Frame Allocator
-
-`affine_on` returns the coroutine to the correct scheduler thread. The thread-local frame allocator on that thread is whatever the previous coroutine left - not the allocator for this chain. No hook exists between `affine_on` completing and the coroutine body resuming where TLS can be restored. Peter Dimov identified this gap. [P3980R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html)<sup>[6]</sup> addresses allocator sourcing but does not restore TLS on resumption.
-
-### 3.2 Foreign Awaitables
-
-[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s `await_transform` recognizes senders. A non-sender awaitable - `cppcoro::task<int>`, a Cobalt awaitable, any C++20 awaitable - passes through without `affine_on`, without stop token wiring, without environment propagation. All three invariants are lost. Networking libraries reject non-conforming awaitables at compile time. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> permits them. Non-sender domains require their own task types.
-
-### 3.3 Timing
-
-Senders deliver context through `connect`/`start` after the coroutine frame is allocated. Networking delivers context at `co_await` time through `await_suspend`. The frame allocator must be available before the child's `operator new` ([[dcl.fct.def.coroutine]](https://eel.is/c++draft/dcl.fct.def.coroutine)<sup>[16]</sup>) - before any sender machinery runs. No mechanism in `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[9]</sup>) delivers an allocator to `operator new` without `allocator_arg_t`. Deferred delivery serves senders. Immediate delivery serves networking. The requirements are incompatible.
-
-### 3.4 Symmetric Transfer
-
-The sender-awaitable's `await_suspend` returns `void`, foreclosing symmetric transfer. Jonathan M&uuml;ller confirmed in [P3801R0](https://wg21.link/p3801r0)<sup>[7]</sup>: *"a thorough fix is non-trivial and requires support for guaranteed tail calls."* Dietmar K&uuml;hl documented the gap in [P3796R1](https://wg21.link/p3796r1)<sup>[8]</sup>.
-
----
-
-## 4. The `IoAwaitable` Protocol
-
-`IoAwaitable` is not proposed for standardization. It is the authors' design and is presented here as one example of what domain-specific compile-time enforcement looks like - not as the only possible design. The cross-domain bridges in Section 5, authored independently by Klemens Morgenstern, provide the stronger evidence that domain-specific protocols are the norm. [P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup> defines the concept:
+`IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup>) is one realization:
 
 ```cpp
 template<typename A>
@@ -192,121 +345,47 @@ concept IoAwaitable =
     };
 ```
 
-The `io_env` pointer carries three fields:
+Any type satisfying the concept works. The task type remains `task<T>` - one parameter. The promise delivers the domain environment through `await_transform`. New domains create new promises, not new template parameters.
 
-```cpp
-struct io_env
-{
-    executor_ref executor;
-    std::stop_token stop_token;
-    std::pmr::memory_resource* frame_allocator;
-};
-```
+The concept constrains the awaitable, not the task type. Any task type whose promise propagates `io_env` can `co_await` any `IoAwaitable` - N task types plus M awaitables equals N+M implementations. The N+M property holds because the concept does not name the task type.
 
-These are the three invariants Section 3 identifies as gaps in [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>. `IoAwaitable` delivers all three at `await_suspend` time. Every awaitable in the chain receives the environment. No deferred delivery. No timing gap.
+Bolas explained the role of `await_transform`<sup>[15]</sup>:
 
-### 4.1 Closed by Design
+> "To declare the existence of such a function is to declare that your promise *cannot work* unless it instruments the awaitable... It is also useful for being able to actively shut off specific awaitables, or to only *allow* the use of specific awaitables."
 
-The promise's `await_transform` passes `io_env*` to `await_suspend(h, env)`. Any awaitable that does not accept the second parameter fails to compile. The check applies to all awaitables - coroutine-backed or not. A foreign awaitable with the standard `await_suspend(coroutine_handle<>)` signature does not compile. The invariant violation is a type error, not a silent runtime degradation.
+A concept with a domain-specific `await_suspend` signature gets compile-time rejection of foreign awaitables for free. `IoAwaitable` is one such concept. It is not the only one. The pattern generalizes to any domain.
 
-### 4.2 Contrast with `task`
-
-[P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s `await_transform` calls `as_awaitable(expr, promise)`. For recognized senders, this wraps them in an awaiter that applies `affine_on` and stop token propagation. For non-sender awaitables, the expression passes through unchanged - no `affine_on`, no stop token, no environment propagation. The `Environment` template parameter controls what the promise advertises through `get_env()`, but the awaitable never sees it unless it is a sender that goes through `connect`/`start`.
-
-| Property                                    | `IoAwaitable`                      | P3552R3 `task`                    |
-|---------------------------------------------|------------------------------------|-----------------------------------|
-| Foreign awaitable `co_await`ed              | Compile error                      | Compiles, invariants lost         |
-| Non-coroutine awaitable gets environment    | Yes (`io_env*` in `await_suspend`) | No (only senders via `connect`)   |
-| Enforcement point                           | `co_await` site (compile time)     | `connect`/`start` (runtime path)  |
-| Invariant violation mode                    | Type error                         | Silent                            |
-
-`IoAwaitable` demonstrates that the `await_suspend` signature is the natural enforcement point, and it works for all awaitables, not just coroutine-backed ones. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>'s permissive model is appropriate for the sender domain. It cannot serve as a general-purpose correctness boundary because it has no mechanism to reject non-conforming awaitables.
+`IoAwaitable` is a concept, not a type. It constrains what a promise can `co_await`, not what a coroutine returns. A promise that does not define `await_transform` for `IoAwaitable` gets a compile-time error - not a silent type mismatch. The return type stays `task<T>` regardless. This is the difference between concept-level and type-level fragmentation: `task<T, Environment>` changes the return type when the Environment changes, breaking every caller. A concept leaves the return type alone and lets the promise declare which domains it supports.
 
 ---
 
-## 5. Cross-Domain Bridges
+## 10. Frequently Raised Concerns
 
-The [cross_await](https://github.com/klemens-morgenstern/cross_await)<sup>[17]</sup> repository (Klemens Morgenstern) contains four cross-library composition examples. All four require explicit adaptor code.
+**Q1: Nicol Bolas is not normative.** Bolas is explaining the rationale, not writing the standard. The normative backing is Nishanov's [P0975R0](https://wg21.link/p0975r0)<sup>[5]</sup> ("open and not tied to any particular runtime") and [P1362R0](https://wg21.link/p1362r0)<sup>[4]</sup> (N+M argument), both published WG21 papers. Even setting aside design-intent sources, the empirical evidence in Section 8 - seven independent libraries converging on one-parameter designs - demonstrates that the ecosystem treats the principle as operative.
 
-| Outer library | Inner library | Adaptor file          | Lines |
-|---------------|--------------|-----------------------|------:|
-| Cobalt        | Capy          | `cobalt_capy.cpp`     |    67 |
-| TMC           | Capy          | `tmc_capy.cpp`        |    51 |
-| Capy          | Cobalt        | `corosio_cobalt.cpp`  |   105 |
-| Capy          | TMC           | `corosio_tmc.cpp`     |    60 |
+**Q2: `IoAwaitable` is the author's own design.** `IoAwaitable` is one realization of the principle. The cross_await bridges (Section 8, Klemens Morgenstern, independent author) demonstrate the same principle without `IoAwaitable`. Google's `Co<T>` demonstrates it without `IoAwaitable`. The principle is: domain-specific invariants belong in the promise, not in the return type.
 
-From `cobalt_capy.cpp`:
+**Q3: The Environment parameter serves a real need.** Section 2.1 grants this. The paper does not argue that the Environment is useless. It argues that the Environment creates a structural risk to task type diversity. The question is whether the risk is worth accepting for domains outside the sender model.
 
-```cpp
-template<typename T>
-struct capy_task_adaptor {
-    capy::task<T> tt;
-    capy::io_env env;
-    std::stop_source src;
-    boost::asio::cancellation_slot slt;
+**Q4: Production libraries do not interoperate anyway.** The cross_await bridges in Section 8 refute this. Four working examples, 51-105 lines each. The C++20 awaitable protocol is the interop surface. Diversity with interoperability is the design intent (Nishanov [P1362R0](https://wg21.link/p1362r0)<sup>[4]</sup>: "mix and match").
 
-    template<typename Promise>
-    auto await_suspend(std::coroutine_handle<Promise> h) {
-        auto& p = h.promise();
-        env.executor        = p.get_executor();
-        env.stop_token      = src.get_token();
-        env.frame_allocator = p.get_allocator().resource();
-        slt = p.get_cancellation_slot();
-        slt.assign([this](auto ct) {
-            if ((ct & boost::asio::cancellation_type::terminal) !=
-                      boost::asio::cancellation_type::none)
-                src.request_stop();
-        });
-        return tt.await_suspend(h, &env);
-    }
-};
-```
+**Q5: A default Environment will fix the fragmentation.** Section 2.1 already grants the default. Even with a default, the parameter exists so users provide non-default environments. The moment they do, fragmentation begins. Adding a default delays the risk; it does not prevent it. Section 5 traces the progression from empty environments through NVIDIA's deployed queries - the default does not change the outcome.
 
-The bridge knows both protocols. It is specific to the pair. There is no generic bridge because the invariants are domain-specific.
+**Q6: These issues will be fixed in a future revision.** Section 2.1 already separates engineering gaps (off-limits) from structural findings. The open query set and the absence of a general conversion mechanism are consequences of the design decision to make the Environment an open protocol. They cannot be fixed without closing the protocol - which would break every custom query, including NVIDIA's (Section 5.3).
 
-### 5.1 Sender Bridges
-
-[D4055R0](https://wg21.link/d4055r0)<sup>[14]</sup>: consuming senders from `IoAwaitable` code. One class template. Satisfies `IoAwaitable`, propagates stop token, dispatches back to the originating executor. `set_error(std::error_code)` becomes `io_result<T>` - no exceptions. Does not use `std::execution::task`.
-
-[D4056R0](https://wg21.link/d4056r0)<sup>[15]</sup>: producing senders from `IoAwaitable` code. Compound I/O results are rejected at compile time. The coroutine body inspects the compound result, reduces it to `error_code`, and the bridge routes it through three channels without exceptions.
-
-### 5.2 The Bridge Pattern
-
-All six bridges share three properties:
-
-- **Opt-in.** No bridge is automatic.
-- **Explicit.** The bridge code is visible. No silent invariant translation.
-- **Responsibility.** The bridge author maintains invariants across the boundary.
-
-Cross-domain composition works. The C++20 awaitable protocol is the surface all bridges bottom out to.
+**Q7: A standard task type provides a lingua franca.** The benefit is real. The question is whether `task<T, Environment>` delivers it. Section 5 shows that the lingua franca holds only when everyone uses the same Environment. The moment two libraries use different environments, the lingua franca breaks - and the parameter exists precisely so that users provide non-default environments. K libraries with K environments require K*(K-1)/2 pairwise adaptations (Section 7) - the N*M cost Nishanov warned against. A concept is a stronger lingua franca than a concrete type with a second template parameter that fragments on contact with itself.
 
 ---
 
-## 6. No One True Task
+## 11. Conclusion
 
-Gor Nishanov stated the design intent in [P1362R0](https://wg21.link/p1362r0)<sup>[10]</sup> (Section 3.7):
-
-> "The separation is based on the observation that coroutine types and awaitables could be developed independently of each other by different library vendors. In a product, one could use N coroutine types that describe how coroutine behaves and M awaitables describing how a particular asynchronous API should be consumed. Users can freely mix and match coroutines and awaitables as needed."
-
-And at CppNow 2017<sup>[11]</sup>: "We did not want to tie it to a particular task library. [...] We wanted them to be open."
-
-`promise_type` is the extension point. Unifying all task types into one forces either carrying every domain's invariants (bloat) or carrying none (unsafe). [D4053R0](https://wg21.link/d4053r0)<sup>[12]</sup> and [D4054R0](https://wg21.link/d4054r0)<sup>[13]</sup> document a concrete example: I/O returns `(error_code, size_t)`, and the three-channel model forces a routing decision that loses the byte count, the channel semantics, or both.
+The `Environment` parameter in [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> creates a structural risk to the task type diversity that C++20 coroutines were designed to enable. The risk is documented by the specification (the open query set, Section 4), by the reference implementation (NVIDIA's custom queries, Section 5.3), by the only production precedent (Asio, Section 6), and by `task`'s own author (Section 5.5).
 
 ---
 
-# Acknowledgements
+## Acknowledgments
 
-The author thanks Gor Nishanov for the coroutine model's
-explicit support for task type diversity;
-Peter Dimov for identifying the frame allocator propagation gap;
-Klemens Morgenstern for Boost.Cobalt and the
-[cross_await](https://github.com/klemens-morgenstern/cross_await) bridges;
-Dietmar K&uuml;hl for [P3552R3](https://wg21.link/p3552r3),
-[P3796R1](https://wg21.link/p3796r1), and `beman::execution`;
-Jonathan M&uuml;ller for confirming the symmetric transfer gap in
-[P3801R0](https://wg21.link/p3801r0);
-Steve Gerbino for the constructed comparison and bridge implementations;
-and Mungo Gill, Mohammad Nejati, and Michael Vandeberg for feedback.
+The author thanks Gor Nishanov for the coroutine model's explicit support for task type diversity; Peter Dimov for identifying the frame allocator propagation gap; Klemens Morgenstern for Boost.Cobalt and the [cross_await](https://github.com/klemens-morgenstern/cross_await) bridges; Dietmar K&uuml;hl for [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>, [P3796R1](https://wg21.link/p3796r1)<sup>[7]</sup>, and `beman::execution`; Jonathan M&uuml;ller for confirming the symmetric transfer gap in [P3801R0](https://wg21.link/p3801r0)<sup>[6]</sup> and for documenting Google's `Co` design; Aaron Jacobs for the CppNow 2024 presentation on coroutines at scale<sup>[23]</sup>; Steve Gerbino for the constructed comparison and bridge implementations; and Mungo Gill, Mohammad Nejati, and Michael Vandeberg for feedback.
 
 ---
 
@@ -316,35 +395,46 @@ and Mungo Gill, Mohammad Nejati, and Michael Vandeberg for feedback.
 
 1. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
 2. [P4003R0](https://wg21.link/p4003r0) - "Coroutines for I/O" (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026). https://wg21.link/p4003r0
-3. [P4007R1](https://wg21.link/p4007r1) - "Senders and Coroutines" (Vinnie Falco, Mungo Gill, 2026). https://wg21.link/p4007r1
-4. [P4014R0](https://wg21.link/p4014r0) - "The Sender Sub-Language" (Vinnie Falco, 2026). https://wg21.link/p4014r0
-5. [P2583R1](https://wg21.link/p2583r1) - "Symmetric Transfer and Sender Composition" (Mungo Gill, Vinnie Falco, 2026). https://wg21.link/p2583r1
-6. [P3980R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html
-7. [P3801R0](https://wg21.link/p3801r0) - "Concerns about the design of `std::execution::task`" (Jonathan M&uuml;ller, 2025). https://wg21.link/p3801r0
-8. [P3796R1](https://wg21.link/p3796r1) - "Coroutine Task Issues" (Dietmar K&uuml;hl, 2025). https://wg21.link/p3796r1
-9. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
-10. [P1362R0](https://wg21.link/p1362r0) - "Incremental Approach: Coroutine TS + Core Coroutines" (Gor Nishanov, 2018). https://wg21.link/p1362r0
-12. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
-13. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
-14. [D4055R0](https://wg21.link/d4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4055r0
-15. [D4056R0](https://wg21.link/d4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4056r0
+3. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak et al., 2024). https://wg21.link/p2300r10
+4. [P1362R0](https://wg21.link/p1362r0) - "Incremental Approach: Coroutine TS + Core Coroutines" (Gor Nishanov, 2018). https://wg21.link/p1362r0
+5. [P0975R0](https://wg21.link/p0975r0) - "Impact of coroutines on current and upcoming library facilities" (Gor Nishanov, 2018). https://wg21.link/p0975r0
+6. [P3801R0](https://wg21.link/p3801r0) - "Concerns about the design of `std::execution::task`" (Jonathan M&uuml;ller, 2025). https://wg21.link/p3801r0
+7. [P3796R1](https://wg21.link/p3796r1) - "Coroutine Task Issues" (Dietmar K&uuml;hl, 2025). https://wg21.link/p3796r1
+8. [P3980R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html
+9. [P4053R0](https://wg21.link/p4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4053r0
+10. [P4054R0](https://wg21.link/p4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4054r0
+11. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
+12. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
+13. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+
+### StackOverflow and GitHub
+
+14. Nicol Bolas, "Why is the promise type separated from the coroutine object?" StackOverflow #68167497. https://stackoverflow.com/questions/68167497
+15. Nicol Bolas, "Why is `promise_type::await_transform` greedy?" StackOverflow #76110225. https://stackoverflow.com/questions/76110225
+16. "co_await custom awaiter in boost asio coroutine" StackOverflow #69280674. https://stackoverflow.com/questions/69280674
+17. "Boost Asio: Executors in C++20 coroutines" StackOverflow #78593944. https://stackoverflow.com/questions/78593944
+18. "Boost asio using concrete executor type with c++20 coroutines causes compilation errors" StackOverflow #79115751. https://stackoverflow.com/questions/79115751
+19. "Can I co_await an operation executed by one io_context in a coroutine executed by another in Asio?" StackOverflow #73517163. https://stackoverflow.com/questions/73517163
+20. "How to create custom awaitable functions" GitHub asio #795. https://github.com/chriskohlhoff/asio/issues/795
+21. "Why can not `start_detached` an `exec::task`?" stdexec #1594. https://github.com/NVIDIA/stdexec/issues/1594
 
 ### Talks
 
-11. Gor Nishanov, "C++17 coroutines for app and library developers," CppNow 2017. https://www.youtube.com/watch?v=proxLbvHGEQ
+22. Gor Nishanov, "Naked coroutines live (with networking)," CppCon 2017. https://www.youtube.com/watch?v=UL3TtTgt3oU
+23. Aaron Jacobs, "C++ Coroutines at Scale - Implementation Choices at Google," CppNow 2024. https://www.youtube.com/watch?v=k-A12dpMYHo
 
 ### Other
 
-16. [C++ Working Draft](https://eel.is/c++draft/) - (Richard Smith, ed.). https://eel.is/c++draft/
-17. Klemens Morgenstern, [cross_await](https://github.com/klemens-morgenstern/cross_await) - "co_await one coroutine library from another" (2026). https://github.com/klemens-morgenstern/cross_await
-18. [cppcoro](https://github.com/lewissbaker/cppcoro) - C++ coroutine library (Lewis Baker). https://github.com/lewissbaker/cppcoro
-19. [libcoro](https://github.com/jbaldwin/libcoro) - C++20 coroutine library (Josh Baldwin). https://github.com/jbaldwin/libcoro
-20. [asyncpp](https://github.com/petiaccja/asyncpp) - Async coroutine library (P&eacute;ter Kardos). https://github.com/petiaccja/asyncpp
-21. [aiopp](https://github.com/pfirsich/aiopp) - Async I/O library (Joel Schumacher). https://github.com/pfirsich/aiopp
-22. [beman::task](https://github.com/bemanproject/task) - P3552R3 reference implementation. https://github.com/bemanproject/task
-23. [folly::coro](https://github.com/facebook/folly/blob/main/folly/experimental/coro/Task.h) - Facebook coroutine task type. https://github.com/facebook/folly/blob/main/folly/experimental/coro/Task.h
-24. [Boost.Cobalt](https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/task.hpp) - Boost coroutine task type (Klemens Morgenstern). https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/task.hpp
-25. [Capy](https://github.com/cppalliance/capy) - Coroutine primitives library (Vinnie Falco). https://github.com/cppalliance/capy
-26. [Boost asio using concrete executor type with c++20 coroutines causes compilation errors](https://stackoverflow.com/questions/79115751) - StackOverflow (2024). https://stackoverflow.com/questions/79115751
-27. [Can I co_await an operation executed by one io_context in a coroutine executed by another in Asio?](https://stackoverflow.com/questions/73517163) - StackOverflow (2022). https://stackoverflow.com/questions/73517163
-28. [How to create custom awaitable functions that can be called with co_await inside asio::awaitable functions](https://github.com/chriskohlhoff/asio/issues/795) - GitHub asio#795 (2022). https://github.com/chriskohlhoff/asio/issues/795
+24. [C++ Working Draft](https://eel.is/c++draft/) (Richard Smith, ed.). https://eel.is/c++draft/
+25. Klemens Morgenstern, [cross_await](https://github.com/klemens-morgenstern/cross_await) - "co_await one coroutine library from another" (2026). https://github.com/klemens-morgenstern/cross_await
+26. [cppcoro](https://github.com/lewissbaker/cppcoro) - C++ coroutine library (Lewis Baker). https://github.com/lewissbaker/cppcoro
+27. [libcoro](https://github.com/jbaldwin/libcoro) - C++20 coroutine library (Josh Baldwin). https://github.com/jbaldwin/libcoro
+28. [asyncpp](https://github.com/petiaccja/asyncpp) - Async coroutine library (P&eacute;ter Kardos). https://github.com/petiaccja/asyncpp
+29. [aiopp](https://github.com/pfirsich/aiopp) - Async I/O library (Joel Schumacher). https://github.com/pfirsich/aiopp
+30. [bemanproject/task](https://github.com/bemanproject/task) - P3552R3 reference implementation. https://github.com/bemanproject/task
+31. [folly::coro](https://github.com/facebook/folly/blob/main/folly/experimental/coro/Task.h) - Facebook coroutine task type. https://github.com/facebook/folly/blob/main/folly/experimental/coro/Task.h
+32. [Boost.Cobalt](https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/task.hpp) - Boost coroutine task type (Klemens Morgenstern). https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/task.hpp
+33. [Capy](https://github.com/cppalliance/capy) - Coroutine primitives library (Vinnie Falco). https://github.com/cppalliance/capy
+34. [Corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
+35. [P1056R1](https://wg21.link/p1056r1) - "Add lazy coroutine (coroutine task) type" (Lewis Baker, Gor Nishanov, 2019). https://wg21.link/p1056r1
+36. NVIDIA, [nvexec/stream/common.cuh](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh) - GPU stream environment queries. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh

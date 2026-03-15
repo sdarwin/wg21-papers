@@ -1,6 +1,6 @@
 ---
 title: "Producing Senders from Coroutine-Native Code"
-document: D4056R0
+document: P4056R0
 date: 2026-03-13
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -12,7 +12,7 @@ audience: LEWG
 
 An `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup>) can be wrapped as a `std::execution` sender. Awaitables returning `void` or a single value map to `set_value`. Awaitables returning `error_code` map to `set_value()` on success and `set_error(ec)` on failure - no exceptions. Awaitables returning compound I/O results - any tuple-like whose first element is `error_code` with additional elements - are rejected at compile time. The coroutine body is the translation layer: it inspects the compound result, reduces it to an `error_code`, and returns that. The bridge routes the `error_code` through the three channels without exceptions.
 
-This paper is one of a suite of five that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [D4050R0](https://wg21.link/d4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [D4053R0](https://wg21.link/d4053r0)<sup>[7]</sup>, "Sender I/O: A Constructed Comparison"; [D4054R0](https://wg21.link/d4054r0)<sup>[13]</sup>, "Two Error Models"; and [D4055R0](https://wg21.link/d4055r0)<sup>[6]</sup>, "Consuming Senders from Coroutine-Native Code."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[13]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[6]</sup>, "Consuming Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[15]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -26,9 +26,11 @@ This paper is one of a suite of five that examines the relationship between comp
 
 ## 1. Disclosure
 
-The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The authors provide information, ask nothing, and serve at the pleasure of the chair.
+The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[5]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[3]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The authors provide information, ask nothing, and serve at the pleasure of the chair.
 
-[Capy](https://github.com/cppalliance/capy)<sup>[3]</sup> is a coroutine primitives library. [D4055R0](https://wg21.link/d4055r0)<sup>[6]</sup> showed the sender-to-awaitable direction. This paper shows the reverse. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[3]</sup> and `beman::execution`<sup>[4]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). The complete implementation is in Appendix A.
+[Capy](https://github.com/cppalliance/capy)<sup>[3]</sup> is a coroutine primitives library. [P4055R0](https://wg21.link/p4055r0)<sup>[6]</sup> showed the sender-to-awaitable direction. This paper shows the reverse. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[3]</sup> and `beman::execution`<sup>[4]</sup>, a community implementation of `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>). The complete implementation is in Appendix A.
+
+The authors regard `std::execution` as an important contribution to C++ and support its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The authors' position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
 ---
 
@@ -67,7 +69,7 @@ The delay ran on a pool worker. Zero allocation beyond the coroutine frame.
 
 The bridge works for `delay`. What about `read_some`?
 
-`read_some` returns `io_result<size_t>` - an `(error_code, size_t)` pair. The adapter must route this through three channels. [D4053R0](https://wg21.link/d4053r0)<sup>[7]</sup> documented the trade-off: route the whole pair through `set_value` and the composition algebra is bypassed; decompose it and the byte count is destroyed on error. Neither option preserves both values and retains composition. The same finding now appears inside the bridge adapter itself.
+`read_some` returns `io_result<size_t>` - an `(error_code, size_t)` pair. The adapter must route this through three channels. [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> documented the trade-off: route the whole pair through `set_value` and the composition algebra is bypassed; decompose it and the byte count is destroyed on error. Neither option preserves both values and retains composition. The same finding now appears inside the bridge adapter itself.
 
 ---
 
@@ -157,7 +159,7 @@ Cost: one coroutine frame per I/O operation that crosses the sender boundary. `a
 
 ## 7. P3552R3 Analysis
 
-[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> defines `std::execution::task<T>`, a coroutine type that is also a sender. Its completion signature is `set_value_t(T)`. When `T` is `std::pair<error_code, size_t>`, the compound result lands on the value channel. This is Approach A1 from [D4053R0](https://wg21.link/d4053r0)<sup>[7]</sup>: `upon_error` is unreachable, `when_all` does not cancel siblings on I/O failure, `retry` does not fire. The programmer who writes `task<std::pair<error_code, size_t>>` has silently opted into Approach A1:
+[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> defines `std::execution::task<T>`, a coroutine type that is also a sender. Its completion signature is `set_value_t(T)`. When `T` is `std::pair<error_code, size_t>`, the compound result lands on the value channel. This is "just use `set_value`" ([P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> Section 5): `upon_error` is unreachable, `when_all` does not cancel siblings on I/O failure, `retry` does not fire. The programmer who writes `task<std::pair<error_code, size_t>>` has silently opted into "just use `set_value`":
 
 ```cpp
 std::execution::task<
@@ -176,7 +178,7 @@ auto sndr = read_some_task(stream, buf)
         });
 ```
 
-`task` is general-purpose. A `static_assert` rejecting compound `error_code` results would be too broad. The constraint belongs at a bridge point with I/O intent, not on the general-purpose coroutine type.
+`task` is general-purpose. A `static_assert` rejecting compound `error_code` results would be too broad. The constraint belongs at a bridge point with I/O intent, not on the general-purpose coroutine type. A programmer who uses `task<pair<error_code, size_t>>` directly gets the value-channel behavior documented in [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> Section 5 - both values preserved, composition algebra bypassed.
 
 A sender adapter - `split_ec` - could enforce the floor inside the pipeline:
 
@@ -191,9 +193,9 @@ do_read(sock, buf)           // sender completing with
         });
 ```
 
-The authors have not yet implemented `split_ec`. The adapter must advertise both `set_value_t()` and `set_error_t(std::error_code)` while selecting between them at runtime - type erasure or a variant sender internally. Whether this cost is acceptable depends on whether the sender-native path needs to enforce the floor without a coroutine.
+`split_ec` advertises both `set_value_t()` and `set_error_t(std::error_code)` and selects between them at runtime. The implementation is a receiver adapter - no type erasure, no variant sender, no allocation. The complete implementation is in [Capy](https://github.com/cppalliance/capy)<sup>[3]</sup>.
 
-[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> converts unhandled `set_error` to an exception via `AS-EXCEPT-PTR`. The observation is architectural: `as_sender` enforces the abstraction floor at the IoAwaitable-to-sender boundary. `split_ec` could enforce it inside the pipeline. `task` does not enforce it. The programmer chooses where the floor lives.
+[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> converts unhandled `set_error` to an exception via `AS-EXCEPT-PTR`. The observation is architectural: `as_sender` enforces the abstraction floor at the IoAwaitable-to-sender boundary. `split_ec` enforces it inside the pipeline. `task` does not enforce it. The programmer chooses where the floor lives.
 
 ---
 
@@ -221,9 +223,9 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[4]</sup> and for
 
 5. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
 
-6. [D4055R0](https://wg21.link/d4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4055r0
+6. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
 
-7. [D4053R0](https://wg21.link/d4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/d4053r0
+7. [P4053R0](https://wg21.link/p4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4053r0
 
 8. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver Interface For Networking" (Dietmar K&uuml;hl, 2023). https://wg21.link/p2762r2
 
@@ -235,9 +237,11 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[4]</sup> and for
 
 12. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
 
-13. [D4054R0](https://wg21.link/d4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/d4054r0
+13. [P4054R0](https://wg21.link/p4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4054r0
 
-14. [D4050R0](https://wg21.link/d4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/d4050r0
+14. [P4050R0](https://wg21.link/p4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/p4050r0
+
+15. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 ---
 
@@ -556,8 +560,10 @@ struct awaitable_sender
 
             env_ = io_env{ex, st, nullptr};
 
-            bridge_ =
-                [](IoAw aw, Receiver rcvr)
+            bridge_ = [](
+                IoAw aw,
+                Receiver rcvr,
+                std::stop_token const* st)
                 -> detail::bridge_task<
                     IoAw, Receiver>
             {
@@ -568,9 +574,16 @@ struct awaitable_sender
                             result_type>)
                     {
                         co_await std::move(aw);
-                        beman::execution::
-                            set_value(
-                                std::move(rcvr));
+                        if (st->stop_requested())
+                            beman::execution::
+                                set_stopped(
+                                    std::move(
+                                        rcvr));
+                        else
+                            beman::execution::
+                                set_value(
+                                    std::move(
+                                        rcvr));
                     }
                     else if constexpr (
                         detail::is_ec_outcome_v<
@@ -579,36 +592,55 @@ struct awaitable_sender
                         auto result =
                             co_await
                                 std::move(aw);
-                        std::error_code ec;
-                        if constexpr (
-                            std::is_same_v<
-                                result_type,
-                                std::error_code>)
-                            ec = result;
-                        else
-                            ec = get<0>(result);
-                        if (!ec)
+                        if (st->stop_requested())
+                        {
                             beman::execution::
-                                set_value(
+                                set_stopped(
                                     std::move(
                                         rcvr));
+                        }
                         else
-                            beman::execution::
-                                set_error(
+                        {
+                            std::error_code ec;
+                            if constexpr (
+                                std::is_same_v<
+                                    result_type,
+                                    std::error_code
+                                    >)
+                                ec = result;
+                            else
+                                ec = get<0>(
+                                    result);
+                            if (!ec)
+                                beman::execution
+                                    ::set_value(
+                                    std::move(
+                                        rcvr));
+                            else
+                                beman::execution
+                                    ::set_error(
                                     std::move(
                                         rcvr),
                                     ec);
+                        }
                     }
                     else
                     {
                         auto result =
                             co_await
                                 std::move(aw);
-                        beman::execution::
-                            set_value(
-                                std::move(rcvr),
-                                std::move(
-                                    result));
+                        if (st->stop_requested())
+                            beman::execution::
+                                set_stopped(
+                                    std::move(
+                                        rcvr));
+                        else
+                            beman::execution::
+                                set_value(
+                                    std::move(
+                                        rcvr),
+                                    std::move(
+                                        result));
                     }
                 }
                 catch(...)
@@ -620,7 +652,8 @@ struct awaitable_sender
                                 ());
                 }
             }(std::move(aw_),
-                std::move(rcvr_));
+                std::move(rcvr_),
+                &env_.stop_token);
 
             bridge_.h_.promise().env_ =
                 &env_;
@@ -666,6 +699,135 @@ auto as_sender(IoAw&& aw)
     return awaitable_sender<
         std::decay_t<IoAw>>{
             std::forward<IoAw>(aw)};
+}
+
+namespace detail {
+
+template<class Sender>
+struct split_ec_sender
+{
+    using sender_concept =
+        beman::execution::sender_t;
+
+    using completion_signatures =
+        beman::execution::completion_signatures<
+            beman::execution::set_value_t(),
+            beman::execution::set_error_t(
+                std::error_code),
+            beman::execution::set_error_t(
+                std::exception_ptr),
+            beman::execution::set_stopped_t()>;
+
+    Sender sndr_;
+
+    template<class Receiver>
+    struct ec_receiver
+    {
+        using receiver_concept =
+            beman::execution::receiver_t;
+
+        Receiver rcvr_;
+
+        auto get_env() const noexcept
+        {
+            return beman::execution::get_env(
+                rcvr_);
+        }
+
+        void set_value(
+            std::error_code ec) && noexcept
+        {
+            if (!ec)
+                beman::execution::set_value(
+                    std::move(rcvr_));
+            else
+                beman::execution::set_error(
+                    std::move(rcvr_), ec);
+        }
+
+        void set_value() && noexcept
+        {
+            beman::execution::set_value(
+                std::move(rcvr_));
+        }
+
+        template<class E>
+        void set_error(E&& e) && noexcept
+        {
+            beman::execution::set_error(
+                std::move(rcvr_),
+                std::forward<E>(e));
+        }
+
+        void set_stopped() && noexcept
+        {
+            beman::execution::set_stopped(
+                std::move(rcvr_));
+        }
+    };
+
+    template<class Receiver>
+    struct op_state
+    {
+        using operation_state_concept =
+            beman::execution::
+                operation_state_t;
+
+        using inner_op_t = decltype(
+            beman::execution::connect(
+                std::declval<Sender>(),
+                std::declval<
+                    ec_receiver<Receiver>>()));
+
+        inner_op_t op_;
+
+        op_state(Sender sndr, Receiver rcvr)
+            : op_(beman::execution::connect(
+                std::move(sndr),
+                ec_receiver<Receiver>{
+                    std::move(rcvr)}))
+        {
+        }
+
+        op_state(op_state const&) = delete;
+        op_state(op_state&&) = delete;
+        op_state& operator=(
+            op_state const&) = delete;
+        op_state& operator=(
+            op_state&&) = delete;
+
+        void start() noexcept
+        {
+            beman::execution::start(op_);
+        }
+    };
+
+    template<class Receiver>
+    auto connect(Receiver rcvr) &&
+        -> op_state<Receiver>
+    {
+        return op_state<Receiver>(
+            std::move(sndr_),
+            std::move(rcvr));
+    }
+
+    template<class Receiver>
+    auto connect(Receiver rcvr) const&
+        -> op_state<Receiver>
+    {
+        return op_state<Receiver>(
+            sndr_, std::move(rcvr));
+    }
+};
+
+} // namespace detail
+
+template<class Sender>
+auto split_ec(Sender&& sndr)
+{
+    return detail::split_ec_sender<
+        std::decay_t<Sender>>{
+            std::forward<Sender>(sndr)};
 }
 
 } // namespace boost::capy

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4048R0: Coroutine-Native I/O For C++29</title>
+  <title>P4062R0: Retrospective: Coroutine Executors and P2464R0</title>
   <style type="text/css">
 
 @font-face {
@@ -842,1231 +842,924 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>Coroutine-Native I/O For C++29</h1>
+<h1>Retrospective: Coroutine Executors and P2464R0</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4048R0</p>
-  <p><strong>Date:</strong> 2026-03-09</p>
-  <p><strong>Audience:</strong> LEWG</p>
-  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Steve
-Gerbino <a href="mailto:steve@cppalliance.org" class="email">steve@cppalliance.org</a><br><strong></strong> Michael
-Vandeberg <a href="mailto:michael@cppalliance.org" class="email">michael@cppalliance.org</a><br><strong></strong> Mungo
-Gill <a href="mailto:mungo@cppalliance.org" class="email">mungo@cppalliance.org</a><br><strong></strong> Mohammad
-Nejati <a href="mailto:mohammad@cppalliance.org" class="email">mohammad@cppalliance.org</a></p>
+  <p><strong>Document Number:</strong> P4062R0</p>
+  <p><strong>Date:</strong> 2026-03-14</p>
+  <p><strong>Audience:</strong> LEWG, SG1</p>
+  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a></p>
 </div>
 
 <!-- Table of Contents -->
 <nav class="toc">
   <h2 class="toc-title">Table of Contents</h2>
   <ul>
-  <li><a href="#coroutine-native-io-for-c29" id="toc-coroutine-native-io-for-c29">Coroutine-Native I/O For
-  C++29</a>
-  <ul>
   <li><a href="#abstract" id="toc-abstract">Abstract</a></li>
   <li><a href="#revision-history" id="toc-revision-history">Revision
   History</a>
   <ul>
-  <li><a href="#r0-march-2026" id="toc-r0-march-2026">R0: March
-  2026</a></li>
+  <li><a href="#r0-march-2026-post-croydon-mailing" id="toc-r0-march-2026-post-croydon-mailing">R0: March 2026
+  (post-Croydon mailing)</a></li>
   </ul></li>
-  <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#the-evidence" id="toc-the-evidence">2. The Evidence</a>
+  <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a>
   <ul>
-  <li><a href="#what-we-built" id="toc-what-we-built">2.1 What We
-  Built</a></li>
-  <li><a href="#independent-adopters" id="toc-independent-adopters">2.2
-  Independent Adopters</a></li>
+  <li><a href="#p2464r0" id="toc-p2464r0">P2464R0</a></li>
+  <li><a href="#p2300r10" id="toc-p2300r10">P2300R10</a></li>
   </ul></li>
-  <li><a href="#what-we-found" id="toc-what-we-found">3. What We
-  Found</a></li>
-  <li><a href="#design-criteria" id="toc-design-criteria">4. Design
-  Criteria</a>
+  <li><a href="#history" id="toc-history">2. History</a>
   <ul>
-  <li><a href="#zero-overhead-for-features-not-used" id="toc-zero-overhead-for-features-not-used">4.1 Zero overhead for
-  features not used</a></li>
-  <li><a href="#tools-for-building-not-built-in-solutions" id="toc-tools-for-building-not-built-in-solutions">4.2 Tools for
-  building, not built-in solutions</a></li>
-  <li><a href="#abi-stability" id="toc-abi-stability">4.3 ABI
-  stability</a></li>
-  <li><a href="#backward-compatibility" id="toc-backward-compatibility">4.4 Backward compatibility</a></li>
-  <li><a href="#production-deployment" id="toc-production-deployment">4.5 Production deployment</a></li>
-  <li><a href="#modularity" id="toc-modularity">4.6 Modularity</a></li>
-  <li><a href="#language-library-co-design" id="toc-language-library-co-design">4.7 Language-library
-  co-design</a></li>
-  <li><a href="#convergence-with-existing-practice" id="toc-convergence-with-existing-practice">4.8 Convergence with
-  existing practice</a></li>
+  <li><a href="#the-evolution-of-scope" id="toc-the-evolution-of-scope">2.1 The Evolution of Scope</a></li>
+  <li><a href="#the-evolution-of-terminology" id="toc-the-evolution-of-terminology">2.2 The Evolution of
+  Terminology</a></li>
+  <li><a href="#the-two-framings" id="toc-the-two-framings">2.3 The Two
+  Framings</a></li>
   </ul></li>
-  <li><a href="#asio-continuity" id="toc-asio-continuity">5. Asio
-  Continuity</a>
+  <li><a href="#the-three-criteria" id="toc-the-three-criteria">3. The
+  Three Criteria</a></li>
+  <li><a href="#the-error-channel" id="toc-the-error-channel">4. The
+  Error Channel</a>
   <ul>
-  <li><a href="#the-asio-adapter" id="toc-the-asio-adapter">5.1 The Asio
-  Adapter</a></li>
-  <li><a href="#the-migration-path" id="toc-the-migration-path">5.2 The
-  Migration Path</a></li>
+  <li><a href="#the-lost-framing" id="toc-the-lost-framing">4.1 The Lost
+  Framing</a></li>
+  <li><a href="#the-coroutine-model" id="toc-the-coroutine-model">4.2
+  The Coroutine Model</a></li>
+  <li><a href="#the-downstream-consequence" id="toc-the-downstream-consequence">4.3 The Downstream
+  Consequence</a></li>
+  <li><a href="#the-causal-chain" id="toc-the-causal-chain">4.4 The
+  Causal Chain</a></li>
+  <li><a href="#the-steel-man" id="toc-the-steel-man">4.5 The Steel
+  Man</a></li>
   </ul></li>
-  <li><a href="#the-three-layer-architecture" id="toc-the-three-layer-architecture">6. The Three-Layer
-  Architecture</a></li>
-  <li><a href="#approach-to-standardization" id="toc-approach-to-standardization">7. Approach to
-  Standardization</a>
+  <li><a href="#lifecycle" id="toc-lifecycle">5. Lifecycle</a></li>
+  <li><a href="#composition" id="toc-composition">6. Composition</a>
   <ul>
-  <li><a href="#stage-one-pure-c-abstractions" id="toc-stage-one-pure-c-abstractions">7.1 Stage One: Pure C++
-  Abstractions</a></li>
-  <li><a href="#stage-two-platform-io" id="toc-stage-two-platform-io">7.2 Stage Two: Platform I/O</a></li>
-  <li><a href="#risk-separation" id="toc-risk-separation">7.3 Risk
-  Separation</a></li>
+  <li><a href="#what-the-quote-means" id="toc-what-the-quote-means">6.1
+  What the Quote Means</a></li>
+  <li><a href="#the-two-axes" id="toc-the-two-axes">6.2 The Two
+  Axes</a></li>
+  <li><a href="#complexity-and-evidence" id="toc-complexity-and-evidence">6.3 Complexity and Evidence</a></li>
+  <li><a href="#the-two-framings-in-code" id="toc-the-two-framings-in-code">6.4 The Two Framings in
+  Code</a></li>
+  <li><a href="#the-original-diagnosis" id="toc-the-original-diagnosis">6.5 The Original Diagnosis</a></li>
   </ul></li>
-  <li><a href="#the-paper-series" id="toc-the-paper-series">8. The Paper
-  Series</a>
-  <ul>
-  <li><a href="#paper-1-coroutines-for-io" id="toc-paper-1-coroutines-for-io">8.1 Paper 1: Coroutines for
-  I/O</a></li>
-  <li><a href="#paper-2-io-buffer-ranges" id="toc-paper-2-io-buffer-ranges">8.2 Paper 2: I/O Buffer
-  Ranges</a></li>
-  <li><a href="#paper-3-stream-concepts" id="toc-paper-3-stream-concepts">8.3 Paper 3: Stream Concepts</a></li>
-  <li><a href="#paper-4-coroutine-runtime" id="toc-paper-4-coroutine-runtime">8.4 Paper 4: Coroutine
-  Runtime</a></li>
-  <li><a href="#papers-5-7-timers-signals-files" id="toc-papers-5-7-timers-signals-files">8.5 Papers 5-7: Timers,
-  Signals, Files</a></li>
-  <li><a href="#papers-8-10-tcp-dns-udp" id="toc-papers-8-10-tcp-dns-udp">8.6 Papers 8-10: TCP, DNS,
-  UDP</a></li>
-  <li><a href="#paper-11-tls" id="toc-paper-11-tls">8.7 Paper 11:
-  TLS</a></li>
-  </ul></li>
-  <li><a href="#stdexecution" id="toc-stdexecution">9.
-  <code>std::execution</code></a>
-  <ul>
-  <li><a href="#what-it-provides" id="toc-what-it-provides">9.1 What It
-  Provides</a></li>
-  <li><a href="#domain-separation" id="toc-domain-separation">9.2 Domain
-  Separation</a></li>
-  <li><a href="#convergence-points" id="toc-convergence-points">9.3
-  Convergence Points</a></li>
-  <li><a href="#diversification-protects-the-timeline" id="toc-diversification-protects-the-timeline">9.4 Diversification
-  Protects the Timeline</a></li>
-  </ul></li>
-  <li><a href="#limitations" id="toc-limitations">10.
-  Limitations</a></li>
-  <li><a href="#timeline" id="toc-timeline">11. Timeline</a>
-  <ul>
-  <li><a href="#phase-1-stage-one-foundation-2026" id="toc-phase-1-stage-one-foundation-2026">11.1 Phase 1: Stage One
-  Foundation (2026)</a></li>
-  <li><a href="#phase-2-stage-two-begins-2027-h1" id="toc-phase-2-stage-two-begins-2027-h1">11.2 Phase 2: Stage Two
-  Begins (2027 H1)</a></li>
-  <li><a href="#phase-3-networking-2027-h2" id="toc-phase-3-networking-2027-h2">11.3 Phase 3: Networking (2027
-  H2)</a></li>
-  <li><a href="#phase-4-completion-2028" id="toc-phase-4-completion-2028">11.4 Phase 4: Completion
-  (2028)</a></li>
-  </ul></li>
-  <li><a href="#what-we-continue-to-maintain" id="toc-what-we-continue-to-maintain">12. What We Continue to
-  Maintain</a></li>
-  <li><a href="#stdio" id="toc-stdio">13. <code>std::io</code></a></li>
-  <li><a href="#references" id="toc-references">References</a></li>
+  <li><a href="#structured-concurrency" id="toc-structured-concurrency">7. Structured Concurrency</a></li>
+  <li><a href="#the-executor-is-application-policy" id="toc-the-executor-is-application-policy">8. The Executor Is
+  Application Policy</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
-  </ul></li>
+  <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
-<h1 id="coroutine-native-io-for-c29">Coroutine-Native I/O For C++29</h1>
 <h2 id="abstract">Abstract</h2>
-<p>This document presents a plan to standardize I/O for C++29. The plan
-is an eleven-paper series based on two libraries we built - Capy and
-Corosio - that implement coroutine-native I/O on C++20. Both are
-available today with independent adopters.</p>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>,
+“Ruminations on networking and executors,” identified three properties
+of <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup>, “A
+Unified Executors Proposal for C++,” executors: no error channel, no
+lifecycle for submitted work, and no generic composition. This paper
+checks whether those properties hold for the coroutine-native executor
+described in <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>, “Coroutines
+for I/O.” They do not. It also re-examines whether the original
+diagnosis of <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup> was
+correct. The diagnosis was a downstream consequence of the scope
+expansion and terminology shift documented in Section 2. The coroutine
+executor concept did not exist in its current form until <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup> was published
+in 2026; this analysis became possible only then. Section 2 traces the
+scope expansion and terminology shift that created <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup> from three
+independent executor models and erased the continuation framing from the
+API surface. Sections 3-6 evaluate the coroutine executor against <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s criteria.
+Sections 7-8 document structured concurrency and the executor
+concept.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
-<h3 id="r0-march-2026">R0: March 2026</h3>
+<h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
+mailing)</h3>
 <ul>
 <li>Initial version.</li>
 </ul>
-<hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>We are the authors of Capy and Corosio, a complete I/O stack built on
-C++20 coroutines: timers, files, signals, sockets, TLS, DNS. We have a
-stake in the outcome.</p>
-<p>Our design has boundaries. It cannot express compile-time work
-graphs. It does not support heterogeneous dispatch. It assumes
-cooperative multitasking. Those are real costs, and they define where
-coroutine-native I/O ends and where other models provide value.</p>
+<p>The authors developed and maintain <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[5]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
+and believe coroutine-native I/O is the correct foundation for
+networking in C++. The authors provide information, ask nothing, and
+serve at the pleasure of the chair.</p>
+<p>The authors are revisiting the historical record systematically. This
+paper is one of several. The goal is to understand - precisely and on
+the record - every decision that kept networking out of the C++
+standard. That effort requires re-examining consequential papers,
+including papers written by people the authors respect. Some of the
+conclusions are uncomfortable. But the committee has endured far greater
+discomfort from the consequences of decisions made with good intentions
+and incomplete evidence. If this work helps inform people in a way they
+find useful, the discomfort is worth bearing.</p>
+<h3 id="p2464r0">P2464R0</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> was
+consequential. It provided the analytical framework that led the
+committee to set aside the Networking TS and focus on the
+sender/receiver model. Decisions of that magnitude deserve periodic
+review. This paper provides one. Where the analysis finds that a claim
+does not hold - whether applied to the coroutine executor or to the
+original <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup>
+model - the authors say so. The intent is to ensure the committee’s
+record is accurate, not to assign blame.</p>
+<h3 id="p2300r10">P2300R10</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>
+critiqued <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup>. <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[6]</sup>,
+“std::execution,” addressed those deficiencies with the sender/receiver
+model. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>
+provides a second async model. The committee now has two implementations
+to evaluate against <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s criteria.
+This paper evaluates <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup> and uses <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[6]</sup> as a
+reference. Structural comparisons are observations, not arguments that
+<code>std::execution</code> should be modified or removed.</p>
 <hr />
-<h2 id="the-evidence">2. The Evidence</h2>
-<p>Every claim in this document is backed by published code. Every paper
-in the series is accompanied by a published library that implements it,
-a test suite, benchmarks where performance claims are made, and
-cross-platform CI. The committee can clone the repo and run the tests
-and examples.</p>
-<h3 id="what-we-built">2.1 What We Built</h3>
-<p>These two libraries represent the work to be standardized. Neither
-requires Boost:</p>
+<h2 id="history">2. History</h2>
+<p>The executor that <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> critiqued was
+not the executor that Kohlhoff built. Two independent causal chains - a
+scope expansion and a terminology shift - converged to erase the
+original design intent from the API surface. By the time <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> was written,
+the only framing visible was what this paper calls the work framing. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s conclusions
+are internally consistent under that framing. They do not hold under the
+original framing - what this paper calls the continuation framing. The
+following subsections document both chains.</p>
+<h3 id="the-evolution-of-scope">2.1 The Evolution of Scope</h3>
+<p>Three independent executor models existed by 2014, each deployed in
+its domain. The committee directed the authors to unify them into a
+single abstraction. The published record contains a preference and a
+direction. It does not contain evidence that unification would work.</p>
 <table>
 <colgroup>
-<col style="width: 16%" />
-<col style="width: 36%" />
-<col style="width: 46%" />
-</colgroup>
-<thead>
-<tr>
-<th>Library</th>
-<th>Role</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Capy</td>
-<td>Abstract layer: execution model, buffer concepts, stream concepts,
-concurrency primitives</td>
-<td>Published. Pure C++20. No platform dependency</td>
-</tr>
-<tr>
-<td>Corosio</td>
-<td>Platform layer: sockets, timers, DNS, TLS, signals</td>
-<td>Published. IOCP, epoll, kqueue, select. Requires Capy</td>
-</tr>
-</tbody>
-</table>
-<p>Software we are building on this foundation:</p>
-<table>
-<colgroup>
-<col style="width: 16%" />
-<col style="width: 38%" />
-<col style="width: 45%" />
-</colgroup>
-<thead>
-<tr>
-<th>Library</th>
-<th>Role</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Boost.Http</td>
-<td>HTTP/1.1 server, sans-I/O</td>
-<td>In Development. Compiled once against <code>any_stream</code>,
-ABI-stable</td>
-</tr>
-<tr>
-<td>Boost.Burl</td>
-<td>HTTP client</td>
-<td>In Development</td>
-</tr>
-<tr>
-<td>Boost.Beast2</td>
-<td>Successor to Boost.Beast</td>
-<td>In Development</td>
-</tr>
-<tr>
-<td>Boost.WebSocket</td>
-<td>WebSocket protocol, sans-I/O</td>
-<td>Planned</td>
-</tr>
-</tbody>
-</table>
-<h3 id="independent-adopters">2.2 Independent Adopters</h3>
-<p>These libraries are maintained by other Boost authors. Each adoption
-is an independent data point:</p>
-<table>
-<colgroup>
-<col style="width: 13%" />
-<col style="width: 22%" />
-<col style="width: 63%" />
-</colgroup>
-<thead>
-<tr>
-<th>Library</th>
-<th>Author</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Boost.MySQL</td>
-<td>Ruben Perez</td>
-<td>Migrating to Corosio</td>
-</tr>
-<tr>
-<td>Boost.Redis</td>
-<td>Marcelo Zimbres Silva</td>
-<td>Experimental port completed; conversion reports published on the
-Boost Developers Mailing List</td>
-</tr>
-<tr>
-<td>Boost.Postgres</td>
-<td>(upcoming)</td>
-<td>Building on Corosio from day one</td>
-</tr>
-</tbody>
-</table>
-<p>A production trading infrastructure company is exploring Corosio for
-high-performance networking. This is money on the wire.</p>
-<hr />
-<h2 id="what-we-found">3. What We Found</h2>
-<p>Asio got many things right. We built on its stream model, its buffer
-sequences, its executor architecture. We started from C++20.</p>
-<p>The committee designed C++20 coroutines for generality: async
-patterns, lazy evaluation, generators. We used them directly for I/O and
-found they resolve structural problems unique to C++ - problems that do
-not exist in Go, Rust, or Python, and that have stalled networking
-standardization for two decades.</p>
-<p>Five properties of C++20 coroutines combine into a substrate suited
-to I/O:</p>
-<ol type="1">
-<li><p><strong>Type erasure is structural.</strong>
-<code>coroutine_handle&lt;&gt;</code> erases the coroutine’s type. The
-frame is the erasure. <code>task&lt;T&gt;</code> has one template
-parameter. <code>any_stream</code> works without per-operation
-allocation. The compiler provides the type erasure that template-based
-designs must build by hand.</p></li>
-<li><p><strong>Promise customization.</strong> <code>promise_type</code>
-controls allocation, suspension, resumption, and error handling -
-exactly the control points I/O needs. The IoAwaitable protocol uses
-<code>await_suspend</code> to propagate the executor, stop token, and
-frame allocator. No language extensions required.</p></li>
-<li><p><strong>Stackless frames.</strong> Each coroutine frame is
-independently allocated, independently suspendable, independently
-resumable. This maps directly to how operating systems do I/O: each
-operation suspends independently, the kernel completes them in any
-order, the reactor resumes them individually.</p></li>
-<li><p><strong>Symmetric transfer.</strong> <code>await_suspend</code>
-returning <code>coroutine_handle&lt;&gt;</code> enables zero-overhead
-context switching. If already on the correct thread, return the handle
-for direct resumption; otherwise post and return
-<code>noop_coroutine()</code>. No stack buildup.</p></li>
-<li><p><strong>Frame as state.</strong> Local variables survive across
-suspension in the compiler-generated frame. The coroutine frame is
-always allocated. The state it carries is free relative to the frame
-cost. This subsidizes type erasure: <code>any_stream</code> wraps any
-transport behind a vtable, and the operation state lives in the caller’s
-frame, which already exists.</p></li>
-</ol>
-<p>No single property is the insight. The five properties converge to
-resolve problems unique to C++:</p>
-<table>
-<colgroup>
-<col style="width: 13%" />
-<col style="width: 36%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Problem</th>
-<th>Why C++-specific</th>
-<th>Coroutine resolution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Template explosion</td>
-<td>Go has no templates</td>
-<td><code>coroutine_handle&lt;&gt;</code> type erasure eliminates
-template metaprogramming</td>
-</tr>
-<tr>
-<td>Compile times</td>
-<td>Rust does not have this problem at C++ scale</td>
-<td><code>any_stream</code> compiles once and ships as a binary</td>
-</tr>
-<tr>
-<td>Allocation control</td>
-<td>Python has no user-facing allocator model</td>
-<td>Frame allocator propagation gives users control where it
-matters</td>
-</tr>
-<tr>
-<td>ABI stability</td>
-<td>The committee’s twenty-year wound</td>
-<td><code>any_stream</code>’s ABI is based on a forty year-old
-contract</td>
-</tr>
-</tbody>
-</table>
-<p>The committee built five independent language mechanisms. Together
-they produce a design where correctness, ergonomics, and performance
-align rather than trade against each other.</p>
-<hr />
-<h2 id="design-criteria">4. Design Criteria</h2>
-<p>We identified eight requirements for I/O in the standard. Here is how
-our design addresses each.</p>
-<h3 id="zero-overhead-for-features-not-used">4.1 Zero overhead for
-features not used</h3>
-<p>The three-layer architecture (Section 6) gives every I/O object an
-abstract layer (virtual dispatch, ABI-stable), a concrete layer
-(protocol-specific, separately compilable), and a native layer
-(templated, fully inlined). The user who needs zero overhead uses the
-native layer. The user who needs ABI stability uses the abstract layer.
-Neither pays for the other.</p>
-<h3 id="tools-for-building-not-built-in-solutions">4.2 Tools for
-building, not built-in solutions</h3>
-<p>Stream concepts are tools. Buffer concepts are vocabulary. The paper
-series does not propose an HTTP library or a WebSocket library. It
-proposes the abstractions that HTTP and WebSocket libraries are built
-from. The Boost libraries being ported or built on top of Corosio are
-evidence the model works.</p>
-<h3 id="abi-stability">4.3 ABI stability</h3>
-<p><code>any_stream</code> has a fixed set of operations that it
-type-erases. Those operations will not change because the contract has
-not changed in forty years. Libraries that accept
-<code>any_stream&amp;</code> compile once and ship as <code>.so</code> /
-<code>.dll</code> / <code>.a</code> files. New transports plug in
-without recompilation.</p>
-<p>Coroutines make this possible. When a coroutine calls
-<code>co_await stream.read_some(buf)</code>, the caller’s frame persists
-across suspension. That frame is already allocated.
-<code>any_stream</code> can type-erase for free because the operation
-state is not a template; it is independent of the coroutine that awaits
-it. The coroutine frame allocation we cannot avoid subsidizes the type
-erasure we want.</p>
-<h3 id="backward-compatibility">4.4 Backward compatibility</h3>
-<p>Pure C++20. No language extensions. No compiler intrinsics. Works
-with every conforming compiler today.</p>
-<h3 id="production-deployment">4.5 Production deployment</h3>
-<p>The libraries are available today. Cross-platform: IOCP, epoll,
-kqueue. Three independent adopters (MySQL, Redis, Postgres). One
-institutional deployment in production trading infrastructure. HTTP/1.1,
-HTTP/2, WebSocket, and TLS will be running on these abstractions.</p>
-<h3 id="modularity">4.6 Modularity</h3>
-<p>Each paper proposes the narrowest abstraction that delivers value on
-its own. Papers 1-4 have no platform dependency. Paper 2 (buffer
-concepts) has no async dependency. Each paper depends only on what came
-before in the series. No paper requires unfinished work by a different
-author.</p>
-<h3 id="language-library-co-design">4.7 Language-library co-design</h3>
-<p>The committee designed C++20 coroutines as language features. This
-series uses them as library infrastructure. The IoAwaitable protocol
-exploits <code>promise_type</code>, <code>await_suspend</code>, and
-symmetric transfer to propagate execution context, stop tokens, and
-frame allocators. Language design is library design.</p>
-<h3 id="convergence-with-existing-practice">4.8 Convergence with
-existing practice</h3>
-<table>
-<colgroup>
-<col style="width: 9%" />
-<col style="width: 23%" />
-<col style="width: 25%" />
 <col style="width: 18%" />
-<col style="width: 22%" />
-</colgroup>
-<thead>
-<tr>
-<th>Ecosystem</th>
-<th>Read</th>
-<th>Write</th>
-<th>Buffer</th>
-<th>Scatter/gather</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>BSD (1983)</td>
-<td><code>read()</code></td>
-<td><code>write()</code></td>
-<td><code>void*</code> + len</td>
-<td><code>readv</code>/<code>writev</code></td>
-</tr>
-<tr>
-<td>POSIX</td>
-<td><code>readv()</code></td>
-<td><code>writev()</code></td>
-<td><code>iovec</code></td>
-<td><code>iovec[]</code></td>
-</tr>
-<tr>
-<td>Asio</td>
-<td><code>async_read_some()</code></td>
-<td><code>async_write_some()</code></td>
-<td><code>const_buffer</code></td>
-<td><code>ConstBufferSequence</code></td>
-</tr>
-<tr>
-<td>Go</td>
-<td><code>io.Reader</code></td>
-<td><code>io.Writer</code></td>
-<td><code>[]byte</code></td>
-<td><code>io.ReadFrom</code></td>
-</tr>
-<tr>
-<td>Rust</td>
-<td><code>AsyncRead</code></td>
-<td><code>AsyncWrite</code></td>
-<td><code>&amp;[u8]</code></td>
-<td><code>vectored</code></td>
-</tr>
-<tr>
-<td>.NET</td>
-<td><code>Stream.ReadAsync()</code></td>
-<td><code>Stream.WriteAsync()</code></td>
-<td><code>Memory&lt;byte&gt;</code></td>
-<td><code>ReadOnlySequence&lt;byte&gt;</code></td>
-</tr>
-<tr>
-<td>Ours</td>
-<td><code>ReadStream::read_some()</code></td>
-<td><code>WriteStream::write_some()</code></td>
-<td><code>const_buffer</code></td>
-<td><code>ConstBufferSequence</code></td>
-</tr>
-</tbody>
-</table>
-<p>Seven independent ecosystems. Same operations. Same shape. The
-standard is not inventing a new abstraction. It is formalizing forty
-years of convergence.</p>
-<hr />
-<h2 id="asio-continuity">5. Asio Continuity</h2>
-<p>This work builds on Asio, and we acknowledge that debt.</p>
-<p>Asio has been used in production worldwide for over twenty years. It
-is the foundation of the Networking TS. Boost.Beast, Boost.MySQL,
-Boost.Redis, and hundreds of proprietary codebases depend on it. The
-committee has not been able to standardize it, but the operations it
-models - <code>async_read_some</code>, <code>async_write_some</code>,
-buffer sequences, executors - are the same operations every I/O
-framework arrives at independently.</p>
-<p>The shift from C++11 to C++20 changes what is possible. Asio’s named
-requirements become C++20 concepts. Its callback-based completion tokens
-become coroutine awaitables. Its stream model - the same
-<code>read_some</code> / <code>write_some</code> pair - gains structural
-type erasure through coroutine frames. The operations have not changed.
-The language has.</p>
-<h3 id="the-asio-adapter">5.1 The Asio Adapter</h3>
-<p>Paper 1 delivers immediate value to existing Asio users. A small
-adapter wraps any Asio executor to satisfy the <code>Executor</code>
-concept. With this adapter, Asio users get <code>task&lt;T&gt;</code> as
-a drop-in replacement for <code>asio::awaitable&lt;T&gt;</code>.</p>
-<p>Three gains:</p>
-<ol type="1">
-<li><p><strong>Physical insulation.</strong> Today,
-<code>asio::awaitable&lt;T&gt;</code> forces the Asio dependency into
-every header that names the return type. <code>task&lt;T&gt;</code>
-confines the Asio dependency to the <code>.cpp</code> file that touches
-the socket. The header declares
-<code>task&lt;response&gt; handle_request(any_stream&amp;)</code>.
-Consumers include neither Asio nor Corosio.</p></li>
-<li><p><strong>Compilation improvement.</strong> Fewer translation units
-include Asio headers. The heavy machinery - executor model, completion
-tokens, socket options - is confined to the files that need it.</p></li>
-<li><p><strong>Backend insulation.</strong> Swap Asio for Corosio by
-recompiling one <code>.cpp</code> file. Consumers never recompile.
-Headers do not change.</p></li>
-</ol>
-<p>Frame allocator propagation also works through the adapter. Recycling
-allocators on MSVC yield a 3.1x throughput improvement (<a href="https://wg21.link/p4007r0">P4007R0</a><sup>[3]</sup> Section
-5).</p>
-<h3 id="the-migration-path">5.2 The Migration Path</h3>
-<p>Not “rewrite your application.” Recompile one file.</p>
-<p>The business logic accepts <code>any_stream&amp;</code> and returns
-<code>task&lt;T&gt;</code>. The <code>.cpp</code> file that creates the
-socket includes Asio (or Corosio, or any conforming backend). The
-compilation boundary is the migration boundary. Cross it at your own
-pace.</p>
-<hr />
-<h2 id="the-three-layer-architecture">6. The Three-Layer
-Architecture</h2>
-<p>Every I/O object exposes three API layers.</p>
-<p><strong>Abstract.</strong> <code>io_stream</code>,
-<code>io_read_stream</code>, <code>io_write_stream</code>.
-Protocol-agnostic, virtual dispatch, separately compilable, no platform
-headers.</p>
-<p><strong>Concrete.</strong> <code>tcp_socket</code>,
-<code>timer</code>, <code>signal_set</code>. Full protocol-specific API,
-still virtual dispatch, still separately compilable.</p>
-<p><strong>Native.</strong>
-<code>native_tcp_socket&lt;Backend&gt;</code>. Templated on the platform
-backend. Member function shadowing eliminates the vtable. Full
-inlining.</p>
-<p>The three layers share a single inheritance chain:</p>
-<pre><code>         io_stream                    abstract (Layer 3)
-             |
-        tcp_socket                    concrete (Layer 2)
-             |
-native_tcp_socket&lt;Backend&gt;            native   (Layer 1)</code></pre>
-<table>
-<colgroup>
-<col style="width: 17%" />
-<col style="width: 25%" />
+<col style="width: 2%" />
+<col style="width: 55%" />
 <col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Step</th>
+<th>Year</th>
+<th>What happened</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three models</td>
+<td>2014</td>
+<td>Kohlhoff (networking), Hoberock/Garland (GPU), Mysen (thread
+pools)</td>
+<td>Each deployed, each working</td>
+</tr>
+<tr>
+<td>SG1 Redmond</td>
+<td>2014</td>
+<td>“Start with Mysen’s proposal” - directed to unify (<a href="https://wg21.link/n4199">N4199</a><sup>[21]</sup>)</td>
+<td>Straw poll, no prototype</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0443r0">P0443R0</a><sup>[20]</sup></td>
+<td>2016</td>
+<td>“Unifies three separate executor design tracks”</td>
+<td>No prototype, no experiment</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0761r2">P0761R2</a><sup>[22]</sup></td>
+<td>2018</td>
+<td>Design document published</td>
+<td>No analysis of domain loss</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup></td>
+<td>2020</td>
+<td>Final unified proposal</td>
+<td>Never deployed as unified</td>
+</tr>
+</tbody>
+</table>
+<p>What the published record does not contain:</p>
+<ul>
+<li>No analysis of whether networking, GPU dispatch, and thread pools
+<em>can</em> share a single abstraction without losing domain
+semantics.</li>
+<li>No prototype demonstrating that a unified concept works for all
+three domains.</li>
+<li>No experiment comparing unified and domain-specific approaches.</li>
+<li>No discussion of what each domain would lose in the
+unification.</li>
+<li>No evaluation of whether the <code>parallel_for</code> dispatch
+problem - an algorithm selecting a facility - is the same problem as a
+networking library scheduling continuations.</li>
+</ul>
+<p>Kohlhoff described what happened in <a href="https://wg21.link/p1791r0">P1791R0</a><sup>[19]</sup>:</p>
+<blockquote>
+<p>“We all saw our own requirements as essential and therefore
+universally applicable. As a result initial compromises were focused on
+gaining buy-in from other parties that those requirements were in fact
+universal and should be accepted as such. A significant part of the
+consensus building experience was to realise that while they may be
+essential in a particular domain, they were not universal.”</p>
+</blockquote>
+<p>WG21 is where great ideas go to become good ideas (Falco). While
+Falco is known for sharp phrasing, this one is a reminder, not a
+criticism - consensus is how C++ ships; yet consensus without deployment
+evidence drifts toward the average, and the average is not where we want
+to be. Three working models were replaced by one that had never been
+deployed. The domain-specific requirements that made each model correct
+for its domain were stripped because they were not universal. The result
+served no domain as well as the originals served theirs.</p>
+<h3 id="the-evolution-of-terminology">2.2 The Evolution of
+Terminology</h3>
+<p>Independently of the scope expansion, the terminology shifted. What
+began as continuation-scheduling primitives was progressively renamed,
+demoted, and erased until the continuation framing was no longer visible
+on the API surface.</p>
+<table>
+<colgroup>
+<col style="width: 39%" />
+<col style="width: 2%" />
+<col style="width: 57%" />
+</colgroup>
+<thead>
+<tr>
+<th>Paper</th>
+<th>Year</th>
+<th>Continuation status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://wg21.link/p0113r0">P0113R0</a><sup>[10]</sup></td>
+<td>2015</td>
+<td>First-class: <code>defer</code> = “continuation of the caller”</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0688r0">P0688R0</a><sup>[11]</sup></td>
+<td>2017</td>
+<td>Demoted to <code>prefer(is_continuation)</code> hint</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0761r2">P0761R2</a><sup>[22]</sup></td>
+<td>2018</td>
+<td>Optional property, framed as “may execute more efficiently”</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p1525r0">P1525R0</a><sup>[13]</sup></td>
+<td>2019</td>
+<td>Pure work language. One incidental mention of “continuation”</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p1660r0">P1660R0</a><sup>[12]</sup></td>
+<td>2019</td>
+<td>“Eagerly submits work.” Executor = “factory for execution
+agents”</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup></td>
+<td>2020</td>
+<td>Section heading: “Executors Execute Work.” Continuation property
+gone</td>
+</tr>
+<tr>
+<td><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup></td>
+<td>2021</td>
+<td>“Work-submitter.” Credits “work-executing model.” No
+<code>async_result</code>, no <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup></td>
+</tr>
+</tbody>
+</table>
+<p>By 2021, the continuation framing had been erased from the API
+surface. The work framing was all that remained. Each step was locally
+reasonable. The cumulative effect was that a careful reviewer, analyzing
+the API as presented, could not see the continuation semantics that had
+been stripped. The terminology determined the analysis. The committee
+renamed continuation-scheduling to <code>execute</code>, lost the
+continuation semantics, and then misinterpreted the result for lacking
+those semantics.</p>
+<p>Under the work framing, the executor is the composition mechanism -
+and it has no error channel, no lifecycle, no generic composition. Under
+the continuation framing, the executor is a scheduling policy and
+<code>async_result</code> is the composition mechanism. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> never
+mentions <code>async_result</code>, completion tokens, or <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup>. The work
+framing made them invisible.</p>
+<h3 id="the-two-framings">2.3 The Two Framings</h3>
+<p><strong>The continuation framing.</strong>
+<code>dispatch</code>/<code>post</code>/<code>defer</code> schedule a
+continuation on an execution context. The callable is a resumption
+handle. The operating system performs the work. The result is delivered
+to the continuation when it wakes up. The executor never touches the
+result. This is where we were.</p>
+<p><strong>The work framing.</strong> <code>execute(F&amp;&amp;)</code>
+submits work. The callable is a unit of work. The executor runs it. If
+dropped, the work and its result are lost. Error handling, lifecycle,
+and composition are the executor’s responsibility. This is what it
+became.</p>
+<p>Sections 4-6 evaluate <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s claims
+under both framings.</p>
+<hr />
+<h2 id="the-three-criteria">3. The Three Criteria</h2>
+<p><a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> execute<span class="op">(</span>F<span class="op">&amp;&amp;</span> f<span class="op">);</span></span></code></pre></div>
+<p>Coroutine executor (<a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> dispatch<span class="op">(</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> post<span class="op">(</span><span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span></code></pre></div>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>
+identified three deficiencies in <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup> that made
+it inadequate as a foundation for async programming:</p>
+<ol type="1">
+<li>No error channel.</li>
+<li>No lifecycle for submitted work.</li>
+<li>No generic composition.</li>
+</ol>
+<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[6]</sup>
+addressed all three with the sender/receiver model. A coroutine executor
+is a type satisfying the <code>Executor</code> concept described in <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>. This paper
+checks whether the three properties hold for
+<code>dispatch(coroutine_handle&lt;&gt;)</code> and
+<code>post(coroutine_handle&lt;&gt;)</code>, and re-examines whether
+they held for <code>execute(F&amp;&amp;)</code>.</p>
+<hr />
+<h2 id="the-error-channel">4. The Error Channel</h2>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> argued
+that <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup>’s
+<code>execute(F&amp;&amp;)</code> has no error channel at the call site,
+and that errors after the call are an “irrecoverable data loss.” This
+section addresses both claims.</p>
+<h3 id="the-lost-framing">4.1 The Lost Framing</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>:</p>
+<blockquote>
+<p>“The only thing that knows whether the work succeeded is the same
+facility that accepted the work submission.”</p>
+</blockquote>
+<p>Three terms. All three are downstream consequences of the work
+framing that the rename created. None of them hold under the
+continuation framing.</p>
+<ol type="1">
+<li><p>“The work.” Under the continuation framing, there is no work. The
+operating system performs the I/O. The callable is a continuation that
+resumes after the OS completes. It is not work. It is the opposite of
+work - it is the thing that was suspended while the work
+happened.</p></li>
+<li><p>“Succeeded.” Under the continuation framing, a continuation does
+not succeed or fail. It resumes. The I/O result - error code, byte count
+- is delivered to the continuation when it wakes up. The continuation
+did not produce the result. The OS did.</p></li>
+<li><p>“Accepted the work submission.” Under the continuation framing,
+no work was submitted. The caller yielded control. As documented in
+Section 2, Kohlhoff’s original API named this <code>dispatch</code>,
+<code>post</code>, and <code>defer</code> - continuation-scheduling
+primitives. The committee renamed them to <code>execute</code>,
+reframing a yield as a submission.</p></li>
+</ol>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>
+analyzed the renamed API under the work framing. The use cases it
+describes - queue full, executor shutting down - presuppose a
+fire-and-forget model where a caller hands off work and moves on. The
+original API did not work that way. The rename obscured this.</p>
+<p>The authors accepted the work framing too. It was not until
+<code>dispatch</code> and <code>post</code> reappeared in the coroutine
+executor - taking <code>coroutine_handle&lt;&gt;</code>, not
+<code>F&amp;&amp;</code> - that the distinction resurfaced.</p>
+<h3 id="the-coroutine-model">4.2 The Coroutine Model</h3>
+<p>The coroutine model respects the original semantics because
+structurally it has no choice. <code>co_await</code> suspends the
+caller. It is not running. It does not need an error channel back
+because it is not alive to act on one. It will either be resumed with a
+result or destroyed, propagating cancellation. There is no state where
+the caller is alive, running, and uninformed.
+<code>coroutine_handle&lt;&gt;</code> is manifestly a suspended
+continuation, not a unit of work. The fire-and-forget use cases do not
+arise. Coroutines are not fire-and-forget. Applying the fire-and-forget
+analysis to a suspension-based model is a category error.</p>
+<h3 id="the-downstream-consequence">4.3 The Downstream Consequence</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> said <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[3]</sup> executors
+“toss error information into a lake.”</p>
+<p>Under the continuation framing, there is no error information. At the
+point of the <code>execute</code> call, the I/O has not completed. The
+operating system has not returned a result. There is no error code.
+There is no byte count. The only thing being passed to the executor is a
+resumption handle: this is how you resume me. That is all a callback is.
+That is all a future is. That is all a completion token is. That is all
+a <code>coroutine_handle&lt;&gt;</code> is.</p>
+<p>If the executor drops the handle, the loss is not “error
+information.” The loss is the resumption itself. The caller will never
+wake up. That is a real problem - but it is not the problem <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> described. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> described
+information loss. The actual problem is continuation loss. These are
+different problems with different solutions.</p>
+<p>The distinction between information loss and continuation loss is
+real. Under the work framing, the distinction is invisible - if
+<code>execute</code> submits work, then losing the work loses its
+result. Under the continuation framing, the distinction is obvious - a
+continuation carries no result because the result does not yet exist.
+The framing determined the diagnosis. The framing was a downstream
+consequence of the steps documented in Section 2.</p>
+<h3 id="the-causal-chain">4.4 The Causal Chain</h3>
+<p>Trace the path of an asynchronous read in the Networking TS:</p>
+<ol type="1">
+<li><p>The caller initiates
+<code>async_read(socket, buffer, handler)</code>. The implementation
+stores the handler - a completion token - and begins the I/O. The
+handler means: this is how you resume me.</p></li>
+<li><p>The operating system performs the read. The caller is not
+running. The handler is not running. The OS is doing the work.</p></li>
+<li><p>The OS completes. The implementation now holds the result: an
+error code and a byte count. It calls
+<code>executor.dispatch(bound_handler)</code>, where
+<code>bound_handler</code> carries the result and the original handler
+together. In the committee’s renamed API, this became
+<code>executor.execute(bound_handler)</code>.</p></li>
+<li><p>The executor resumes the handler on the correct execution
+context. The handler receives the error code and the byte
+count.</p></li>
+</ol>
+<p>At no point in this chain is error information “tossed into a lake.”
+The result does not exist at step 1. The result is created by the OS at
+step 3. The result is bound into the handler before the executor sees
+it. The executor never touches the result. It never inspects it. It
+never drops it. The executor’s only job is to resume the handler on the
+right context. The result travels inside the handler, not alongside
+it.</p>
+<p>Under the work framing, this chain looks like information loss - the
+executor receives work and its result, and if the executor drops it, the
+result is lost. Under the continuation framing, the chain looks
+different: the executor receives a resumption handle, the result does
+not yet exist, and there is nothing to lose. Both readings are
+internally consistent. They differ because the framing differs. The
+rename in Section 2.2 determined which framing was visible.</p>
+<h3 id="the-steel-man">4.5 The Steel Man</h3>
+<p>The strongest form of <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s claim: the
+OS completes the I/O, the result exists, and the executor drops the
+continuation. What happens in each model?</p>
+<p><strong>Networking TS:</strong></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>async_read<span class="op">(</span>socket<span class="op">,</span> buffer<span class="op">,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span>error_code ec<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        process<span class="op">(</span>ec<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// caller returns here - gone</span></span></code></pre></div>
+<p>The caller returned at the call site. The caller is gone - back to
+the event loop or up the call stack. If the executor drops the bound
+handler, a future action does not happen. Nobody is waiting. Nobody is
+hung. Nobody lost information they were holding. The result was created
+by the OS, bound into the handler, and destroyed with the handler. It
+was never delivered to anyone. This is a dropped packet, not a lost
+letter.</p>
+<p><strong>Coroutine model:</strong></p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> socket<span class="op">.</span>read_some<span class="op">(</span>buffer<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// coroutine is suspended</span></span></code></pre></div>
+<p>The coroutine is suspended. The ownership contract requires the
+executor to resume or destroy. If it destroys the handle, the coroutine
+frame is destroyed, the parent is notified via destruction propagation.
+Nobody is hung. The result was never delivered but the coroutine was
+asleep - you cannot lose information you never received.</p>
+<p><code>sync_wait</code> is a testing and bridging utility, not a
+production async pattern. This comparison is limited to models where the
+initiator is asynchronous.</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
 <col style="width: 33%" />
+<col style="width: 32%" />
 </colgroup>
 <thead>
 <tr>
-<th>Property</th>
-<th>Abstract</th>
-<th>Concrete</th>
-<th>Native</th>
+<th>Model</th>
+<th>Initiator state</th>
+<th>Result</th>
+<th>Program state</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Compilation speed</td>
-<td>Fastest</td>
-<td>Fast</td>
-<td>Slowest (platform headers + templates)</td>
+<td>Networking TS</td>
+<td>Gone (returned)</td>
+<td>Destroyed with handler</td>
+<td>Not hung</td>
 </tr>
 <tr>
-<td>Separate compilation</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Call overhead</td>
-<td>Virtual dispatch</td>
-<td>Virtual dispatch</td>
-<td>None (direct / inlined)</td>
-</tr>
-<tr>
-<td>API surface</td>
-<td>Protocol-agnostic (bytes)</td>
-<td>Full protocol-specific API</td>
-<td>Same as concrete, fully inlined</td>
-</tr>
-<tr>
-<td>Use case</td>
-<td>Libraries, generic algorithms</td>
-<td>Application code</td>
-<td>Hot paths, benchmarks</td>
+<td>Coroutine model</td>
+<td>Suspended</td>
+<td>Destroyed with operation state</td>
+<td>Not hung (ownership contract)</td>
 </tr>
 </tbody>
 </table>
-<p>The author chooses the layer. Users who need ABI stability stay at
-the abstract layer. Users who need zero-overhead dispatch drop to the
-native layer. Neither forces a choice on the other.</p>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> used
+“information loss” to reject the Networking TS. The Networking TS cannot
+lose information because the initiator returned - there is nobody to
+lose it to. The coroutine model cannot hang because the ownership
+contract forces cleanup. Neither model leaves a thread alive, waiting,
+and permanently uninformed.</p>
 <hr />
-<h2 id="approach-to-standardization">7. Approach to Standardization</h2>
-<p>We are:</p>
+<h2 id="lifecycle">5. Lifecycle</h2>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>:</p>
+<blockquote>
+<p>“A P0443 executor is not an executor. It’s a work-submitter.”</p>
+</blockquote>
+<p>The work framing is inconsistent with the continuation framing. Under
+the continuation framing, the callback is a continuation - it is how the
+initiator resumes after the OS completes. The executor takes it and
+resumes it on a context. That is all it does.</p>
+<blockquote>
+<p>“Trying to entertain the fantasy that the work submission and result
+observation are separable concepts is just <em>wrong</em>.”</p>
+</blockquote>
+<p>Under the continuation framing, work submission and result
+observation are not separable because they are not separate things. The
+executor takes a continuation and resumes it on a context. The work is
+done by the operating system. The result is delivered <em>to</em> the
+continuation when it resumes - result observation is not separable from
+the continuation because the result arrives inside it. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> diagnosed a
+lifecycle problem under the work framing. Under the continuation
+framing, the problem does not arise.</p>
+<p>The coroutine model makes the lifecycle explicit.</p>
+<p><code>post(coroutine_handle&lt;&gt;)</code> has two call-site
+dispositions:</p>
 <ul>
-<li>Users first,</li>
-<li>Implementors second, and</li>
-<li>Proposers third.</li>
+<li><strong>Normal return.</strong> Ownership transferred. The executor
+holds the handle and is responsible for it.</li>
+<li><strong>Exception.</strong> Scheduling rejected. The caller still
+owns the handle.</li>
 </ul>
-<p>Our approach to standardizing I/O is a layered series of papers: each
-builds on the last, each is backed by implementation experience, and
-each delivers value on its own.</p>
-<p>The series evolves in two stages, mirroring the library split. The
-first four papers correspond to Capy; the remainder correspond to
-Corosio.</p>
-<h3 id="stage-one-pure-c-abstractions">7.1 Stage One: Pure C++
-Abstractions</h3>
-<table>
-<colgroup>
-<col style="width: 2%" />
-<col style="width: 28%" />
-<col style="width: 68%" />
-</colgroup>
-<thead>
-<tr>
-<th>#</th>
-<th>Paper</th>
-<th>Abstraction</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td><strong>Coroutines for I/O</strong></td>
-<td>Coroutine execution protocol, executor model, launch</td>
-</tr>
-<tr>
-<td>2</td>
-<td><strong>I/O Buffer Ranges</strong></td>
-<td>Range-based buffer concepts for scatter/gather I/O</td>
-</tr>
-<tr>
-<td>3</td>
-<td><strong>Stream Concepts</strong></td>
-<td>Coroutine stream concepts for async byte I/O</td>
-</tr>
-<tr>
-<td>4</td>
-<td><strong>Coroutine Runtime</strong></td>
-<td>Thread pools, strands, structured concurrency</td>
-</tr>
-</tbody>
-</table>
-<p>Pure C++20. No platform code. These abstractions enable sans-I/O
-protocols in the ecosystem: HTTP, WebSocket, TLS wrappers.</p>
-<p>If all we get is Stage One, the standard has delivered the vocabulary
-for the entire async I/O ecosystem. External libraries implement
-portable, platform-specific I/O in terms of <code>std::io</code>. The
-ecosystem delivers the platform. The standard delivers the
-vocabulary.</p>
-<h3 id="stage-two-platform-io">7.2 Stage Two: Platform I/O</h3>
-<table>
-<colgroup>
-<col style="width: 2%" />
-<col style="width: 28%" />
-<col style="width: 68%" />
-</colgroup>
-<thead>
-<tr>
-<th>#</th>
-<th>Paper</th>
-<th>Abstraction</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td><strong>Timers</strong></td>
-<td>Async timer operations</td>
-</tr>
-<tr>
-<td>6</td>
-<td><strong>Signals</strong></td>
-<td>Async signal handling</td>
-</tr>
-<tr>
-<td>7</td>
-<td><strong>Files</strong></td>
-<td>Async file I/O</td>
-</tr>
-<tr>
-<td>8</td>
-<td><strong>TCP</strong></td>
-<td>Sockets, acceptors, endpoints, IP addresses</td>
-</tr>
-<tr>
-<td>9</td>
-<td><strong>DNS</strong></td>
-<td>Async name resolution</td>
-</tr>
-<tr>
-<td>10</td>
-<td><strong>UDP</strong></td>
-<td>Datagram sockets</td>
-</tr>
-<tr>
-<td>11</td>
-<td><strong>TLS</strong></td>
-<td>Transport security wrappers</td>
-</tr>
-</tbody>
-</table>
-<p>Within Stage Two, the first three papers have nothing to do with
-networking. The committee can standardize seven papers before anyone
-says the word “socket.”</p>
-<h3 id="risk-separation">7.3 Risk Separation</h3>
-<p>Previous approaches focused on getting sockets right before anything
-ships. We get the abstractions right and let sockets follow.</p>
-<p>Stage One defines the concepts. Stage Two provides implementations.
-Between them, the ecosystem experiments. Multiple socket implementations
-can compete: Corosio’s, an io_uring-native one, an IOCP-optimized one, a
-minimal embedded one. They all satisfy the same <code>Stream</code>
-concepts. The standard does not pick a winner prematurely.</p>
-<p>The ABI stability of Stage One makes this safe.
-<code>any_stream</code> is the boundary. The socket behind it can be
-replaced. Business logic never recompiles.</p>
-<p>Ship the concepts. Let the ecosystem discover the best
-implementations. Standardize what works.</p>
-<hr />
-<h2 id="the-paper-series">8. The Paper Series</h2>
-<h3 id="paper-1-coroutines-for-io">8.1 Paper 1: Coroutines for I/O</h3>
-<p><a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>
-published. Targeting first LEWG review at Brno (June 2026).</p>
-<p>The IoAwaitable protocol, executor model, and
-<code>task&lt;T&gt;</code>. Depends on nothing. This is the
-foundation.</p>
-<p><strong>Key types.</strong> <code>Executor</code> concept
-(<code>dispatch</code>, <code>post</code>, <code>context</code>),
-<code>execution_context</code> with service registry and frame allocator
-ownership, <code>executor_ref</code> (two-pointer type-erased executor),
-<code>io_env</code> (bundles executor, stop token, frame allocator),
-<code>IoAwaitable</code> concept, <code>task&lt;T&gt;</code> (lazy
-coroutine task, one template parameter), <code>run()</code> and
-<code>run_async()</code>.</p>
-<p><strong>What coroutines provide.</strong> The IoAwaitable protocol
-solves frame allocator timing through forward propagation via TLS. The
-frame allocator is available before <code>operator new</code> executes.
-No language extensions required. 3.1x throughput improvement using
-recycling allocators on MSVC (<a href="https://wg21.link/p4007r0">P4007R0</a><sup>[3]</sup> Section
-5).</p>
-<p><strong>Shipping status.</strong> Capy implements the full protocol.
-Corosio builds a complete networking stack on it. All shipping today on
-Windows, Linux, and macOS.</p>
-<p><strong>Standalone value.</strong> The Asio adapter (Section 5.1).
-Every Asio user gets <code>task&lt;T&gt;</code> with frame allocator
-propagation. Business logic drops the Asio header dependency. Compile
-times improve. The I/O backend becomes swappable behind a compilation
-boundary.</p>
-<h3 id="paper-2-io-buffer-ranges">8.2 Paper 2: I/O Buffer Ranges</h3>
-<p>Buffer vocabulary types for scatter/gather I/O. Depends on nothing.
-No async dependency. No coroutines. No executor. Pure vocabulary.</p>
-<p><strong>Key types.</strong> <code>const_buffer</code> and
-<code>mutable_buffer</code> (byte-region vocabulary),
-<code>ConstBufferSequence</code> and <code>MutableBufferSequence</code>
-(range concepts for scatter/gather), <code>DynamicBuffer</code>
-(growable buffer with prepare/commit semantics),
-<code>buffer_copy</code>, <code>buffer_size</code>,
-<code>buffer_empty</code>.</p>
-<p><strong>Relationship to <code>std::ranges</code>.</strong> The
-concepts build on <code>std::ranges</code> -
-<code>ConstBufferSequence</code> is defined as
-<code>std::ranges::bidirectional_range&lt;T&gt;</code> with a value type
-constraint. But a single <code>const_buffer</code> is not a
-<code>std::ranges::range</code>. It represents a byte region, not an
-iterable sequence. <code>ranges::size</code> counts elements;
-<code>buffer_size</code> sums bytes. <code>ranges::drop</code> operates
-at element granularity; buffer slicing operates at byte granularity
-across element boundaries. We tried <code>std::ranges</code>. Here is
-what works and what does not. The extension is minimal.</p>
-<p><strong>Convergence.</strong> POSIX <code>iovec</code>, Windows
-<code>WSABUF</code>, Asio <code>const_buffer</code>, libuv
-<code>uv_buf_t</code>, Go <code>[]byte</code>, .NET
-<code>Memory&lt;byte&gt;</code>. Six ecosystems, same shape, none of
-them <code>span</code>.</p>
-<p><strong>Shipping status.</strong> Shipping in Capy. Used by every
-Corosio I/O operation.</p>
-<p><strong>Standalone value.</strong> Today, every C++ project that does
-I/O invents its own buffer types. Standard buffer concepts create shared
-vocabulary: a database driver that accepts
-<code>MutableBufferSequence</code> works with any I/O stack that speaks
-the same concepts. This paper advances independently of Paper 1 on a
-parallel track.</p>
-<h3 id="paper-3-stream-concepts">8.3 Paper 3: Stream Concepts</h3>
-<p>Coroutine stream concepts for async byte I/O. Depends on Papers
-1-2.</p>
-<p>This paper gives C++ ABI-stable I/O.</p>
-<p><strong>Two families of concepts.</strong> Caller-owned buffers:
-<code>ReadStream</code> (<code>read_some</code>),
-<code>WriteStream</code> (<code>write_some</code>), <code>Stream</code>
-(both), refined into <code>ReadSource</code> (complete reads) and
-<code>WriteSink</code> (complete writes, <code>write_eof()</code>).
-Callee-owned buffers: <code>BufferSource</code>
-(<code>pull</code>/<code>consume</code>) and <code>BufferSink</code>
-(<code>prepare</code>/<code>commit</code>). Zero-copy when needed.
-Simple path when not.</p>
-<p><strong>Type-erasing wrappers.</strong> <code>any_stream</code>,
-<code>any_read_stream</code>, <code>any_write_stream</code>,
-<code>any_read_source</code>, <code>any_write_sink</code>,
-<code>any_buffer_source</code>, <code>any_buffer_sink</code>. One
-pointer, one vtable, zero per-operation allocation. Boost.Http uses
-<code>any_stream</code> throughout - compiled once, linked against,
-works with any transport.</p>
-<p><strong>Convergence.</strong> BSD
-<code>read</code>/<code>write</code>, POSIX
-<code>readv</code>/<code>writev</code>, Asio
-<code>async_read_some</code>/<code>async_write_some</code>, Go
-<code>io.Reader</code>/<code>io.Writer</code>, Rust
-<code>AsyncRead</code>/<code>AsyncWrite</code>, .NET
-<code>Stream.ReadAsync</code>/<code>WriteAsync</code>. Every language
-arrived at the same pair of operations.</p>
-<p><strong>Synchronous streams for free.</strong> <code>co_await</code>
-checks <code>await_ready()</code> first. If <code>true</code>, no
-suspension. Memory buffers, test mocks, zlib decompressors, base64
-decoders all satisfy <code>ReadStream</code> by returning
-immediately-ready awaitables. A pipeline of <code>tcp_socket</code> to
-<code>tls_stream</code> to <code>decompression_stream</code> to HTTP
-parser works regardless of which layers suspend. The algorithm does not
-know the difference.</p>
-<p><strong>Shipping status.</strong> Shipping in Capy. Corosio’s
-<code>tcp_socket</code>, <code>tls_stream</code>, and
-<code>io_stream</code> all satisfy <code>Stream</code>.</p>
-<p><strong>Standalone value.</strong> Paper 3 completes the bridge to
-existing I/O ecosystems. After Papers 1-3, an
-<code>asio::ip::tcp::socket</code> becomes an <code>any_stream</code>
-through one adapter in one <code>.cpp</code> file. Business logic
-compiles against the standard. The Asio socket is behind the wrapper.
-90% of a networking application’s code compiles against
-<code>std::io</code>.</p>
-<h3 id="paper-4-coroutine-runtime">8.4 Paper 4: Coroutine Runtime</h3>
-<p>Thread pools, strands, and structured concurrency for coroutines.
-Depends on Paper 1.</p>
-<p><strong>Key types.</strong> <code>thread_pool</code> (multi-threaded
-execution context), <code>strand&lt;Ex&gt;</code> (serializes coroutine
-execution over any executor), <code>any_executor</code> (owning
-type-erased executor), <code>system_context</code> (process-wide
-singleton), <code>when_all(awaitables...)</code>,
-<code>when_any(awaitables...)</code>.</p>
-<p><strong>Shipping status.</strong> Shipping in Capy.
-<code>when_all</code> and <code>when_any</code> used in Corosio’s
-<code>tcp_server</code> for concurrent accept loops.</p>
-<p><strong>Standalone value.</strong> Paper 4 completes Stage One. After
-Papers 1-4, a user can write a full concurrent networking application
-against the standard: <code>task&lt;&gt;</code> coroutines accepting
-<code>any_stream&amp;</code>, standard <code>DynamicBuffer</code> for
-parsing, <code>thread_pool</code> for execution, <code>strand</code> for
-serialization, <code>when_all</code>/<code>when_any</code> for
-concurrency. 90% standard. 10% behind adapters. When Stage Two ships,
-the adapters become unnecessary.</p>
-<h3 id="papers-5-7-timers-signals-files">8.5 Papers 5-7: Timers,
-Signals, Files</h3>
-<p><strong>Paper 5: Timers.</strong> <code>timer</code> with
-<code>wait()</code>, <code>expires_at()</code>,
-<code>expires_after()</code>, <code>cancel()</code>. Uses
-<code>std::chrono::steady_clock</code>. The simplest kernel interaction
-that proves the IoAwaitable protocol works end-to-end with a real
-operating system. Shipping in Corosio. Cross-platform.</p>
-<p><strong>Paper 6: Signals.</strong> <code>signal_set</code> with
-<code>add()</code>, <code>remove()</code>, <code>wait()</code>,
-<code>cancel()</code>. Signals complete the server lifecycle:
-<code>co_await when_all(accept_loop(), signal_set.wait())</code> is
-graceful shutdown in one line. <code>&lt;csignal&gt;</code> is from 1989
-and nearly unusable with modern C++. Shipping in Corosio.</p>
-<p><strong>Paper 7: Files.</strong> Async file I/O: <code>file</code>
-with <code>read_some()</code>, <code>write_some()</code>,
-<code>open()</code>, <code>close()</code>, and positioning. A
-<code>file</code> satisfies <code>Stream</code>. The same generic
-algorithms work on files and sockets. On Linux, <code>io_uring</code>.
-On Windows, IOCP with <code>FILE_FLAG_OVERLAPPED</code>. To be built in
-Corosio on solved infrastructure.</p>
-<h3 id="papers-8-10-tcp-dns-udp">8.6 Papers 8-10: TCP, DNS, UDP</h3>
-<p><strong>Paper 8: TCP.</strong> <code>tcp_socket</code>,
-<code>tcp_acceptor</code>, <code>endpoint</code>,
-<code>ipv4_address</code>, <code>ipv6_address</code>. A
-<code>tcp_socket</code> satisfies <code>Stream</code>. This delivers
-what the committee has been trying to standardize since <a href="https://wg21.link/n1925">N1925</a><sup>[5]</sup> (2005). Shipping
-in Corosio. Used by other Boost libraries and users.</p>
-<p><strong>Paper 9: DNS.</strong> <code>resolver</code> with
-<code>resolve(host, service)</code> for forward resolution and
-<code>resolve(endpoint)</code> for reverse resolution. Without DNS, TCP
-sockets can only connect to hardcoded IP addresses. Shipping in
-Corosio.</p>
-<p><strong>Paper 10: UDP.</strong> <code>udp_socket</code> with
-<code>send_to()</code>, <code>receive_from()</code>,
-<code>bind()</code>, and multicast support. UDP is the transport for
-DNS, QUIC/HTTP/3, game networking, media streaming, and IoT protocols.
-To be built in Corosio on solved infrastructure.</p>
-<h3 id="paper-11-tls">8.7 Paper 11: TLS</h3>
-<p>Transport security wrappers: <code>tls_context</code> for portable
-certificate management and <code>tls_stream</code> for encrypted I/O. A
-<code>tls_stream</code> wraps any <code>Stream</code> and satisfies
-<code>Stream</code> itself. The cryptographic engine is
-implementation-defined. ABI-stable by design.</p>
-<p>The standard specifies the shape. The platform provides the
-encryption.</p>
-<p><strong>What the standard does.</strong> Portable certificate
-management (<code>tls_context</code>): certificates, trust anchors,
-verification modes, access to OS certificate store and revocation
-infrastructure. ABI-stable encrypted I/O (<code>tls_stream</code>):
-<code>handshake</code>, <code>read_some</code>, <code>write_some</code>,
-<code>shutdown</code>.</p>
-<p><strong>What the standard does not do.</strong> It does not
-reimplement OpenSSL. It does not mandate a specific engine. The
-cryptographic engine is implementation-defined - same as
-<code>std::filesystem</code>’s underlying OS calls. A TLS vulnerability
-disclosed on Monday is patchable by Tuesday. The fix does not wait for a
-standard library release cycle.</p>
-<p><strong>Convergence.</strong> Go <code>crypto/tls</code>, Rust
-<code>rustls</code>/<code>native-tls</code>, Python <code>ssl</code>,
-.NET <code>SslStream</code>, Java <code>SSLSocket</code>. Every language
-wraps TLS the same way: configuration object plus encrypted stream.</p>
-<p><strong>Shipping status.</strong> Shipping in Corosio with OpenSSL
-and WolfSSL backends. Both engines use the same abstract
-<code>tls_context</code> API.</p>
-<p>The risk profile is lopsided: the implementation carries the risk;
-the interface carries none. The wrapper API has been stable since SSLv3
-in 1996. Standardize the riskless part. Offload the risky implementation
-to the OS and ecosystem.</p>
-<hr />
-<h2 id="stdexecution">9. <code>std::execution</code></h2>
-<p><code>std::execution</code> is an achievement. It serves its domains
-well.</p>
-<h3 id="what-it-provides">9.1 What It Provides</h3>
-<p>Sender algorithms compose at compile time with full type information.
-The optimizer sees everything. Scheduler-based dispatch unifies CPU,
-GPU, and I/O scheduling under one vocabulary. The committee invested
-years in this work. It delivers real value for compile-time work graphs
-and heterogeneous dispatch.</p>
-<h3 id="domain-separation">9.2 Domain Separation</h3>
-<p>The question is whether byte-oriented I/O benefits from the same
-model.</p>
-<p>The properties in Section 3 - type erasure, frame allocation,
-symmetric transfer - work because coroutines are used directly. A sender
-layer between the coroutine and the platform loses them. <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[3]</sup> documents
-three structural gaps at the boundary where <code>std::execution</code>
-meets coroutines: error reporting, error returns, and frame allocator
-timing.</p>
-<p>Domain specialization is not fragmentation. GPU compute got
-<code>nvexec</code> with CUDA extensions and a separate namespace. C++
-has multiple container types, multiple string types, multiple smart
-pointer types. Two async models for two distinct domains is the same
-principle.</p>
-<h3 id="convergence-points">9.3 Convergence Points</h3>
-<p>The stream concepts impose no async-model dependency. A sender-based
-I/O library could define a <code>sender_stream</code> that satisfies
-<code>ReadStream</code> / <code>WriteStream</code> by returning
-sender-based awaitables. The concepts provide byte-oriented stream
-vocabulary that the entire ecosystem - including the sender ecosystem -
-can adopt.</p>
-<p>The buffer concepts (Paper 2) have no async dependency at all. They
-are pure vocabulary for every I/O proposal.</p>
-<h3 id="diversification-protects-the-timeline">9.4 Diversification
-Protects the Timeline</h3>
-<p>If the committee relies exclusively on one async path for networking
-and that path encounters delays, the networking timeline slips again.
-This has happened before.</p>
-<p>Stage One costs the committee nothing to let proceed in parallel.
-Four papers of pure C++20 with no platform dependency. If sender-based
-networking succeeds, the buffer concepts and stream concepts enrich it.
-Nothing is wasted. If it encounters delays, the committee has an
-independent path ready.</p>
-<p>SG14 published formal direction in the February 2026 mailing: “SG14
-advise that Networking (SG4) should not be built on top of <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[1]</sup>. The
-allocation patterns required by <a href="https://wg21.link/p2300r10">P2300R10</a> are incompatible with
-low-latency networking requirements. […] Prioritize <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup> (or similar
-Direct Style concepts) as the C++29 Networking model.” The domain
-experts whose requirements are the most stringent have independently
-concluded domain separation.</p>
-<p>Letting both paths proceed is the conservative choice.</p>
-<hr />
-<h2 id="limitations">10. Limitations</h2>
-<p>A coroutine-native I/O design has boundaries. Stating them plainly is
-part of the report.</p>
+<p>After ownership is transferred, the execution context has two
+dispositions:</p>
 <ul>
-<li><p><strong>Compile-time work graphs.</strong> Coroutine-native I/O
-is a runtime model. It does not express static dataflow graphs where the
-compiler can reason about the entire pipeline at compile time.
-<code>std::execution</code> serves this domain.</p></li>
-<li><p><strong>Heterogeneous dispatch.</strong> GPU compute, NUMA-aware
-scheduling, and cross-device dispatch require the scheduler abstraction
-that <code>std::execution</code> provides. Coroutine executors handle
-thread-pool and strand-based dispatch. They do not target hardware
-heterogeneity.</p></li>
-<li><p><strong>Cooperative scheduling.</strong> The model assumes
-cooperative multitasking. Preemptive multitasking is outside
-scope.</p></li>
-<li><p><strong>Unbuilt papers.</strong> Papers 7 (Files) and 10 (UDP)
-are not yet implemented in Corosio. The I/O context infrastructure
-already handles datagram descriptors and overlapped file handles. These
-wrappers are incremental work on solved infrastructure.</p></li>
-<li><p><strong>C library dependencies.</strong> TLS wrappers depend on C
-libraries (OpenSSL, WolfSSL). The standard does not eliminate that
-dependency. It provides the stream abstraction that makes such wrappers
-composable and replaceable.</p></li>
+<li><strong>Resume.</strong> The continuation runs.</li>
+<li><strong>Destroy without resuming.</strong> The awaiting coroutine is
+also destroyed, propagating cancellation upward through the coroutine
+tree. This is analogous to <code>set_stopped</code> in <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[6]</sup>.</li>
 </ul>
-<p>These boundaries define where coroutine-native I/O ends and where
-other models provide value. We draw the lines here so the committee does
-not have to.</p>
+<p>The executor holds a typed resource with a defined lifecycle. It is
+not an opaque callable. A <code>coroutine_handle&lt;&gt;</code> has
+exactly two operations: <code>resume()</code> and
+<code>destroy()</code>. The proposed wording specifies the ownership
+contract:</p>
+<div class="wording">
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> dispatch<span class="op">(</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> post<span class="op">(</span><span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span></code></pre></div>
+<p><em>Preconditions:</em> <code>h</code> is a valid, suspended
+coroutine handle.</p>
+<p><em>Effects:</em> Arranges for <code>h</code> to be resumed on the
+associated execution context. For <code>dispatch</code>, the
+implementation may instead return <code>h</code>. For <code>post</code>,
+the coroutine is not resumed on the calling thread before
+<code>post</code> returns.</p>
+<p><em>Postconditions:</em> For <code>post</code>, ownership of
+<code>h</code> is transferred to the implementation. For
+<code>dispatch</code>, if <code>noop_coroutine()</code> is returned,
+ownership of <code>h</code> is transferred to the implementation; if
+<code>h</code> is returned, ownership of <code>h</code> is transferred
+to the caller via the return value and the implementation has no further
+obligation regarding <code>h</code>. When ownership is transferred to
+the implementation, the implementation shall either resume
+<code>h</code> or destroy <code>h</code>. No other disposition is
+permitted.</p>
+<p><em>Returns (<code>dispatch</code> only):</em> <code>h</code> or
+<code>noop_coroutine()</code>.</p>
+<p><em>Throws:</em> <code>std::system_error</code> if scheduling fails.
+If an exception is thrown, ownership of <code>h</code> is not
+transferred; the caller retains ownership.</p>
+<p><em>[Note:</em> The returned handle enables symmetric transfer. The
+caller’s <code>await_suspend</code> may return it directly. <em>- end
+note]</em></p>
+</div>
+<p>When the executor destroys a queued handle, the awaiting coroutine’s
+<code>await_resume</code> is never called. The executor provides the
+ownership contract: resume or destroy, no other disposition. Structured
+concurrency combinators provide the propagation guarantee: if the parent
+coroutine is itself suspended in <code>when_all</code> or a similar
+combinator, the combinator detects the child’s destruction and resumes
+the parent with an error. If no combinator is involved, the parent is
+destroyed in turn. Both guarantees are needed; neither alone is
+sufficient. Together, cancellation propagates upward through the
+coroutine tree. No handle is leaked. No information is lost. The
+propagation guarantee depends on the promise type contract;
+<code>task&lt;&gt;</code> enforces it. Raw
+<code>coroutine_handle&lt;&gt;</code> users are in the same position as
+raw pointer users - the abstraction provides safety, the escape hatch
+does not.</p>
 <hr />
-<h2 id="timeline">11. Timeline</h2>
-<p>Target: all eleven papers through LEWG by end of 2028. LWG wording
-through 2029H1.</p>
-<h3 id="phase-1-stage-one-foundation-2026">11.1 Phase 1: Stage One
-Foundation (2026)</h3>
+<h2 id="composition">6. Composition</h2>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>:</p>
+<blockquote>
+<p>“How many different implementations of this function do I need to
+support 200 different execution strategies and 10,500 different
+continuation-decorations? With Senders and Receivers, the answer is
+‘one, you just wrote it.’”</p>
+</blockquote>
+<h3 id="what-the-quote-means">6.1 What the Quote Means</h3>
+<p>“Execution strategies” means different executors - thread pools,
+event loops, strands, GPU contexts. The axis of <em>where</em> the
+continuation resumes.</p>
+<p>“Continuation-decorations” means different completion models -
+callbacks, futures, coroutines, <code>use_awaitable</code>. The axis of
+<em>how</em> the initiator receives the result.</p>
+<p>The claim: if you have M execution strategies and N completion
+models, you need M x N implementations of each I/O operation unless you
+have generic composition. With senders and receivers, you write it
+once.</p>
+<h3 id="the-two-axes">6.2 The Two Axes</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s
+composition claim conflates two independent axes.</p>
+<p><strong>The completion-model axis</strong> is the axis of
+<em>how</em> the initiator receives the result - callback, future,
+coroutine, or fiber. <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup>, “A Universal
+Model for Asynchronous Operations” (Kohlhoff, 2013), solved this axis
+eight years before <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> was written.
+The mechanism is <code>async_result</code>: each completion token
+specializes <code>async_result</code> once, and every async operation
+works with it. One function signature serves every completion model:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> ReadHandler<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>DEDUCED async_read<span class="op">(</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    AsyncReadStream<span class="op">&amp;</span> s<span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    DynamicBuffer<span class="op">&amp;</span> b<span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    ReadHandler<span class="op">&amp;&amp;</span> handler<span class="op">);</span></span></code></pre></div>
+<p>The same <code>async_read</code> works with a callback, a future, or
+a coroutine. M executors and N completion models require one
+implementation of <code>async_read</code> plus N specializations of
+<code>async_result</code>. Not M x N. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> did not
+address <code>async_result</code> or <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup>.</p>
+<p><strong>The operation-composition axis</strong> is the axis of
+chaining operations into higher-level protocols - composing
+<code>async_read_some</code> into <code>async_read</code>, composing
+socket reads into HTTP message parsing into WebSocket frames. On this
+axis, <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> had
+a legitimate point. Each composed operation in the Networking TS
+required a hand-written state machine. Boost.Beast (Boost 1.66, 2017)
+deployed three layers of composed asynchronous operations - socket reads
+into HTTP parsing into WebSocket framing - and every layer required its
+own state machine, its own intermediate completion handler, and its own
+lifetime management. The composition worked. It was deployed. It scaled
+from low-level to high-level. But it was genuinely difficult to write,
+difficult to review, and difficult to get right. The authors wrote those
+state machines and can attest to the cost.</p>
+<p>Coroutines solve the operation-composition axis.
+<code>co_await</code> replaces the state machine. A composed read that
+required a hundred-line state machine in the callback model is a
+ten-line coroutine body. The coroutine frame holds the state. The
+compiler manages the suspension points. The composition that was manual
+and error-prone becomes sequential and obvious. This is the
+forward-looking answer to <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s composition
+concern - not that the concern was wrong, but that C++20 resolved
+it.</p>
+<h3 id="complexity-and-evidence">6.3 Complexity and Evidence</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>:</p>
+<blockquote>
+<p>“Composing Networking TS completion handlers or asynchronous
+operations (which aren’t even a thing in the NetTS APIs, so how would I
+be able to compose those other than in an ad-hoc manner?) seems like an
+ad-hoc and non-generic exercise. Whether they were designed for or ever
+deployed in larger-scale compositions that scale from low-level to
+high-level with any sort of uniformity, I don’t know.”</p>
+</blockquote>
+<p>The admission is honest, and honesty is admirable. The compositions
+existed. Asio’s own <code>async_read</code> composes
+<code>async_read_some</code>. Boost.Beast (Boost 1.66, 2017) composes
+socket-level reads into HTTP message parsing into WebSocket frames -
+three layers of composed asynchronous operations, all using
+<code>async_result</code>, all scaling from low-level to high-level.
+Both were deployed before <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> was written.
+“Which aren’t even a thing in the NetTS APIs” - asynchronous operations
+are the Networking TS API. <code>async_read</code>,
+<code>async_write</code>, <code>async_connect</code>,
+<code>async_accept</code> - every one is a composed asynchronous
+operation built from lower-level operations using the universal model
+documented in <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup>.</p>
+<p>It should not surprise anyone that a reviewer found this mechanism
+opaque. Kohlhoff’s universal async model - <code>async_result</code>,
+completion tokens, default completion token template parameters, the
+initiating function ceremony that prepares the result inside the
+operation body - is the most complex customization point the authors
+have encountered. The complexity that made it hard to learn was the same
+complexity that made it important to learn: it was the mechanism that
+answered <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s
+composition question on the completion-model axis.</p>
+<p>The gap was institutional. The universal async model was the most
+complex mechanism in the Networking TS, and its complexity made it
+opaque to reviewers who had not built on it. The committee acted on an
+analysis that acknowledged uncertainty about the TS’s composition
+capabilities. The evidentiary standard did not match the stakes.</p>
+<p>Under the work framing, there is no reason to look for
+<code>async_result</code> because the executor is the composition
+mechanism. The universal async model is part of the continuation
+framing. When the continuation framing was lost,
+<code>async_result</code> became invisible.</p>
+<h3 id="the-two-framings-in-code">6.4 The Two Framings in Code</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s
+composition argument rests on pseudo-code. Compare it with the code it
+was analyzing:</p>
 <table>
-<colgroup>
-<col style="width: 11%" />
-<col style="width: 34%" />
-<col style="width: 53%" />
-</colgroup>
-<thead>
 <tr>
-<th>Quarter</th>
-<th>Paper</th>
-<th>Milestone</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Q1 2026</td>
-<td>Coroutines for I/O</td>
-<td>P4003R0 published</td>
+<th>
+The continuation framing (P0113R0, 2015)
+</th>
+<th>
+The work framing (P2464R0, 2021)
+</th>
 </tr>
 <tr>
-<td>Q2 2026</td>
-<td>Coroutines for I/O</td>
-<td>First LEWG review at Croydon</td>
+<td>
+<pre><code>// Pass the result to the handler,
+// via the associated executor.
+dispatch(work.get_executor(),
+    [line=std::move(line),
+     handler=std::move(handler)]
+        () mutable
+    {
+        handler(std::move(line));
+    });</code></pre>
+</td>
+<td>
+<pre><code>void run_that_io_operation(
+    scheduler auto sched,
+    sender_of&lt;network_buffer&gt; auto
+        wrapping_continuation)
+{
+    launch_our_io();
+    auto [buffer, status] =
+        fetch_io_results_somehow(
+            maybe_asynchronously);
+    run_on(sched,
+        queue_onto(wrapping_continuation,
+            make_it_queueable(
+                buffer, status)));
+}</code></pre>
+</td>
 </tr>
-<tr>
-<td>Q2 2026</td>
-<td>I/O Buffer Ranges</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q3 2026</td>
-<td>Stream Concepts</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q3 2026</td>
-<td>I/O Buffer Ranges</td>
-<td>LEWG review</td>
-</tr>
-<tr>
-<td>Q4 2026</td>
-<td>Coroutine Runtime</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q4 2026</td>
-<td>Stream Concepts</td>
-<td>LEWG review</td>
-</tr>
-</tbody>
 </table>
-<h3 id="phase-2-stage-two-begins-2027-h1">11.2 Phase 2: Stage Two Begins
-(2027 H1)</h3>
-<table>
-<colgroup>
-<col style="width: 11%" />
-<col style="width: 34%" />
-<col style="width: 53%" />
-</colgroup>
-<thead>
-<tr>
-<th>Quarter</th>
-<th>Paper</th>
-<th>Milestone</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Q1 2027</td>
-<td>Timers</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q1 2027</td>
-<td>Coroutine Runtime</td>
-<td>LEWG review</td>
-</tr>
-<tr>
-<td>Q2 2027</td>
-<td>Signals, Files</td>
-<td>Papers published</td>
-</tr>
-<tr>
-<td>Q2 2027</td>
-<td>Timers</td>
-<td>LEWG review</td>
-</tr>
-</tbody>
-</table>
-<h3 id="phase-3-networking-2027-h2">11.3 Phase 3: Networking (2027
-H2)</h3>
-<table>
-<colgroup>
-<col style="width: 11%" />
-<col style="width: 34%" />
-<col style="width: 53%" />
-</colgroup>
-<thead>
-<tr>
-<th>Quarter</th>
-<th>Paper</th>
-<th>Milestone</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Q3 2027</td>
-<td>TCP, DNS</td>
-<td>Papers published</td>
-</tr>
-<tr>
-<td>Q3 2027</td>
-<td>Signals, Files</td>
-<td>LEWG review</td>
-</tr>
-<tr>
-<td>Q4 2027</td>
-<td>UDP</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q4 2027</td>
-<td>TCP</td>
-<td>LEWG review</td>
-</tr>
-</tbody>
-</table>
-<h3 id="phase-4-completion-2028">11.4 Phase 4: Completion (2028)</h3>
-<table>
-<colgroup>
-<col style="width: 11%" />
-<col style="width: 34%" />
-<col style="width: 53%" />
-</colgroup>
-<thead>
-<tr>
-<th>Quarter</th>
-<th>Paper</th>
-<th>Milestone</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Q1 2028</td>
-<td>DNS, UDP</td>
-<td>LEWG review</td>
-</tr>
-<tr>
-<td>Q2 2028</td>
-<td>TLS</td>
-<td>Paper published</td>
-</tr>
-<tr>
-<td>Q3 2028</td>
-<td>TLS</td>
-<td>LEWG review</td>
-</tr>
-<tr>
-<td>Q4 2028</td>
-<td>Full series</td>
-<td>LWG wording review begins</td>
-</tr>
-</tbody>
-</table>
+<p>On the left, the executor resumes the continuation with the result.
+The result travels inside the handler. The executor never touches it. On
+the right, the executor launches work, fetches results, and queues them.
+Every verb assumes the executor is doing the work.</p>
+<p>Same problem. Two framings. Two completely different code shapes. The
+left is from the era when the continuation framing was visible. The
+right is from after the rename erased it. The pseudo-code is not wrong -
+it is a faithful expression of the work framing. It is evidence that the
+work framing had fully replaced the continuation framing by 2021.</p>
+<h3 id="the-original-diagnosis">6.5 The Original Diagnosis</h3>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>:</p>
+<blockquote>
+<p>“Composing Networking TS completion handlers or asynchronous
+operations … seems like an ad-hoc and non-generic exercise.”</p>
+</blockquote>
+<p>On the completion-model axis, the characterization did not account
+for <code>async_result</code>. <code>async_result</code> adapts any
+completion token to any async operation. The universal model was
+documented in <a href="https://wg21.link/n3747">N3747</a><sup>[14]</sup>. It was
+designed, documented, and deployed. <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> did not
+address it.</p>
+<p>On the operation-composition axis, the characterization had merit.
+Each composed operation required a hand-written state machine. The
+composition was deployed and it worked, but the difficulty was real.
+Coroutines resolve it.</p>
+<p>The preceding sections address <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup>’s criteria.
+The following sections document additional properties of the coroutine
+constraint.</p>
 <hr />
-<h2 id="what-we-continue-to-maintain">12. What We Continue to
-Maintain</h2>
-<p>We continue to maintain Capy and Corosio after standardization.</p>
-<p>Production C++ lags the standard by three to seven years. A feature
-that lands in C++29 is not available to most production users until
-2032-2036. Users who adopt Capy and Corosio today on C++20 need the
-Boost versions for years after the standard ships. This is the
-Boost.Filesystem pattern: precede the standard, coexist with it, persist
-for users on older compilers. Migration happens at the user’s pace.</p>
+<h2 id="structured-concurrency">7. Structured Concurrency</h2>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;</span>dashboard<span class="op">&gt;</span> load_dashboard<span class="op">(</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>uint64_t user_id<span class="op">)</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>name<span class="op">,</span> orders<span class="op">,</span> balance<span class="op">]</span> <span class="op">=</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> capy<span class="op">::</span>when_all<span class="op">(</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>            fetch_user_name<span class="op">(</span>user_id<span class="op">),</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>            fetch_order_count<span class="op">(</span>user_id<span class="op">),</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>            fetch_account_balance<span class="op">(</span>user_id<span class="op">));</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> dashboard<span class="op">{</span>name<span class="op">,</span> orders<span class="op">,</span> balance<span class="op">};</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;&gt;</span> timeout_a_worker<span class="op">()</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> result <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>when_any<span class="op">(</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        background_worker<span class="op">(</span><span class="st">&quot;worker&quot;</span><span class="op">),</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        capy<span class="op">::</span>delay<span class="op">(</span><span class="dv">100</span><span class="bu">ms</span><span class="op">));</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>result<span class="op">.</span>index<span class="op">()</span> <span class="op">==</span> <span class="dv">1</span><span class="op">)</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Timeout fired</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <hr />
-<h2 id="stdio">13. <code>std::io</code></h2>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>io::task<span class="op">&lt;&gt;</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>handle_http_request<span class="op">(</span> <span class="bu">std::</span>io::any_stream<span class="op">&amp;</span> stream <span class="op">)</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> req<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="ex">boost::</span>http::read_request<span class="op">(</span> stream <span class="op">);</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span><span class="op">(</span> <span class="op">!</span> ec <span class="op">)</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> res <span class="op">=</span> process_request<span class="op">(</span> req <span class="op">);</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>tie<span class="op">(</span>ec<span class="op">)</span> <span class="op">=</span> <span class="cf">co_await</span> <span class="ex">boost::</span>http::write_response<span class="op">(</span> stream<span class="op">,</span> res <span class="op">);</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> <span class="op">{</span> ec <span class="op">};</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>We built this. It works. We are reporting what we found.</p>
+<h2 id="the-executor-is-application-policy">8. The Executor Is
+Application Policy</h2>
+<p><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[1]</sup> treated
+thousands of executor implementations as a problem:</p>
+<blockquote>
+<p>“C++ programmers will write <em>thousands</em> of these
+executors.”</p>
+</blockquote>
+<p>It was the design intent. <a href="https://wg21.link/p0113r0">P0113R0</a><sup>[10]</sup> (Kohlhoff,
+2015):</p>
+<blockquote>
+<p>“Like allocators, library users can develop custom executor types to
+implement their own rules.”</p>
+</blockquote>
+<p>Thousands of implementations is what you get when an abstraction
+works. <a href="https://wg21.link/p0285r0">P0285R0</a><sup>[15]</sup>
+(Kohlhoff, 2016):</p>
+<blockquote>
+<p>“The central concept of this library is the executor as a
+policy.”</p>
+</blockquote>
+<p>The coroutine executor concept (<a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>) makes
+this practical:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> E<span class="op">&gt;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> Executor <span class="op">=</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>is_nothrow_copy_constructible_v<span class="op">&lt;</span>E<span class="op">&gt;</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>is_nothrow_move_constructible_v<span class="op">&lt;</span>E<span class="op">&gt;</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">requires</span><span class="op">(</span>E <span class="at">const</span><span class="op">&amp;</span> ce<span class="op">,</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">)</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ce <span class="op">==</span> ce <span class="op">}</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> <span class="bu">std::</span>convertible_to<span class="op">&lt;</span><span class="dt">bool</span><span class="op">&gt;;</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ce<span class="op">.</span>context<span class="op">()</span> <span class="op">}</span> <span class="kw">noexcept</span><span class="op">;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ce<span class="op">.</span>dispatch<span class="op">(</span>h<span class="op">)</span> <span class="op">}</span> <span class="op">-&gt;</span> <span class="bu">std::</span>same_as<span class="op">&lt;</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;&gt;;</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span> ce<span class="op">.</span>post<span class="op">(</span>h<span class="op">)</span> <span class="op">};</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Two operations. Both take a <code>coroutine_handle&lt;&gt;</code>.
+Both resume it on a context. Every executor speaks the same protocol.
+Most users never see it - they write <code>task&lt;&gt;</code>
+coroutines and pick an executor at the launch site. The concept exists
+for the people who build execution contexts, not the people who use
+them.</p>
+<hr />
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>The authors thank Peter Dimov for identifying that <a href="https://wg21.link/p0443r14">P0443R14</a>’s callable destruction is
+detectable, correcting an earlier version of Section 4; Dietmar Kühl for
+<code>beman::execution</code> and ongoing work on <a href="https://wg21.link/p3552r3">P3552R3</a>; Ville Voutilainen for <a href="https://wg21.link/p2464r0">P2464R0</a>, which provided the
+evaluation framework for this paper; Steve Gerbino and Mungo Gill for <a href="https://github.com/cppalliance/capy">Capy</a> and <a href="https://github.com/cppalliance/corosio">Corosio</a> implementation
+work; and Klemens Morgenstern for Boost.Cobalt and the cross-library
+bridge examples.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
-<li><a href="https://wg21.link/p2300r10">P2300R10</a> -
-“<code>std::execution</code>” (Michał Dominiak, Lewis Baker, Lee Howes,
-Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach,
-2024). https://wg21.link/p2300r10</li>
+<li><a href="https://wg21.link/p2464r0">P2464R0</a> - “Ruminations on
+networking and executors” (Ville Voutilainen, 2021).
+https://wg21.link/p2464r0</li>
 <li><a href="https://wg21.link/p4003r0">P4003R0</a> - “Coroutines for
-I/O” (Vinnie Falco, Steve Gerbino, Michael Vandeberg, Mungo Gill,
-Mohammad Nejati, 2026). https://wg21.link/p4003r0</li>
-<li><a href="https://wg21.link/p4007r0">P4007R0</a> - “Senders and
-Coroutines” (Vinnie Falco, Mungo Gill, 2026).
-https://wg21.link/p4007r0</li>
-<li><a href="https://wg21.link/p4014r0">P4014R0</a> - “The Sender
-Sub-Language” (Vinnie Falco, 2026). https://wg21.link/p4014r0</li>
-<li><a href="https://wg21.link/n1925">N1925</a> - “A Proposal to Add
-Networking Utilities to the C++ Standard Library” (Chris Kohlhoff,
-2005). https://wg21.link/n1925</li>
+I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
+https://wg21.link/p4003r0</li>
+<li><a href="https://wg21.link/p0443r14">P0443R14</a> - “A Unified
+Executors Proposal for C++” (Jared Hoberock, et al., 2020).
+https://wg21.link/p0443r14</li>
+<li><a href="https://github.com/cppalliance/capy">Capy</a> - Coroutine
+I/O foundation library (Vinnie Falco).
+https://github.com/cppalliance/capy</li>
+<li><a href="https://github.com/cppalliance/corosio">Corosio</a> -
+Coroutine networking library (Vinnie Falco).
+https://github.com/cppalliance/corosio</li>
+<li><a href="https://wg21.link/p2300r10">P2300R10</a> - “std::execution”
+(Michał Dominiak, Lewis Baker, Lee Howes, Kirk Shoop, Michael Garland,
+Eric Niebler, Bryce Adelstein Lelbach, 2024).
+https://wg21.link/p2300r10</li>
+<li><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
+Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</li>
+<li><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial success
+scenarios with sender/receiver” (Christopher Kohlhoff, 2021).
+https://wg21.link/p2430r0</li>
+<li><a href="https://wg21.link/p2762r2">P2762R2</a> - “Sender/Receiver
+for Networking” (Dietmar Kühl, 2023). https://wg21.link/p2762r2</li>
+<li><a href="https://wg21.link/p0113r0">P0113R0</a> - “Executors and
+Asynchronous Operations, Revision 2” (Christopher Kohlhoff, 2015).
+https://wg21.link/p0113r0</li>
+<li><a href="https://wg21.link/p0688r0">P0688R0</a> - “A Proposal to
+Simplify the Unified Executors Design” (Chris Kohlhoff, Jared Hoberock,
+Chris Mysen, Gordon Brown, 2017). https://wg21.link/p0688r0</li>
+<li><a href="https://wg21.link/p1660r0">P1660R0</a> - “A Compromise
+Executor Design Sketch” (Jared Hoberock, Michael Garland, et al., 2019).
+https://wg21.link/p1660r0</li>
+<li><a href="https://wg21.link/p1525r0">P1525R0</a> - “One-Way execute
+is a Poor Basis Operation” (Eric Niebler, 2019).
+https://wg21.link/p1525r0</li>
+<li><a href="https://wg21.link/n3747">N3747</a> - “A Universal Model for
+Asynchronous Operations” (Christopher Kohlhoff, 2013).
+https://wg21.link/n3747</li>
+<li><a href="https://wg21.link/p0285r0">P0285R0</a> - “Using
+customization points to unify executors” (Christopher Kohlhoff, 2016).
+https://wg21.link/p0285r0</li>
+<li><a href="https://wg21.link/n4370">N4370</a> - “Networking Library
+Proposal” (Christopher Kohlhoff, 2015). https://wg21.link/n4370</li>
+<li><a href="https://wg21.link/p0058">P0058</a> - “An Interface for
+Abstracting Execution” (Jared Hoberock, Michael Garland, Olivier Giroux,
+2015). https://wg21.link/p0058</li>
+<li><a href="https://wg21.link/n4414">N4414</a> - “Executors and
+Schedulers” (Chris Mysen, 2015). https://wg21.link/n4414</li>
+<li><a href="https://wg21.link/p1791r0">P1791R0</a> - “Evolution of the
+P0443 Unified Executors Proposal” (Christopher Kohlhoff, Jamie Allsop,
+2019). https://wg21.link/p1791r0</li>
+<li><a href="https://wg21.link/p0443r0">P0443R0</a> - “A Unified
+Executors Proposal for C++” (Jared Hoberock, Michael Garland, Chris
+Kohlhoff, Chris Mysen, Carter Edwards, 2016).
+https://wg21.link/p0443r0</li>
+<li><a href="https://wg21.link/n4199">N4199</a> - “Minutes of Sept. 4-5,
+2014 SG1 meeting in Redmond, WA” (Hans Boehm, 2014).
+https://wg21.link/n4199</li>
+<li><a href="https://wg21.link/p0761r2">P0761R2</a> - “Executors Design
+Document” (Jared Hoberock, Michael Garland, Chris Kohlhoff, Chris Mysen,
+Carter Edwards, Gordon Brown, Michael Wong, 2018).
+https://wg21.link/p0761r2</li>
 </ol>
-<hr />
-<h2 id="acknowledgments">Acknowledgments</h2>
-<p>Chris Kohlhoff designed Asio’s stream model, buffer sequences, and
-executor architecture. Twenty years of production deployment is the
-foundation this work builds on.</p>
-<p>The authors of <code>std::execution</code> - Eric Niebler, Kirk
-Shoop, Lewis Baker, and their collaborators - invested years in a
-principled async framework for C++. Their work on sender/receiver serves
-domains where compile-time composition and heterogeneous dispatch
-matter. We respect that achievement and build alongside it.</p>
-<p>The committee designed C++20 coroutines. Gor Nishanov, Lewis Baker,
-and their collaborators gave C++ the language mechanisms that make this
-I/O design possible.</p>
-<p>Dietmar Kühl’s feedback on <a href="https://wg21.link/p4007r0">P4007R0</a> and <a href="https://wg21.link/p4014r0">P4014R0</a> improved the technical
-quality of both papers.</p>
-<p>Ruben Perez, Marcelo Zimbres Silva, and the Boost.Postgres team
-adopted Capy and Corosio independently. Their experience is evidence we
-could not manufacture ourselves.</p>
 
 </body>
 </html>

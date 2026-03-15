@@ -1,6 +1,6 @@
 ---
 title: "Symmetric Transfer and Sender Composition"
-document: D2583R3
+document: P2583R3
 date: 2026-03-10
 reply-to:
   - "Mungo Gill <mungo.gill@me.com>"
