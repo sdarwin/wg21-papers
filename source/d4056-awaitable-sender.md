@@ -12,7 +12,7 @@ audience: LEWG
 
 An `IoAwaitable` ([P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup>) can be wrapped as a `std::execution` sender. Awaitables returning `void` or a single value map to `set_value`. Awaitables returning `error_code` map to `set_value()` on success and `set_error(ec)` on failure - no exceptions. Awaitables returning compound I/O results - any tuple-like whose first element is `error_code` with additional elements - are rejected at compile time. The coroutine body is the translation layer: it inspects the compound result, reduces it to an `error_code`, and returns that. The bridge routes the `error_code` through the three channels without exceptions.
 
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[13]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[6]</sup>, "Consuming Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[15]</sup>, "The Cost of `std::execution` For Networking."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[13]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[6]</sup>, "Consuming Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[15]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -241,7 +241,7 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[4]</sup> and for
 
 14. [P4050R0](https://wg21.link/p4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/p4050r0
 
-15. [P4058R0](https://wg21.link/p4058r0) - "The Cost of `std::execution` For Networking" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+15. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 ---
 

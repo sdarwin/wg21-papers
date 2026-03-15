@@ -17,7 +17,7 @@ The question launched a discussion. Ville Voutilainen, Ian Petersen, Jens Maurer
 
 The finding: both coroutines and senders have an abstraction floor - a boundary where compound results are reduced to a single value. The coroutine floor is `throw`. The sender floor is `set_error`. Both destroy compound data when crossed. The difference is where the floor sits relative to composition. In coroutines, the floor is opt-in. In senders, the composition algebra lives above it.
 
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[6]</sup>, "Sender I/O: A Constructed Comparison"; [P4055R0](https://wg21.link/p4055r0)<sup>[12]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[13]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[18]</sup>, "The Cost of `std::execution` For Networking."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[14]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[6]</sup>, "Sender I/O: A Constructed Comparison"; [P4055R0](https://wg21.link/p4055r0)<sup>[12]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[13]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[18]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -437,6 +437,6 @@ Any quoted participant who wishes a passage retracted or revised may contact the
 
 17. Ian Petersen, four sender implementations of channel dispatch, March 2026. https://godbolt.org/z/7W51hYE7c
 
-18. [P4058R0](https://wg21.link/p4058r0) - "The Cost of `std::execution` For Networking" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+18. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 19. [P1525R1](https://wg21.link/p1525r1) - "One-Way execute is a Poor Basis Operation" (Eric Niebler, Kirk Shoop, Lewis Baker, Lee Howes et al., 2020). https://wg21.link/p1525r1

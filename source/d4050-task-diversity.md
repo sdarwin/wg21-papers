@@ -11,7 +11,7 @@ audience: LEWG
 
 `std::execution::task<T, Environment>` ([P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup>) is proposed as a lingua franca for coroutine-based asynchronous code. The `Environment` parameter is an open query-response protocol whose interoperability surface is defined by a single concept: `queryable`, which is `destructible`. This paper asks a simple question: when two libraries define different environments, how does one task `co_await` the other? The answer, traced step by step through the specification, is that no general conversion exists. The query set is open by design, and the only adaptation mechanism - `write_env` - requires the caller to know every missing query by name. The risk to the ecosystem is structural, documented by the specification itself, by NVIDIA's reference implementation, by the only production precedent (Boost.Asio), and by `task`'s own author.
 
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4053R0](https://wg21.link/p4053r0)<sup>[9]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[10]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[11]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[13]</sup>, "The Cost of `std::execution` For Networking."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4053R0](https://wg21.link/p4053r0)<sup>[9]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[10]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[11]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[13]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -405,7 +405,7 @@ The author thanks Gor Nishanov for the coroutine model's explicit support for ta
 10. [P4054R0](https://wg21.link/p4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4054r0
 11. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
 12. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
-13. [P4058R0](https://wg21.link/p4058r0) - "The Cost of `std::execution` For Networking" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+13. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 ### StackOverflow and GitHub
 

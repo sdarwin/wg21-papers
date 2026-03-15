@@ -12,7 +12,7 @@ audience: LEWG
 
 An `IoAwaitable` bridge ([P4003R0](https://wg21.link/p4003r0)<sup>[3]</sup>) consumes `std::execution` ([P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup>) senders with inline operation state, correct stop token propagation, and automatic executor dispatch-back. The bridge is one class template. The complete implementation is in Appendix A.
 
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[13]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[11]</sup>, "Two Error Models"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[14]</sup>, "The Cost of `std::execution` For Networking."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[13]</sup>, "On Task Type Diversity"; [P4053R0](https://wg21.link/p4053r0)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://wg21.link/p4054r0)<sup>[11]</sup>, "Two Error Models"; [P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[14]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -151,7 +151,7 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 
 13. [P4050R0](https://wg21.link/p4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/p4050r0
 
-14. [P4058R0](https://wg21.link/p4058r0) - "The Cost of `std::execution` For Networking" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+14. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 ---
 

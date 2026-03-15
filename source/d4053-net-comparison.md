@@ -12,7 +12,7 @@ audience: LEWG
 
 Four sender-based TCP echo servers are constructed from [P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup> and [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> and compared against a coroutine-native echo server. The sender composition algebra - `when_all` cancellation, `upon_error`, `retry` - does not apply to compound I/O results without losing data, requiring shared state, or converting routine errors to exceptions. One construction - "just use `set_value`" - preserves all data by bypassing the composition algebra entirely, producing code nearly identical to the coroutine version. Both paradigms are equivalent when compound results stay on the value channel. The composition algebra is the sender model's value proposition over coroutines - the reason to accept its additional complexity. If it does not apply to compound I/O results, the programmer pays the cost of the sender model and receives the coroutine model's behavior. The finding is about cost, not defect.
 
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[15]</sup>, "On Task Type Diversity"; [P4054R0](https://wg21.link/p4054r0)<sup>[7]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[13]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[14]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[17]</sup>, "The Cost of `std::execution` For Networking."
+This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://wg21.link/p4050r0)<sup>[15]</sup>, "On Task Type Diversity"; [P4054R0](https://wg21.link/p4054r0)<sup>[7]</sup>, "Two Error Models"; [P4055R0](https://wg21.link/p4055r0)<sup>[13]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://wg21.link/p4056r0)<sup>[14]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://wg21.link/p4058r0)<sup>[17]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -621,7 +621,7 @@ Any person quoted in this paper who believes their words have been presented out
 
 16. Ville Voutilainen, [libunifex-with-qt](https://git.qt.io/vivoutil/libunifex-with-qt) - Qt/stdexec integration examples (2024). https://git.qt.io/vivoutil/libunifex-with-qt
 
-17. [P4058R0](https://wg21.link/p4058r0) - "The Cost of `std::execution` For Networking" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+17. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 18. [P3796R1](https://wg21.link/p3796r1) - "Coroutine Task Issues" (Dietmar K&uuml;hl, 2025). https://wg21.link/p3796r1
 
