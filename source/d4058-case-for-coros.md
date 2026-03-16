@@ -396,7 +396,59 @@ A: Section 7 concedes this. The cost is real. The paper does not argue the cost 
 
 ---
 
-## 9. Conclusion
+## 9. The Design Fork
+
+```cpp
+// Awaitable                        // Sender
+void await_suspend(                 template<class Receiver>
+    coroutine_handle<> h);          struct read_operation {
+    // caller erased                    Receiver rcvr_;
+                                        // caller stamped in
+                                    };
+```
+
+`coroutine_handle<>` erases the caller. `connect(sender, receiver)` stamps the caller into the operation state. Every row below is a downstream consequence of this choice.
+
+| Property                                        | Senders | Coroutines | Need |
+| ----------------------------------------------- | ------- | ---------- | ---- |
+| **Optimization**                                |         |            |      |
+| Full pipeline visibility to optimizer           | Yes     |            |      |
+| Zero-allocation composition (no frame)          | Yes     |            |      |
+| Compile-time work graphs                        | Yes     |            |      |
+| Static completion signature checking            | Yes     |            |      |
+| Heterogeneous child composition (GPU+net+timer) | Yes     |            |      |
+| **Type erasure and compilation**                |         |            |      |
+| Structural type erasure of the caller           |         | Yes        |      |
+| Operation state is not a template               |         | Yes        |      |
+| Operation state can live in the I/O object      |         | Yes        |      |
+| Stream can be type-erased (zero per-op alloc)   |         | Yes        |      |
+| I/O library compiles once (separate compilation)|         | Yes        |      |
+| ABI stability across transport changes          |         | Yes        |      |
+| **Error handling**                              |         |            |      |
+| Non-exception error channel                     | Yes     | Yes        |      |
+| Compound I/O result preservation (ec + n)       |         | Yes        |      |
+| Composition algebra for infrastructure errors   | Yes     |            |      |
+| Composition algebra for compound I/O results    |         |            |      |
+| **Structured concurrency**                      |         |            |      |
+| when_all with child lifetime guarantee          | Yes     | Yes        |      |
+| when_any / race with cancellation propagation   | Yes     | Yes        |      |
+| Async scope (spawn + join)                      | Yes     |            |      |
+| Stop token propagation                          | Yes     | Yes        |      |
+| **Ecosystem**                                   |         |            |      |
+| Single-parameter task type (no fragmentation)   |         | Yes        |      |
+| Cross-library interop without bridges           |         | Yes        |      |
+| Production deployment at scale                  | Yes     | Yes        |      |
+| **Costs**                                       |         |            |      |
+| Heap allocation per coroutine frame             |         | Yes        |      |
+| Opaque resume (optimization barrier)            |         | Yes        |      |
+| Reference lifetime hazard in coroutine frames   |         | Yes        |      |
+| Complexity at the I/O call site                 | Yes     |            |      |
+
+The two property sets are mutually exclusive consequences of the design fork. The first five rows follow from stamping the receiver into the operation state. The next six rows follow from erasing the caller behind `coroutine_handle<>`. Neither model can acquire the other's properties without surrendering its own. The Need column is left for the reader.
+
+---
+
+## 10. Conclusion
 
 The sender model makes design choices that give the optimizer full pipeline visibility, enable zero-allocation composition, and provide type-level completion contracts. These choices are correct for GPU dispatch, heterogeneous execution, and compile-time work graphs - the domains where `std::execution` is deployed at scale.
 
