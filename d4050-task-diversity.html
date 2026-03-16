@@ -911,20 +911,21 @@ outline: none;
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p><code>std::execution::task&lt;T, Environment&gt;</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>) is proposed
-as a lingua franca for coroutine-based asynchronous code. The
-<code>Environment</code> parameter is an open query-response protocol
-whose interoperability surface is defined by a single concept:
-<code>queryable</code>, which is <code>destructible</code>. This paper
-asks a simple question: when two libraries define different
-environments, how does one task <code>co_await</code> the other? The
-answer, traced step by step through the specification, is that no
-general conversion exists. The query set is open by design, and the only
-adaptation mechanism - <code>write_env</code> - requires the caller to
-know every missing query by name. The risk to the ecosystem is
-structural, documented by the specification itself, by NVIDIA’s
-reference implementation, by the only production precedent (Boost.Asio),
-and by <code>task</code>’s own author.</p>
+<p><code>std::execution::task&lt;T, Environment&gt;</code> (<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>, “Add a
+Coroutine Task Type”) is proposed as a lingua franca for coroutine-based
+asynchronous code. The <code>Environment</code> parameter is an open
+query-response protocol whose interoperability surface is defined by a
+single concept: <code>queryable</code>, which is
+<code>destructible</code>. This paper asks a simple question: when two
+libraries define different environments, how does one task
+<code>co_await</code> the other? The answer, traced step by step through
+the specification, is that no general conversion exists. The query set
+is open by design, and the only adaptation mechanism -
+<code>write_env</code> - requires the caller to know every missing query
+by name. The risk to the ecosystem is structural, documented by the
+specification itself, by NVIDIA’s reference implementation, by the only
+production precedent (Boost.Asio), and by <code>task</code>’s own
+author.</p>
 <p>This paper is one of a suite of six that examines the relationship
 between compound I/O results and the sender three-channel model. The
 companion papers are <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[9]</sup>, “Sender I/O:
@@ -942,8 +943,8 @@ mailing)</h3>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[34]</sup>
-and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[33]</sup> and
+<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[33]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[32]</sup> and
 believes coroutine-native I/O is the correct foundation for networking
 in C++. The cross-library bridges (Section 8) were authored by Klemens
 Morgenstern. The frame allocator gap was identified by Peter Dimov.
@@ -954,20 +955,23 @@ contribution to C++ and supports its standardization for the domains it
 serves well - GPU dispatch, heterogeneous execution, and compile-time
 work-graph composition among them. Nothing in this paper or its
 companions argues for removing, delaying, or diminishing
-<code>std::execution</code>. The author’s position is narrower: that
-networking and stream I/O present a compound-result structure that the
-three-channel model was not designed to carry, and that this domain is
-better served by a coroutine-native facility that can coexist with
-senders and interoperate where the domains meet. Two models, each
-correct for its domain, is a stronger standard than one model asked to
-serve both.</p>
+<code>std::execution</code>. A coroutine-native design cannot express
+compile-time work graphs or heterogeneous dispatch - domains where
+<code>std::execution</code> has no peer. The author’s position is
+narrower: that networking and stream I/O present a compound-result
+structure that the three-channel model was not designed to carry, and
+that this domain is better served by a coroutine-native facility that
+can coexist with senders and interoperate where the domains meet. Two
+models, each correct for its domain, is a stronger standard than one
+model asked to serve both.</p>
 <hr />
 <h2 id="dietmar-kühl">2. Dietmar Kühl</h2>
-<p>The findings documented in this paper and in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup> are not
+<p>The findings documented in this paper and in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup>, “Concerns
+about the design of <code>std::execution::task</code>,” are not
 engineering failures. They are structural consequences of making
 <code>task</code> serve two masters. Dietmar Kühl responded to every
-concern with professionalism and technical precision, and wrote <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[7]</sup> to collect
-the issues himself.</p>
+concern with professionalism and technical precision, and wrote <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[7]</sup>, “Coroutine
+Task Issues,” to collect the issues himself.</p>
 <p><strong>The Environment parameter is not Dietmar’s design choice. It
 is a structural requirement imposed by P2300.</strong></p>
 <h3 id="the-best-possible-p3552r3">2.1 The Best Possible P3552R3</h3>
@@ -975,8 +979,8 @@ is a structural requirement imposed by P2300.</strong></p>
 strongest possible version of his design.</p>
 <p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> is
 underspecified in several areas. The <code>Environment</code> parameter
-lacks a default. The allocator delivery timing is being addressed in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html">P3980R0</a><sup>[8]</sup>.
-The symmetric transfer gap is acknowledged in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[7]</sup> and <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup>. The author
+lacks a default. The allocator delivery timing is being addressed in <a href="https://wg21.link/p3980r0">P3980R0</a><sup>[8]</sup>, “Task’s
+Allocator Use.” The symmetric transfer gap is acknowledged in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[7]</sup> and <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup>. The author
 has contributed fixes to some of these gaps directly.</p>
 <p>This paper grants <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> every benefit
 of the doubt. We assume a default <code>Environment</code> will be
@@ -985,8 +989,8 @@ from underspecification. We evaluate the design on its strongest
 possible terms.</p>
 <p>Three topics are off-limits. Allocator timing - how and when the
 frame allocator reaches <code>operator new</code> - is being addressed
-in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html">P3980R0</a><sup>[8]</sup>
-and by the author’s own contributions. Allocator propagation - how the
+in <a href="https://wg21.link/p3980r0">P3980R0</a><sup>[8]</sup> and by
+the author’s own contributions. Allocator propagation - how the
 allocator flows to child operations through the environment - is an
 engineering problem with known solutions. Categorization of compound I/O
 results into the three channels (<code>set_value</code>,
@@ -998,16 +1002,18 @@ paper.</p>
 bridges. It gives the ecosystem a common type that every library can
 accept and return. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> Section 3
 states: “The <code>task</code> coroutine provided by the standard
-library may not always fit user’s needs.” SG1 discussion notes on <a href="https://wg21.link/p1056r1">P1056R1</a><sup>[35]</sup> record:
-“There can be more than one <code>task</code> type for different
-needs.”</p>
+library may not always fit user’s needs.” SG1 discussion notes on <a href="https://wg21.link/p1056r1">P1056R1</a><sup>[34]</sup>, “Add lazy
+coroutine (coroutine task) type,” record: “There can be more than one
+<code>task</code> type for different needs.”</p>
 <p>The claim is that <code>std::execution::task</code> serves as that
 lingua franca. This paper stress-tests that claim.</p>
 <hr />
 <h2 id="destructible">4. <code>destructible</code></h2>
-<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[3]</sup>
-defines <code>queryable</code> in
-[exec.queryable.concept]<sup>[24]</sup> as follows:</p>
+<p>P2300 defines <code>queryable</code> as the base concept for all
+objects that respond to property queries - schedulers, senders,
+receivers, and environments all refine it. <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[3]</sup>,
+“std::execution,” defines <code>queryable</code> in
+[exec.queryable.concept]<sup>[23]</sup> as follows:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> T<span class="op">&gt;</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">concept</span> queryable <span class="op">=</span> destructible<span class="op">&lt;</span>T<span class="op">&gt;;</span></span></code></pre></div>
 <p>We will return to this.</p>
@@ -1018,7 +1024,8 @@ Environments</h2>
 libraries will define two environments. The progression below begins
 with empty environments and escalates through standard type mismatches,
 custom queries, and NVIDIA’s deployed GPU environment. Each step is
-individually reasonable. No step is recoverable.</p>
+individually reasonable. The specification provides no general
+conversion mechanism between environments.</p>
 <h3 id="from-trivial-to-standard-divergence">5.1 From trivial to
 standard divergence</h3>
 <table>
@@ -1050,9 +1057,9 @@ The types are incompatible - a function accepting
 (<code>env_a(auto const&amp;)</code>) compiles but discards everything;
 the moment either environment carries state, the constructor must know
 what to extract.</p>
-<p>The problem deepens with standard nested types. If Library A binds a
-concrete scheduler for performance - exactly what Asio users do when
-they replace <code>any_io_executor</code> with
+<p>A second axis of divergence is observable with standard nested types.
+If Library A binds a concrete scheduler for performance - exactly what
+Asio users do when they replace <code>any_io_executor</code> with
 <code>io_context::executor_type</code> - the types diverge further:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> env_a <span class="op">{</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">scheduler_type</span> <span class="op">=</span> my_thread_pool<span class="op">;</span></span>
@@ -1096,7 +1103,7 @@ each, a determined caller can make it work. Tedious, but possible.</p>
 <h3 id="what-do-real-domains-look-like">5.3 What do real domains look
 like?</h3>
 <p>NVIDIA’s reference implementation defines custom forwarding queries
-in <a href="https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh">nvexec/stream/common.cuh</a><sup>[36]</sup>:</p>
+in <a href="https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh">nvexec/stream/common.cuh</a><sup>[35]</sup>:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">get_stream_provider_t</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> __query<span class="op">&lt;</span><span class="dt">get_stream_provider_t</span><span class="op">&gt;</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
@@ -1252,8 +1259,8 @@ Rule.</p>
 </table>
 <p><code>queryable</code> is <code>destructible</code>. It cannot be
 narrowed after C++26 ships.</p>
-<p><strong>N libraries with N different environments produce N
-incompatible task types with no general conversion path.</strong></p>
+<p>N libraries with N different environments produce N incompatible task
+types with no general conversion path.</p>
 <p>Jonathan Müller wrote in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup>:</p>
 <blockquote>
 <p>“As a standardization committee, we are drafting a standard that
@@ -1263,6 +1270,10 @@ are designing the foundation for an entire ecosystem.”</p>
 <h3 id="if-environment-has-a-default-who-customizes-it">5.6 If
 <code>Environment</code> has a default, who customizes it?</h3>
 <table>
+<colgroup>
+<col style="width: 41%" />
+<col style="width: 58%" />
+</colgroup>
 <thead>
 <tr>
 <th>Nobody</th>
@@ -1272,10 +1283,14 @@ are designing the foundation for an entire ecosystem.”</p>
 <tbody>
 <tr>
 <td>The parameter is unnecessary.</td>
-<td>The lingua franca breaks.</td>
+<td>The types are incompatible (Section 5.1).</td>
 </tr>
 </tbody>
 </table>
+<p>A default delays the arrival of column two. Section 6 documents how
+long the delay lasted for Asio. The parameter exists so that libraries
+provide non-default environments. The moment one does, column two
+applies.</p>
 <hr />
 <h2 id="the-asio-precedent">6. The Asio Precedent</h2>
 <p>The only production two-parameter coroutine type is Asio’s
@@ -1308,9 +1323,9 @@ a concrete executor and accept the type incompatibility.</p>
 <p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>’s
 <code>Environment</code> has an open interface. The query set is
 unbounded by design - no fixed set of operations to erase against. The
-escape hatch that saved Asio cannot exist here. The mild case already
-exhibits the predicted symptoms. The <code>Environment</code> is
-structurally riskier.</p>
+type-erasure mechanism that Asio provides for executors has no analogue
+for an open query protocol. The mild case already exhibits the predicted
+symptoms at smaller scale.</p>
 <hr />
 <h2 id="design-intent">7. Design Intent</h2>
 <p>The C++20 coroutine mechanism separates the return type from the
@@ -1333,45 +1348,63 @@ continuations to be re-implemented internally as coroutines.”</p>
 </blockquote>
 <p>When the Environment changes, the return type changes, and every
 caller breaks. The separation was designed to prevent exactly this.</p>
-<p>Gor Nishanov formalized the consequence in <a href="https://wg21.link/p1362r0">P1362R0</a><sup>[4]</sup> Section
-3.7:</p>
-<blockquote>
-<p>“The separation is based on the observation that coroutine types and
-awaitables could be developed independently of each other by different
-library vendors. In a product, one could use N coroutine types that
-describe how coroutine behaves and M awaitables describing how a
-particular asynchronous API should be consumed. Users can freely mix and
-match coroutines and awaitables as needed.”</p>
-</blockquote>
-<p>Nishanov quantified the cost of violating this separation in the same
-section:</p>
-<blockquote>
-<p>“[A design that] does not separate their customization points into
-separate categories and every coroutine_suspend/coroutine_resume depends
-both on the promise and the awaitable…would require providing
-implementation for N * M customization points, whereas Coroutine TS will
-get by with just N + M.”</p>
-</blockquote>
-<p>The <code>Environment</code> parameter reintroduces this coupling. K
-libraries with K different environments require K<em>(K-1)/2 pairwise
-<code>write_env</code> adaptations, each requiring foreknowledge of
-every custom query on the other side. The Environment ties the task type
-to the execution context, collapsing the promise/awaitable separation
-back into the N</em>M cost Nishanov warned against.</p>
+<p>Gor Nishanov designed the coroutine mechanism with an explicit
+layering model. <a href="https://wg21.link/p1362r0">P1362R0</a><sup>[4]</sup> Section 4.4
+and <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4287.pdf">N4287</a><sup>[36]</sup>
+define three tiers:</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 83%" />
+</colgroup>
+<thead>
+<tr>
+<th>Who</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everybody (millions)</td>
+<td>Uses coroutines and awaitables defined by the standard library,
+Boost, and other high-quality libraries</td>
+</tr>
+<tr>
+<td>Power user (10,000)</td>
+<td>Defines new awaitables to customize await for their environment
+<strong>using existing coroutine types</strong></td>
+</tr>
+<tr>
+<td>Expert (1,000)</td>
+<td>Defines new coroutine types</td>
+</tr>
+</tbody>
+</table>
+<p>The middle tier is the one that matters. Power users customize the
+<em>environment</em> by defining new <em>awaitables</em> - not by
+changing the coroutine type. The coroutine type stays fixed; the
+awaitable carries the domain-specific protocol. The
+<code>Environment</code> parameter inverts this layering: it puts
+environment customization in the coroutine type itself, forcing a new
+type for each domain. What Nishanov assigned to the awaitable tier,
+<code>task&lt;T, Environment&gt;</code> moves into the expert tier and
+exposes in the return type.</p>
 <p>Nishanov reinforced the principle in <a href="https://wg21.link/p0975r0">P0975R0</a><sup>[5]</sup>:</p>
 <blockquote>
 <p>“Unlike most other languages that support coroutines, C++ coroutines
 are open and not tied to any particular runtime or generator type and
 allow libraries to imbue coroutines with meaning.”</p>
 </blockquote>
-<p>And at CppCon 2017<sup>[22]</sup>:</p>
+<p>And at CppCon 2017<sup>[21]</sup>:</p>
 <blockquote>
 <p>“Different category of people have different desires for their
 asynchronous runtime so coroutines are open ended, they can hook up to
 anything you want.”</p>
 </blockquote>
-<p>The coroutine mechanism was designed to prevent the problem that
-Section 5 documents. The <code>Environment</code> reintroduces it.</p>
+<p>The coroutine mechanism was designed so that environment diversity
+lives in awaitables, not in the coroutine type. The
+<code>Environment</code> parameter moves that diversity into the return
+type, producing the fragmentation that Section 5 documents.</p>
 <hr />
 <h2 id="the-ecosystem">8. The Ecosystem</h2>
 <p>Nine coroutine libraries are surveyed below. Asio is the most widely
@@ -1381,12 +1414,12 @@ about independent design decisions. Seven independent teams, solving
 different problems, all arrived at one parameter. The two that added a
 second parameter both needed an escape hatch: Asio provides
 <code>any_io_executor</code>; <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> does not.</p>
-<table style="width:100%;">
+<table>
 <colgroup>
-<col style="width: 12%" />
-<col style="width: 60%" />
-<col style="width: 4%" />
-<col style="width: 22%" />
+<col style="width: 10%" />
+<col style="width: 57%" />
+<col style="width: 5%" />
+<col style="width: 26%" />
 </colgroup>
 <thead>
 <tr>
@@ -1508,7 +1541,7 @@ template parameter. The promise enforces the invariant. Callers see
 <code>Co&lt;T&gt;</code>. The one-parameter design let them build it
 without fragmenting the ecosystem.</p>
 <p>Domain-specific task types interoperate through the C++20 awaitable
-protocol. The <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a><sup>[25]</sup>
+protocol. The <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a><sup>[24]</sup>
 repository (Klemens Morgenstern) contains four cross-library composition
 examples, 51-105 lines each. Sender bridges follow the same pattern (<a href="https://wg21.link/p4055r0">P4055R0</a><sup>[11]</sup>, <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[12]</sup>). The
 ecosystem independently arrived at the design that avoids the problem
@@ -1518,8 +1551,8 @@ documented in Section 5.</p>
 <p>The fix is a general pattern: define a concept that constrains
 awaitables, not task types. The promise remains the extension point. The
 return type stays clean.</p>
-<p><code>IoAwaitable</code> (<a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>) is one
-realization:</p>
+<p><code>IoAwaitable</code> (<a href="https://wg21.link/p4003r0">P4003R0</a><sup>[2]</sup>, “Coroutines
+for I/O”) is one realization:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> A<span class="op">&gt;</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> IoAwaitable <span class="op">=</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">requires</span><span class="op">(</span>A a<span class="op">,</span> <span class="bu">std::</span>coroutine_handle<span class="op">&lt;&gt;</span> h<span class="op">,</span></span>
@@ -1558,16 +1591,23 @@ fragmentation: <code>task&lt;T, Environment&gt;</code> changes the
 return type when the Environment changes, breaking every caller. A
 concept leaves the return type alone and lets the promise declare which
 domains it supports.</p>
+<p>Concept-level incompatibility still exists. A promise that does not
+provide <code>await_transform</code> for a given domain’s awaitables
+cannot <code>co_await</code> them. The difference is where the
+incompatibility surfaces: at the <code>co_await</code> site, as a
+compile-time error, without changing the function’s return type. Every
+caller’s signature remains <code>task&lt;T&gt;</code>. The
+incompatibility is local and diagnosable, not viral.</p>
 <hr />
 <h2 id="frequently-raised-concerns">10. Frequently Raised Concerns</h2>
 <p><strong>Q1: Nicol Bolas is not normative.</strong> Bolas is
 explaining the rationale, not writing the standard. The normative
 backing is Nishanov’s <a href="https://wg21.link/p0975r0">P0975R0</a><sup>[5]</sup> (“open and
-not tied to any particular runtime”) and <a href="https://wg21.link/p1362r0">P1362R0</a><sup>[4]</sup> (N+M
-argument), both published WG21 papers. Even setting aside design-intent
-sources, the empirical evidence in Section 8 - seven independent
-libraries converging on one-parameter designs - demonstrates that the
-ecosystem treats the principle as operative.</p>
+not tied to any particular runtime”) and <a href="https://wg21.link/p1362r0">P1362R0</a><sup>[4]</sup> (layered
+complexity model), both published WG21 papers. Even setting aside
+design-intent sources, the empirical evidence in Section 8 - seven
+independent libraries converging on one-parameter designs - demonstrates
+that the ecosystem treats the principle as operative.</p>
 <p><strong>Q2: <code>IoAwaitable</code> is the author’s own
 design.</strong> <code>IoAwaitable</code> is one realization of the
 principle. The cross_await bridges (Section 8, Klemens Morgenstern,
@@ -1602,14 +1642,14 @@ protocol - which would break every custom query, including NVIDIA’s
 <p><strong>Q7: A standard task type provides a lingua franca.</strong>
 The benefit is real. The question is whether
 <code>task&lt;T, Environment&gt;</code> delivers it. Section 5 shows
-that the lingua franca holds only when everyone uses the same
+that the lingua franca holds only when every library uses the same
 Environment. The moment two libraries use different environments, the
-lingua franca breaks - and the parameter exists precisely so that users
-provide non-default environments. K libraries with K environments
-require K<em>(K-1)/2 pairwise adaptations (Section 7) - the N</em>M cost
-Nishanov warned against. A concept is a stronger lingua franca than a
-concrete type with a second template parameter that fragments on contact
-with itself.</p>
+types are incompatible (Section 5.1) - and the parameter exists
+precisely so that users provide non-default environments. Nishanov’s
+layering model (Section 7) assigns environment customization to the
+awaitable tier, not the coroutine type. A concept is a stronger lingua
+franca than a concrete type with a second template parameter that
+fragments on contact with itself.</p>
 <hr />
 <h2 id="conclusion">11. Conclusion</h2>
 <p>The <code>Environment</code> parameter in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> creates a
@@ -1617,7 +1657,9 @@ structural risk to the task type diversity that C++20 coroutines were
 designed to enable. The risk is documented by the specification (the
 open query set, Section 4), by the reference implementation (NVIDIA’s
 custom queries, Section 5.3), by the only production precedent (Asio,
-Section 6), and by <code>task</code>’s own author (Section 5.5).</p>
+Section 6), and by <code>task</code>’s own author (Section 3). Two
+models, each correct for its domain, is a stronger standard than one
+model asked to serve both.</p>
 <hr />
 <h2 id="acknowledgments">Acknowledgments</h2>
 <p>The author thanks Gor Nishanov for the coroutine model’s explicit
@@ -1628,7 +1670,7 @@ bridges; Dietmar Kühl for <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[
 <code>beman::execution</code>; Jonathan Müller for confirming the
 symmetric transfer gap in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[6]</sup> and for
 documenting Google’s <code>Co</code> design; Aaron Jacobs for the CppNow
-2024 presentation on coroutines at scale<sup>[23]</sup>; Steve Gerbino
+2024 presentation on coroutines at scale<sup>[22]</sup>; Steve Gerbino
 for the constructed comparison and bridge implementations; and Mungo
 Gill, Mohammad Nejati, and Michael Vandeberg for feedback.</p>
 <hr />
@@ -1654,9 +1696,8 @@ the design of <code>std::execution::task</code>” (Jonathan Müller,
 2025). https://wg21.link/p3801r0</li>
 <li><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
 Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
-<li><a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html">P3980R0</a>
-- “Task’s Allocator Use” (Dietmar Kühl, 2026).
-https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p3980r0.html</li>
+<li><a href="https://wg21.link/p3980r0">P3980R0</a> - “Task’s Allocator
+Use” (Dietmar Kühl, 2026). https://wg21.link/p3980r0</li>
 <li><a href="https://wg21.link/p4053r0">P4053R0</a> - “Sender I/O: A
 Constructed Comparison” (Vinnie Falco, Steve Gerbino, 2026).
 https://wg21.link/p4053r0</li>
@@ -1691,19 +1732,16 @@ coroutine executed by another in Asio?” StackOverflow #73517163.
 https://stackoverflow.com/questions/73517163</li>
 <li>“How to create custom awaitable functions” GitHub asio #795.
 https://github.com/chriskohlhoff/asio/issues/795</li>
-<li>“Why can not <code>start_detached</code> an
-<code>exec::task</code>?” stdexec #1594.
-https://github.com/NVIDIA/stdexec/issues/1594</li>
 </ol>
 <h3 id="talks">Talks</h3>
-<ol start="22" type="1">
+<ol start="21" type="1">
 <li>Gor Nishanov, “Naked coroutines live (with networking),” CppCon
 2017. https://www.youtube.com/watch?v=UL3TtTgt3oU</li>
 <li>Aaron Jacobs, “C++ Coroutines at Scale - Implementation Choices at
 Google,” CppNow 2024. https://www.youtube.com/watch?v=k-A12dpMYHo</li>
 </ol>
 <h3 id="other">Other</h3>
-<ol start="24" type="1">
+<ol start="23" type="1">
 <li><a href="https://eel.is/c++draft/">C++ Working Draft</a> (Richard
 Smith, ed.). https://eel.is/c++draft/</li>
 <li>Klemens Morgenstern, <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a>
@@ -1741,6 +1779,9 @@ https://wg21.link/p1056r1</li>
 <li>NVIDIA, <a href="https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh">nvexec/stream/common.cuh</a>
 - GPU stream environment queries.
 https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/common.cuh</li>
+<li>Gor Nishanov, <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4287.pdf">N4287</a>
+- “Threads, Fibers and Coroutines” (slides, 2014).
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4287.pdf</li>
 </ol>
 
 </body>

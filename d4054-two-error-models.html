@@ -915,8 +915,9 @@ outline: none;
   <li><a href="#the-observable-trade-offs" id="toc-the-observable-trade-offs">11.7 The Observable
   Trade-Offs</a></li>
   </ul></li>
-  <li><a href="#conclusion" id="toc-conclusion">12. Conclusion</a></li>
-  <li><a href="#acknowledgments" id="toc-acknowledgments">13.
+  <li><a href="#anticipated-objections" id="toc-anticipated-objections">12. Anticipated Objections</a></li>
+  <li><a href="#conclusion" id="toc-conclusion">13. Conclusion</a></li>
+  <li><a href="#acknowledgments" id="toc-acknowledgments">14.
   Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
@@ -1126,13 +1127,13 @@ channels.</p>
 Practice</h3>
 <p>The compound-result pattern is how systems report outcomes when the
 result carries more than a boolean. io_uring delivers
-<code>(res, flags)</code> in one CQE. IOCP delivers
+<code>(res, flags)</code> in one CQE.<sup>[20]</sup> IOCP delivers
 <code>(BOOL, lpNumberOfBytesTransferred, lpOverlapped)</code> in one
-call. POSIX <code>read()</code> returns <code>ssize_t</code> with
-<code>errno</code>. <code>std::from_chars</code> returns
-<code>{ptr, ec}</code>. Three OS families and the C++ standard library
-converge on the same shape: status and data arrive as a pair because
-they are a single result.<sup>[9]</sup></p>
+call.<sup>[21]</sup> POSIX <code>read()</code> returns
+<code>ssize_t</code> with <code>errno</code>.<sup>[9]</sup>
+<code>std::from_chars</code> returns <code>{ptr, ec}</code>. Three OS
+families and the C++ standard library converge on the same shape: status
+and data arrive as a pair because they are a single result.</p>
 <hr />
 <h2 id="the-infrastructure-error-model">4. The Infrastructure Error
 Model</h2>
@@ -1270,7 +1271,8 @@ the byte count must travel separately - inside the error object
 (position 11.1). <code>retry</code> does not receive the byte count
 through the channel; it receives <code>error_code</code>. The adapter
 moves the classification to the right layer. It does not change what the
-channels can carry after the classification is made.</p>
+channels carry after classification.</p>
+<p>The local problem is solved. The downstream problem remains.</p>
 <h3 id="known-mappings">6.1 Known Mappings</h3>
 <p>Two known attempts to solve the channel assignment problem for I/O
 illustrate the structural difficulty.</p>
@@ -1282,9 +1284,9 @@ illustrate the structural difficulty.</p>
 <p>All non-zero error codes go to <code>set_error</code>. The byte count
 is discarded unconditionally.</p>
 <p><strong>The refined mapping.</strong> Peter Dimov proposed a
-convention in <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[7]</sup> (Section 3.6)
-that preserves partial results by discriminating the channel based on
-the byte count and error code category:</p>
+convention, documented in <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[7]</sup> (Section
+3.6), that preserves partial results by discriminating the channel based
+on the byte count and error code category:</p>
 <table>
 <thead>
 <tr>
@@ -1371,10 +1373,7 @@ an execution agents.”<sup>[19]</sup></p>
 </blockquote>
 <p>Section 5 of this paper observes that <code>ECONNRESET</code> - a
 dropped network connection - means “fatal, abort the transaction” in one
-protocol and “done, expected closure” in another. The same condition
-that P1525R1 lists as an example of what <code>set_error</code> is for
-is the same condition that compound-result I/O treats as a vocabulary
-entry requiring application-level classification.</p>
+protocol and “done, expected closure” in another.</p>
 <hr />
 <h2 id="the-equivalence">7. The Equivalence</h2>
 <p>In the same reflector discussion, Petersen constructed four working
@@ -1409,13 +1408,13 @@ asked.</p>
 <hr />
 <h2 id="the-symmetry">8. The Symmetry</h2>
 <p>Petersen read the companion papers and identified a structural
-asymmetry in the argument. R0 of this paper argued that the sender error
-channel (<code>set_error</code>) cannot carry compound results without
-data loss. True. But the coroutine examples in R0 and its companions
-never use the coroutine error channel (<code>throw</code>). They keep
-compound results as values: <code>co_return pair{ec, n}</code>. If
-senders do the same - <code>set_value(ec, n)</code> - the structural
-symmetry is exact.</p>
+asymmetry in the argument. An earlier draft of this paper argued that
+the sender error channel (<code>set_error</code>) cannot carry compound
+results without data loss. True. But the coroutine examples in that
+draft and its companions never use the coroutine error channel
+(<code>throw</code>). They keep compound results as values:
+<code>co_return pair{ec, n}</code>. If senders do the same -
+<code>set_value(ec, n)</code> - the structural symmetry is exact.</p>
 <blockquote>
 <p>“If we’re going to compare and contrast coroutines with senders, we
 should compare and contrast them on equal footing. Your coroutine
@@ -1458,21 +1457,13 @@ lambda capture, shared state, or a function object that carries the byte
 count alongside the error code. The generic algorithms do not see the
 byte count through the channel. They see it through a side channel the
 programmer constructs.</p>
-<p>A sender advocate might respond that intrusive wiring is normal
-programming - generic algorithms are building blocks, not complete
-solutions. The question is what the intrusive wiring costs in practice.
-If “generic” means templates and custom adaptors at every composition
-point, that is the same complexity that made the Networking TS difficult
-to teach. The abstraction floor does not make senders wrong. It
-identifies where the programmer must leave the algebra and write
-application-specific code - and for compound-result I/O, that point
+<p>For compound-result I/O, the application-specific wiring point
 arrives at every operation. <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[6]</sup> provides the
 concrete measurement. Four echo-server implementations - two
 sender-based, two coroutine-based - implement identical protocol logic.
 The sender constructions require between 2x and 3.5x the line count of
 the coroutine constructions, with the additional lines concentrated in
-channel-routing and type-erasure boilerplate. The cost is not
-speculative.</p>
+channel-routing and type-erasure machinery.</p>
 <table>
 <colgroup>
 <col style="width: 23%" />
@@ -1612,38 +1603,18 @@ Giving it a name helps us see it. Being honest about where it sits helps
 us design around it.</p>
 <p>The floors are structurally analogous but operationally opposite.
 Coroutines default to below-floor composition: the programmer stays
-below the floor unless an explicit <code>throw</code> crosses it.
-Senders default to above-floor composition: the programmer enters the
-composition algebra - <code>retry</code>, <code>when_all</code>,
-<code>upon_error</code> - and must leave it to inspect compound data.
-This is the design tension, not a cosmetic difference.</p>
-<p>The difference is where the floor sits relative to composition. In
-coroutines, the floor is opt-in. The default -
-<code>co_return pair{ec, n}</code> - stays below the floor. Below the
-floor, the programmer has <code>if</code>, <code>switch</code>,
-<code>for</code>, and every other C++ statement for dispatch. The floor
-is only crossed by an explicit <code>throw</code>.</p>
-<p>In senders, the composition algebra - <code>retry</code>,
-<code>when_all</code>, <code>upon_error</code> - lives above the floor.
-To use the algebra, the result must cross the floor. To preserve
-compound data, the result must stay below it. The programmer cannot do
-both simultaneously without application-specific wiring (Section 9).</p>
+below the floor unless an explicit <code>throw</code> crosses it. Below
+the floor, the programmer has <code>if</code>, <code>switch</code>,
+<code>for</code>, and every other C++ statement for dispatch. Senders
+default to above-floor composition: the composition algebra -
+<code>retry</code>, <code>when_all</code>, <code>upon_error</code> -
+lives above the floor. To use the algebra, the result must cross the
+floor. To preserve compound data, the result must stay below it. The
+programmer cannot do both simultaneously without application-specific
+wiring (Section 9).</p>
 <p>Any async facility that separates error and value paths has an
 abstraction floor. Identifying where it sits relative to composition is
 a design decision, not an accident.</p>
-<p>The preceding analysis compares coroutine <em>sequential</em>
-composition to sender <em>concurrent</em> composition. The comparison is
-fair for the compound-result problem because compound results arise at
-individual I/O operations, which are sequential by nature - a single
-<code>read</code> returns one <code>(ec, n)</code>. But coroutine
-structured concurrency - fan-out, join, cancellation propagation -
-requires its own framework (<code>when_all</code> over tasks, nurseries,
-task groups), and those frameworks face analogous routing decisions. The
-coroutine advantage for compound results is that the routing happens in
-user code with full language support (<code>if</code>,
-<code>switch</code>, structured bindings), not in a type-level algebra.
-The coroutine advantage for concurrent composition is smaller, and this
-paper does not claim otherwise.</p>
 <p><a href="https://wg21.link/p4056r0">P4056R0</a><sup>[13]</sup> uses
 the abstraction floor as a design constraint. <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[6]</sup> shows the
 floor in each of four echo server constructions.</p>
@@ -1651,14 +1622,15 @@ floor in each of four echo server constructions.</p>
 <h2 id="the-trade-off-space">11. The Trade-Off Space</h2>
 <p>Six positions are available for handling compound I/O results in a
 sender pipeline. Each is a legitimate design choice. Each trades
-something.</p>
+something. The first three sacrifice one property cleanly. The last
+three attempt to preserve all three and pay in complexity.</p>
 <h3 id="accept-the-information-loss">11.1 Accept the Information
 Loss</h3>
 <p>Route errors through <code>set_error</code>, discard the byte count.
-Composition works. Data is lost. This contradicts POSIX
-<code>write()</code>, Asio’s twenty-year
-<code>(error_code, size_t)</code> convention, and network programming
-practice across every language that preserves compound results.</p>
+Composition works. Data is lost. POSIX <code>write()</code> returns
+<code>ssize_t</code> with <code>errno</code>. Asio completion handlers
+receive <code>(error_code, size_t)</code>. Both preserve the byte count
+alongside the status.</p>
 <h3 id="keep-everything-on-the-value-channel">11.2 Keep Everything on
 the Value Channel</h3>
 <p>Call <code>set_value(error_code, bytes)</code> for all outcomes. The
@@ -1768,15 +1740,42 @@ implements this convention.</p>
 </tbody>
 </table>
 <hr />
-<h2 id="conclusion">12. Conclusion</h2>
-<p>The partition is real. The channel analysis is real. The abstraction
-floor exists in both paradigms. The finding is not that senders cannot
-carry compound results - they can, through <code>set_value</code>. The
-finding is that the composition algebra that distinguishes senders from
-coroutines lives above the floor, and compound I/O results live below
-it.</p>
+<h2 id="anticipated-objections">12. Anticipated Objections</h2>
+<p><strong>Q: The analysis compares coroutine sequential composition to
+sender concurrent composition. Is that fair?</strong></p>
+<p>Compound results arise at individual I/O operations, which are
+sequential by nature - a single <code>read</code> returns one
+<code>(ec, n)</code>. The comparison is fair for this problem. Coroutine
+structured concurrency - fan-out, join, cancellation propagation -
+requires its own framework (<code>when_all</code> over tasks, nurseries,
+task groups), and those frameworks face analogous routing decisions. The
+coroutine advantage for concurrent composition is smaller, and this
+paper does not claim otherwise.</p>
+<p><strong>Q: The <code>dispatch</code> adapter (Section 6) would close
+the gap if standardized.</strong></p>
+<p>Section 6 documents that the adapter solves the local problem: at the
+point of dispatch, both fields are visible. The downstream algebra
+remains channel-typed. Once <code>dispatch</code> routes <code>ec</code>
+to <code>set_error</code>, the byte count must travel separately -
+inside the error object (position 11.6), in a captured lambda (position
+11.5), or not at all (position 11.1).</p>
+<p><strong>Q: The three-channel model serves a real need.</strong></p>
+<p>Section 4 attests to this. The three-channel model is correct for
+infrastructure operations. The paper does not argue that the model is
+useless. It documents the structural consequence when compound results
+meet channel-based dispatch.</p>
 <hr />
-<h2 id="acknowledgments">13. Acknowledgments</h2>
+<h2 id="conclusion">13. Conclusion</h2>
+<p>The partition is real. The abstraction floor exists in both
+paradigms. Senders can carry compound results - through
+<code>set_value</code>. Coroutines can discard them - through
+<code>throw</code>. The composition algebra that distinguishes senders
+from coroutines lives above the floor. Compound I/O results live below
+it. Any system that separates error and value paths inherits this
+tension. The question is not which paradigm is correct, but where the
+floor belongs for the domain at hand.</p>
+<hr />
+<h2 id="acknowledgments">14. Acknowledgments</h2>
 <p>The author thanks Andrzej Krzemieński for the question that launched
 the discussion; Ville Voutilainen for broadening the problem beyond I/O,
 constructing the dispatch adapter, demonstrating data preservation on
@@ -1849,12 +1848,19 @@ http://lists.isocpp.org/lib-ext/2026/03/31333.php</p></li>
 channel,” March 2026.
 http://lists.isocpp.org/lib-ext/2026/03/31330.php</p></li>
 <li><p>Ian Petersen, four sender implementations of channel dispatch,
-March 2026. https://godbolt.org/z/7W51hYE7c</p></li>
+March 2026 (accessed 2026-03-15).
+https://godbolt.org/z/7W51hYE7c</p></li>
 <li><p><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
 Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</p></li>
 <li><p><a href="https://wg21.link/p1525r1">P1525R1</a> - “One-Way
 execute is a Poor Basis Operation” (Eric Niebler, Kirk Shoop, Lewis
 Baker, Lee Howes et al., 2020). https://wg21.link/p1525r1</p></li>
+<li><p>io_uring completion queue entry
+(<code>struct io_uring_cqe</code>), Linux kernel 5.1+.
+https://man7.org/linux/man-pages/man2/io_uring_enter.2.html</p></li>
+<li><p><code>GetQueuedCompletionStatus</code>, Windows I/O Completion
+Ports.
+https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getqueuedcompletionstatus</p></li>
 </ol>
 
 </body>

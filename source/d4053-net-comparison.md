@@ -382,7 +382,7 @@ This paper does not argue that the composition algebra is useless for networking
 
 ---
 
-## 10. Qt Sender vs. Coroutine
+## 10. Qt Sender and Coroutine Side by Side
 
 Ville Voutilainen's [libunifex-with-qt](https://git.qt.io/vivoutil/libunifex-with-qt)<sup>[16]</sup> contains a chunked HTTP downloader written as both a sender pipeline and a coroutine.
 
@@ -474,7 +474,7 @@ capy::task<> timeout_a_worker()
 }
 ```
 
-Both models provide structured concurrency. In the sender model, the operation state protocol guarantees that child operation states are destroyed before the parent's receiver is called. In the coroutine model, `capy::when_all` and `capy::when_any` guarantee the same property through coroutine frame lifetimes: child coroutines complete and their frames are destroyed before the parent coroutine resumes. Stop tokens propagate through `io_env` at `await_suspend` time. The mechanism differs - operation state protocol vs. coroutine frame scoping - but the structured concurrency guarantees are equivalent: no child outlives its parent, cancellation propagates downward, and results are available only after all children complete. The sender `when_all` additionally provides compile-time work-graph visibility, static type checking of completion signatures, and heterogeneous child composition (GPU + network + timer in one expression) that the coroutine `when_all` does not.
+Both models provide structured concurrency. In the sender model, the operation state protocol - formalized by `async_scope` ([P3149R9](https://wg21.link/p3149r9)<sup>[6]</sup>) - guarantees that child operation states are destroyed before the parent's receiver is called. In the coroutine model, `capy::when_all` and `capy::when_any` guarantee the same property through coroutine frame lifetimes: child coroutines complete and their frames are destroyed before the parent coroutine resumes. Stop tokens propagate through `io_env` at `await_suspend` time. The mechanism differs - operation state protocol vs. coroutine frame scoping - but the structured concurrency guarantees are equivalent: no child outlives its parent, cancellation propagates downward, and results are available only after all children complete. The sender `when_all` additionally provides compile-time work-graph visibility, static type checking of completion signatures, and heterogeneous child composition (GPU + network + timer in one expression) that the coroutine `when_all` does not.
 
 They differ in where the compound result is visible when the composition decision is made (Q8, Q10). The trade-off table (Section 9) applies at every I/O boundary inside a structured concurrency scope.
 
@@ -627,4 +627,4 @@ Any person quoted in this paper who believes their words have been presented out
 
 19. [D3980R0](https://wg21.link/d3980r0) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://wg21.link/d3980r0
 
-20. LEWG reflector (lib-ext), March 2026. Threads: "Complicated success at coroutine/sender composition boundaries" (http://lists.isocpp.org/lib-ext/2026/03/31375.php) and "std::execution - dynamically selecting a channel" (http://lists.isocpp.org/lib-ext/2026/03/31377.php).
+20. LEWG reflector (lib-ext), March 2026. Threads: "Complicated success at coroutine/sender composition boundaries" (http://lists.isocpp.org/lib-ext/2026/03/31375.php) and "std::execution - dynamically selecting a channel" (http://lists.isocpp.org/lib-ext/2026/03/31377.php). Compilable examples: Petersen's four sender implementations (https://godbolt.org/z/7W51hYE7c) and Voutilainen's channel ping-pong (https://godbolt.org/z/h5cv5fbTE).

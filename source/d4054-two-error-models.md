@@ -96,7 +96,7 @@ The partition is not about I/O. It is about product types meeting channels.
 
 ### 3.3 Compound Results in Practice
 
-The compound-result pattern is how systems report outcomes when the result carries more than a boolean. io_uring delivers `(res, flags)` in one CQE. IOCP delivers `(BOOL, lpNumberOfBytesTransferred, lpOverlapped)` in one call. POSIX `read()` returns `ssize_t` with `errno`. `std::from_chars` returns `{ptr, ec}`. Three OS families and the C++ standard library converge on the same shape: status and data arrive as a pair because they are a single result.<sup>[9]</sup>
+The compound-result pattern is how systems report outcomes when the result carries more than a boolean. io_uring delivers `(res, flags)` in one CQE.<sup>[20]</sup> IOCP delivers `(BOOL, lpNumberOfBytesTransferred, lpOverlapped)` in one call.<sup>[21]</sup> POSIX `read()` returns `ssize_t` with `errno`.<sup>[9]</sup> `std::from_chars` returns `{ptr, ec}`. Three OS families and the C++ standard library converge on the same shape: status and data arrive as a pair because they are a single result.
 
 ---
 
@@ -188,7 +188,9 @@ The adapter preserves data because both factory functions receive the full resul
 
 The data can survive the channel crossing. The question is whether it survives the generic algorithms downstream.
 
-A natural response is that the `dispatch` adapter, if standardized, would close the gap within the sender model. The adapter solves the *local* problem: at the point of dispatch, both fields are visible and the programmer chooses a channel with full context. But the downstream algebra is channel-typed, not value-typed. Once `dispatch` routes `ec` to `set_error`, the byte count must travel separately - inside the error object (position 11.6), in a captured lambda (position 11.5), or not at all (position 11.1). `retry` does not receive the byte count through the channel; it receives `error_code`. The adapter moves the classification to the right layer. It does not change what the channels can carry after the classification is made.
+A natural response is that the `dispatch` adapter, if standardized, would close the gap within the sender model. The adapter solves the *local* problem: at the point of dispatch, both fields are visible and the programmer chooses a channel with full context. But the downstream algebra is channel-typed, not value-typed. Once `dispatch` routes `ec` to `set_error`, the byte count must travel separately - inside the error object (position 11.6), in a captured lambda (position 11.5), or not at all (position 11.1). `retry` does not receive the byte count through the channel; it receives `error_code`. The adapter moves the classification to the right layer. It does not change what the channels carry after classification.
+
+The local problem is solved. The downstream problem remains.
 
 ### 6.1 Known Mappings
 
@@ -205,7 +207,7 @@ else
 
 All non-zero error codes go to `set_error`. The byte count is discarded unconditionally.
 
-**The refined mapping.** Peter Dimov proposed a convention in [P4007R0](https://wg21.link/p4007r0)<sup>[7]</sup> (Section 3.6) that preserves partial results by discriminating the channel based on the byte count and error code category:
+**The refined mapping.** Peter Dimov proposed a convention, documented in [P4007R0](https://wg21.link/p4007r0)<sup>[7]</sup> (Section 3.6), that preserves partial results by discriminating the channel based on the byte count and error code category:
 
 | Completion                     | Channel             |
 | ------------------------------ | ------------------- |
@@ -246,7 +248,7 @@ An earlier paper by several of the same authors, [P1525R1](https://wg21.link/p15
 
 > "The `set_error()` channel of a receiver, like C++ exceptions, is for exceptional circumstances: things like dropped network connections, resource allocation failure, or inability to create an execution agents."<sup>[19]</sup>
 
-Section 5 of this paper observes that `ECONNRESET` - a dropped network connection - means "fatal, abort the transaction" in one protocol and "done, expected closure" in another. The same condition that P1525R1 lists as an example of what `set_error` is for is the same condition that compound-result I/O treats as a vocabulary entry requiring application-level classification.
+Section 5 of this paper observes that `ECONNRESET` - a dropped network connection - means "fatal, abort the transaction" in one protocol and "done, expected closure" in another.
 
 ---
 
@@ -273,7 +275,7 @@ This equivalence raises a question the discussion had not yet asked.
 
 ## 8. The Symmetry
 
-Petersen read the companion papers and identified a structural asymmetry in the argument. R0 of this paper argued that the sender error channel (`set_error`) cannot carry compound results without data loss. True. But the coroutine examples in R0 and its companions never use the coroutine error channel (`throw`). They keep compound results as values: `co_return pair{ec, n}`. If senders do the same - `set_value(ec, n)` - the structural symmetry is exact.
+Petersen read the companion papers and identified a structural asymmetry in the argument. An earlier draft of this paper argued that the sender error channel (`set_error`) cannot carry compound results without data loss. True. But the coroutine examples in that draft and its companions never use the coroutine error channel (`throw`). They keep compound results as values: `co_return pair{ec, n}`. If senders do the same - `set_value(ec, n)` - the structural symmetry is exact.
 
 > "If we're going to compare and contrast coroutines with senders, we should compare and contrast them on equal footing. Your coroutine examples don't use the coroutine error channel, but your assertions about the deficiencies of senders insist that sender code must use the sender error channel. I haven't been able to figure out why the two paradigms should be held to different standards like this." - Ian Petersen<sup>[16]</sup>
 
@@ -293,7 +295,7 @@ When the discussion turned to whether the byte count could remain visible to gen
 
 The data can be preserved. The generic algorithms can participate. But the connection between them requires application-specific wiring - a lambda capture, shared state, or a function object that carries the byte count alongside the error code. The generic algorithms do not see the byte count through the channel. They see it through a side channel the programmer constructs.
 
-A sender advocate might respond that intrusive wiring is normal programming - generic algorithms are building blocks, not complete solutions. The question is what the intrusive wiring costs in practice. If "generic" means templates and custom adaptors at every composition point, that is the same complexity that made the Networking TS difficult to teach. The abstraction floor does not make senders wrong. It identifies where the programmer must leave the algebra and write application-specific code - and for compound-result I/O, that point arrives at every operation. [P4053R0](https://wg21.link/p4053r0)<sup>[6]</sup> provides the concrete measurement. Four echo-server implementations - two sender-based, two coroutine-based - implement identical protocol logic. The sender constructions require between 2x and 3.5x the line count of the coroutine constructions, with the additional lines concentrated in channel-routing and type-erasure boilerplate. The cost is not speculative.
+For compound-result I/O, the application-specific wiring point arrives at every operation. [P4053R0](https://wg21.link/p4053r0)<sup>[6]</sup> provides the concrete measurement. Four echo-server implementations - two sender-based, two coroutine-based - implement identical protocol logic. The sender constructions require between 2x and 3.5x the line count of the coroutine constructions, with the additional lines concentrated in channel-routing and type-erasure machinery.
 
 | Domain           | Sync/Async | Error model      | Three-channel model fits? |
 | ---------------- | ---------- | ---------------- | ------------------------- |
@@ -330,15 +332,9 @@ Both paradigms have one.
 
 The floor is not a sender problem or a coroutine problem. It is a property of any system with mutually exclusive error and value paths. Giving it a name helps us see it. Being honest about where it sits helps us design around it.
 
-The floors are structurally analogous but operationally opposite. Coroutines default to below-floor composition: the programmer stays below the floor unless an explicit `throw` crosses it. Senders default to above-floor composition: the programmer enters the composition algebra - `retry`, `when_all`, `upon_error` - and must leave it to inspect compound data. This is the design tension, not a cosmetic difference.
-
-The difference is where the floor sits relative to composition. In coroutines, the floor is opt-in. The default - `co_return pair{ec, n}` - stays below the floor. Below the floor, the programmer has `if`, `switch`, `for`, and every other C++ statement for dispatch. The floor is only crossed by an explicit `throw`.
-
-In senders, the composition algebra - `retry`, `when_all`, `upon_error` - lives above the floor. To use the algebra, the result must cross the floor. To preserve compound data, the result must stay below it. The programmer cannot do both simultaneously without application-specific wiring (Section 9).
+The floors are structurally analogous but operationally opposite. Coroutines default to below-floor composition: the programmer stays below the floor unless an explicit `throw` crosses it. Below the floor, the programmer has `if`, `switch`, `for`, and every other C++ statement for dispatch. Senders default to above-floor composition: the composition algebra - `retry`, `when_all`, `upon_error` - lives above the floor. To use the algebra, the result must cross the floor. To preserve compound data, the result must stay below it. The programmer cannot do both simultaneously without application-specific wiring (Section 9).
 
 Any async facility that separates error and value paths has an abstraction floor. Identifying where it sits relative to composition is a design decision, not an accident.
-
-The preceding analysis compares coroutine *sequential* composition to sender *concurrent* composition. The comparison is fair for the compound-result problem because compound results arise at individual I/O operations, which are sequential by nature - a single `read` returns one `(ec, n)`. But coroutine structured concurrency - fan-out, join, cancellation propagation - requires its own framework (`when_all` over tasks, nurseries, task groups), and those frameworks face analogous routing decisions. The coroutine advantage for compound results is that the routing happens in user code with full language support (`if`, `switch`, structured bindings), not in a type-level algebra. The coroutine advantage for concurrent composition is smaller, and this paper does not claim otherwise.
 
 [P4056R0](https://wg21.link/p4056r0)<sup>[13]</sup> uses the abstraction floor as a design constraint. [P4053R0](https://wg21.link/p4053r0)<sup>[6]</sup> shows the floor in each of four echo server constructions.
 
@@ -346,11 +342,11 @@ The preceding analysis compares coroutine *sequential* composition to sender *co
 
 ## 11. The Trade-Off Space
 
-Six positions are available for handling compound I/O results in a sender pipeline. Each is a legitimate design choice. Each trades something.
+Six positions are available for handling compound I/O results in a sender pipeline. Each is a legitimate design choice. Each trades something. The first three sacrifice one property cleanly. The last three attempt to preserve all three and pay in complexity.
 
 ### 11.1 Accept the Information Loss
 
-Route errors through `set_error`, discard the byte count. Composition works. Data is lost. This contradicts POSIX `write()`, Asio's twenty-year `(error_code, size_t)` convention, and network programming practice across every language that preserves compound results.
+Route errors through `set_error`, discard the byte count. Composition works. Data is lost. POSIX `write()` returns `ssize_t` with `errno`. Asio completion handlers receive `(error_code, size_t)`. Both preserve the byte count alongside the status.
 
 ### 11.2 Keep Everything on the Value Channel
 
@@ -385,13 +381,29 @@ Call `set_error(io_result{ec, n})` where `io_result` carries both the error code
 
 ---
 
-## 12. Conclusion
+## 12. Anticipated Objections
 
-The partition is real. The channel analysis is real. The abstraction floor exists in both paradigms. The finding is not that senders cannot carry compound results - they can, through `set_value`. The finding is that the composition algebra that distinguishes senders from coroutines lives above the floor, and compound I/O results live below it.
+**Q: The analysis compares coroutine sequential composition to sender concurrent composition. Is that fair?**
+
+Compound results arise at individual I/O operations, which are sequential by nature - a single `read` returns one `(ec, n)`. The comparison is fair for this problem. Coroutine structured concurrency - fan-out, join, cancellation propagation - requires its own framework (`when_all` over tasks, nurseries, task groups), and those frameworks face analogous routing decisions. The coroutine advantage for concurrent composition is smaller, and this paper does not claim otherwise.
+
+**Q: The `dispatch` adapter (Section 6) would close the gap if standardized.**
+
+Section 6 documents that the adapter solves the local problem: at the point of dispatch, both fields are visible. The downstream algebra remains channel-typed. Once `dispatch` routes `ec` to `set_error`, the byte count must travel separately - inside the error object (position 11.6), in a captured lambda (position 11.5), or not at all (position 11.1).
+
+**Q: The three-channel model serves a real need.**
+
+Section 4 attests to this. The three-channel model is correct for infrastructure operations. The paper does not argue that the model is useless. It documents the structural consequence when compound results meet channel-based dispatch.
 
 ---
 
-## 13. Acknowledgments
+## 13. Conclusion
+
+The partition is real. The abstraction floor exists in both paradigms. Senders can carry compound results - through `set_value`. Coroutines can discard them - through `throw`. The composition algebra that distinguishes senders from coroutines lives above the floor. Compound I/O results live below it. Any system that separates error and value paths inherits this tension. The question is not which paradigm is correct, but where the floor belongs for the domain at hand.
+
+---
+
+## 14. Acknowledgments
 
 The author thanks Andrzej Krzemie&#324;ski for the question that launched the discussion; Ville Voutilainen for broadening the problem beyond I/O, constructing the dispatch adapter, demonstrating data preservation on both channels, and characterizing the boundary between generic and application-specific composition with precision; Ian Petersen for four working sender implementations, for confirming the equivalence between sender and coroutine dispatch, and for identifying the symmetry between coroutine and sender error channels that prompted this revision; and Jens Maurer for framing the design spectrum.
 
@@ -435,8 +447,12 @@ Any quoted participant who wishes a passage retracted or revised may contact the
 
 16. Lib-ext reflector, "std::execution -- dynamically selecting a channel," March 2026. http://lists.isocpp.org/lib-ext/2026/03/31330.php
 
-17. Ian Petersen, four sender implementations of channel dispatch, March 2026. https://godbolt.org/z/7W51hYE7c
+17. Ian Petersen, four sender implementations of channel dispatch, March 2026 (accessed 2026-03-15). https://godbolt.org/z/7W51hYE7c
 
 18. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
 
 19. [P1525R1](https://wg21.link/p1525r1) - "One-Way execute is a Poor Basis Operation" (Eric Niebler, Kirk Shoop, Lewis Baker, Lee Howes et al., 2020). https://wg21.link/p1525r1
+
+20. io_uring completion queue entry (`struct io_uring_cqe`), Linux kernel 5.1+. https://man7.org/linux/man-pages/man2/io_uring_enter.2.html
+
+21. `GetQueuedCompletionStatus`, Windows I/O Completion Ports. https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getqueuedcompletionstatus

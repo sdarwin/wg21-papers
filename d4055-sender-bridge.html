@@ -916,15 +916,18 @@ contribution to C++ and support its standardization for the domains it
 serves well - GPU dispatch, heterogeneous execution, and compile-time
 work-graph composition among them. Nothing in this paper or its
 companions argues for removing, delaying, or diminishing
-<code>std::execution</code>. The authors’ position is narrower: that
-networking and stream I/O present a compound-result structure that the
-three-channel model was not designed to carry, and that this domain is
-better served by a coroutine-native facility that can coexist with
-senders and interoperate where the domains meet. Two models, each
-correct for its domain, is a stronger standard than one model asked to
-serve both.</p>
+<code>std::execution</code>.</p>
+<p>The authors’ position is narrower: that networking and stream I/O
+present a compound-result structure that the three-channel model was not
+designed to carry, and that this domain is better served by a
+coroutine-native facility that can coexist with senders and interoperate
+where the domains meet. Two models, each correct for its domain, is a
+stronger standard than one model asked to serve both.</p>
 <hr />
 <h2 id="the-bridge">2. The Bridge</h2>
+<p><code>await_sender</code> consumes a <code>std::execution</code>
+sender from inside a coroutine. The sender runs on whatever scheduler it
+was given; the coroutine resumes on its own executor.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>capy<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> compute<span class="op">(</span><span class="kw">auto</span> sched<span class="op">)</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> result <span class="op">=</span> <span class="cf">co_await</span> capy<span class="op">::</span>await_sender<span class="op">(</span></span>
@@ -952,6 +955,10 @@ that does not propagate <code>io_env</code>, enforcing the sandbox
 boundary at compile time. Complete implementation in Appendix A.</p>
 <hr />
 <h2 id="demonstration">3. Demonstration</h2>
+<p>Output from the example in Section 2, compiled with MSVC 19.43
+against <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup> and
+<code>beman::execution</code><sup>[5]</sup> (a community implementation
+of <code>std::execution</code>):</p>
 <pre><code>main thread: 32208
   sender running on thread 9560
   coroutine resumed on thread 34356
@@ -973,12 +980,12 @@ the sender advertises <code>set_error(std::error_code)</code>,
 <div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> val<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> await_sender<span class="op">(</span>sndr<span class="op">);</span></span></code></pre></div>
 <p>No exceptions for <code>error_code</code>. Otherwise
 <code>await_resume</code> returns <code>T</code> directly; genuine
-exceptions are rethrown. Static dispatch. The
-<code>operation_cancelled</code> type in Appendix A is illustrative; a
-production implementation would use a project-appropriate cancellation
-exception.</p>
-<p>This is the consuming side of the <strong>abstraction floor</strong>
-(<a href="https://wg21.link/p4056r0">P4056R0</a><sup>[12]</sup> Section
+exceptions are rethrown and cancellation is surfaced as an exception.
+Static dispatch, zero runtime cost. The <code>operation_cancelled</code>
+type in Appendix A is illustrative; a production implementation would
+use a project-appropriate cancellation exception.</p>
+<p>The error-code dispatch is the consuming side of the
+<strong>abstraction floor</strong> (<a href="https://wg21.link/p4056r0">P4056R0</a><sup>[12]</sup> Section
 4):</p>
 <table>
 <thead>
@@ -1005,11 +1012,17 @@ correct context regardless of where the sender executed.</p>
 <hr />
 <h2 id="what-the-bridge-does-not-require">5. What the Bridge Does Not
 Require</h2>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[15]</sup>, “Add
+a Coroutine Task Type,” defines <code>std::execution::task</code>. Its
+<code>connect</code> operation type-erases the operation state, and its
+error path converts <code>error_code</code> to
+<code>exception_ptr</code> via <code>AS-EXCEPT-PTR</code>. The bridge
+avoids both mechanisms:</p>
 <table>
 <colgroup>
-<col style="width: 61%" />
-<col style="width: 28%" />
-<col style="width: 9%" />
+<col style="width: 53%" />
+<col style="width: 37%" />
+<col style="width: 8%" />
 </colgroup>
 <thead>
 <tr>
@@ -1021,7 +1034,7 @@ Require</h2>
 <tbody>
 <tr>
 <td>Routine I/O errors become exceptions</td>
-<td>Yes</td>
+<td>Yes (via <code>AS-EXCEPT-PTR</code>)</td>
 <td>No</td>
 </tr>
 <tr>
@@ -1030,29 +1043,36 @@ Require</h2>
 <td>No</td>
 </tr>
 <tr>
-<td><code>AS-EXCEPT-PTR</code> for <code>error_code</code></td>
-<td>Yes</td>
+<td>Allocation beyond coroutine frame</td>
+<td>Yes (type-erased state)</td>
 <td>No</td>
 </tr>
 <tr>
-<td>Zero allocations beyond coroutine frame</td>
-<td>No</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Usable from <code>std::execution::task</code></td>
-<td>Yes</td>
+<td>Requires <code>std::execution::task</code></td>
+<td>-</td>
 <td>No</td>
 </tr>
 </tbody>
 </table>
-<p><code>std::execution::task</code> is not necessary to consume
-senders.</p>
+<p>The bridge consumes senders without
+<code>std::execution::task</code>.</p>
 <hr />
 <h2 id="the-narrowest-abstraction">6. The Narrowest Abstraction</h2>
-<p>The bridge depends on <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup> and
-<code>std::execution</code>. No platform I/O dependency. The coroutine
-type does not change when the bridge is added.</p>
+<p>The bridge depends on two things: <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
+(coroutine primitives) and <code>std::execution</code> (sender/receiver
+protocol). No platform I/O. No networking headers. No additional
+coroutine type. The implementation in Appendix A uses
+<code>beman::execution</code><sup>[5]</sup>, a community implementation
+of <code>std::execution</code>, but the bridge requires only the
+standard sender/receiver concepts.</p>
+<p>Narrower than <code>execution::task</code>: the bridge does not
+type-erase, does not allocate, and does not impose an
+<code>Environment</code> parameter. Narrower than a completion-token
+adapter: the bridge does not require Asio or any I/O service. The
+coroutine type the programmer already uses does not change when the
+bridge is added.</p>
+<p>The bridge is the proof that coexistence works. Senders compose.
+Coroutines do I/O. One class template connects them.</p>
 <hr />
 <h2 id="acknowledgments">7. Acknowledgments</h2>
 <p>The authors thank Dietmar Kühl for
@@ -1109,6 +1129,9 @@ https://wg21.link/p4056r0</p></li>
 Diversity” (Vinnie Falco, 2026). https://wg21.link/p4050r0</p></li>
 <li><p><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
 Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</p></li>
+<li><p><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a
+Coroutine Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
+https://wg21.link/p3552r3</p></li>
 </ol>
 <hr />
 <h2 id="appendix-a.-bridge-implementation">Appendix A. Bridge

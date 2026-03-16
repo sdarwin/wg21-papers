@@ -35,19 +35,19 @@ The author regards `std::execution` as an important contribution to C++ and supp
 
 ## 2. Two Models
 
-[P3552R3](https://wg21.link/p3552r3)<sup>[8]</sup> Section 9.4.1 defines the result:
+[P3552R3](https://wg21.link/p3552r3)<sup>[8]</sup> Section 9.4.1 [task.overview] defines the result:
 
 > "The `task` class template represents a sender that can be used as the return type of coroutines."
 
 One type. Two models. `std::execution::task` is a coroutine that is also a sender. Shipping it is an implicit endorsement of two async models in the C++ standard. The committee has already paid for two models.
 
-On September 28, 2020, LEWG polled: "We must have a single async model for the C++ Standard Library." The result was no consensus. In October 2021, [P2453R0](https://wg21.link/p2453r0)<sup>[9]</sup> published the outcomes of an electronic poll with 56 participants:
+On September 28, 2020, LEWG polled: "We must have a single async model for the C++ Standard Library." The result was no consensus ([P2453R0](https://wg21.link/p2453r0)<sup>[9]</sup>, Poll 1 comment). On September 28, 2021, the Executors telecon polled again ([P2453R0](https://wg21.link/p2453r0)<sup>[9]</sup>):
 
 > "We believe we need one grand unified model for asynchronous execution in the C++ Standard Library, that covers structured concurrency, event based programming, active patterns, etc."
 >
 > SF:4 / WF:9 / N:5 / WA:5 / SA:1 - No consensus (leaning in favor).
 
-The "one model" premise was polled twice. It achieved consensus neither time. And `task` ships two models regardless.
+The "one model" premise was polled twice. It achieved consensus neither time. `task` ships two models.
 
 This parallels the coroutine frame allocation: you pay once, you get everything that rides on it. Since the price is paid, the question is not whether to have two models but whether to get value from both.
 
@@ -99,7 +99,7 @@ You pay the price once. A coroutine that does fifty reads pays one frame allocat
 
 ---
 
-## 5. What C++ Has Been Waiting For
+## 5. The Stream Contract
 
 The committee has been trying to standardize networking since [N1925](https://wg21.link/n1925)<sup>[15]</sup> (2005). The contract that every attempt has been built on comes from Asio.
 
@@ -154,7 +154,7 @@ Asio made a different set of trade-offs. It supports callbacks, futures, corouti
 
 When you commit to coroutines as the only completion mechanism, you give up that flexibility. You cannot use callbacks. You cannot use futures. You cannot use completion tokens. That is a real cost. But the commitment unlocks optimizations and ergonomics that no other trade-off can deliver. The operation state becomes concrete. The stream becomes type-erasable. The library becomes separately compilable. The API becomes ABI-stable. None of these are possible when the completion mechanism is a template parameter.
 
-The ecosystem ran from the frame allocation. We embraced it. What we found is that the frame - the one cost everyone fears - subsidizes everything the ecosystem has been waiting for. Each consequence in the chain that follows is possible only because the previous one holds. Remove any link and the rest collapse. The chain is not a list of independent benefits. It is a single argument, nine steps long, and it begins with the frame.
+The frame allocation is the cost every design avoids. This design accepts it. What follows is that the frame - the one cost that cannot be eliminated - subsidizes everything the ecosystem has been waiting for. Each consequence in the chain that follows is possible only because the previous one holds. Remove any link and the rest collapse. The chain is not a list of independent benefits. It is a single argument, nine steps long, and it begins with the frame.
 
 ### 6.1 Type Erasure Is Structural
 
@@ -307,13 +307,13 @@ capy::task<> dump(capy::any_read_stream& in)
 
 The header includes only [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup>. No platform headers. No [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup>. No sockets. The `.cpp` compiles once. Consumers include the header and link. The stream behind `any_read_stream` could be a TCP socket, a TLS session, a file, or a test mock. Nothing recompiles.
 
-This is also the [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup>/[Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> split point. Capy delivers the abstract layer: `task<T>`, `any_read_stream`, `any_write_stream`, `any_stream`, buffer concepts, stream concepts, `when_all`, `when_any`, the frame allocator. Pure C++20. No platform dependency. Corosio delivers the platform layer: `tcp_socket`, `tls_stream`, timers, DNS, signals. Capy delivers value on its own - sans-I/O protocols, buffered streams, test mocks, all compile against Capy without Corosio. The architecture that made separate compilation possible is the same architecture that made the library split possible.
+This is also the [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup>/[Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> split point. Capy delivers the abstract layer: `task<T>`, `any_read_stream`, `any_write_stream`, `any_stream`, buffer concepts, stream concepts, `when_all`, `when_any`, the frame allocator. Pure C++20. No platform dependency. Corosio delivers the platform layer: `tcp_socket`, `tls_stream`, timers, DNS, signals. Capy delivers value on its own - sans-I/O protocols, buffered streams, test mocks, all compile against Capy without Corosio. The architecture that made separate compilation possible is the same architecture that made the library split possible. One frame. Two libraries. Zero recompilation.
 
 ### 6.6 Synchronous and Asynchronous in One Abstraction
 
 `co_await` checks `await_ready()` first. If the awaitable returns `true`, no suspension happens - the coroutine continues synchronously. A memory buffer, a test mock, a zlib decompressor, a base64 decoder - they all satisfy `ReadStream` by returning immediately-ready awaitables. The same `dump` function from Section 6.5 works whether the stream suspends for kernel I/O or returns instantly from a buffer. The algorithm does not know the difference.
 
-A pipeline of `tcp_socket` -> `tls_stream` -> `decompression_stream` -> HTTP parser works regardless of which layers suspend. The synchronous layers pay zero suspension cost. One abstraction. Sync and async. No `is_async` flag. No separate sync API.
+A pipeline of `tcp_socket` -> `tls_stream` -> `decompression_stream` -> HTTP parser works regardless of which layers suspend. The synchronous layers pay zero suspension cost. No `is_async` flag. No separate sync API. One abstraction.
 
 ### 6.7 The Stream Is ABI-Stable
 
@@ -374,19 +374,35 @@ These are real costs. The question is what each model offers networking in retur
 | -------------------------------------------------------- | ------- |
 | Type-erased streams, separate compilation, ABI stability | ?       |
 
-The right column is empty because `connect(sender, receiver)` stamps the receiver type into the operation state. The operation state is a template. It cannot live in the socket. The stream cannot be type-erased without per-operation allocation. It cannot compile once. It is not ABI-stable. This is not an implementation gap. It is the design decision that gives senders their optimizer visibility and their zero-allocation pipelines. The same decision that makes senders excellent for GPU dispatch makes them structurally unable to produce type-erased streams.
+`connect(sender, receiver)` stamps the receiver type into the operation state. The same design decision that gives senders their optimizer visibility and their zero-allocation pipelines (Section 3) produces a template operation state that cannot live in the socket, cannot be type-erased without per-operation allocation, and cannot compile once.
 
-The committee has been trying to ship networking since 2005. Every attempt failed in part because the template-heavy design could not be separately compiled and was not ABI-stable. The left column solves both. The right column cannot.
+The committee has been trying to ship networking since 2005. The template-heavy designs that reached the committee could not be separately compiled and were not ABI-stable. The committee did not ship networking.
 
 ---
 
-## 8. Conclusion
+## 8. Anticipated Objections
+
+**Q: Why not type-erase senders with `any_sender`?**
+
+A: `any_sender` type-erases the sender, not the receiver. `connect(any_sender, receiver)` still stamps the receiver type into the operation state. The operation state remains a template. The I/O object still cannot embed it, the stream still cannot compile once, and the ABI still depends on the receiver type. `any_sender` solves a different problem - it erases the sender's identity from the caller. The coroutine model erases the caller's identity from the I/O operation. Section 6.1 documents the distinction.
+
+**Q: Does `std::execution::task` not already bridge both models?**
+
+A: It does. Section 2 documents this. `task` is a coroutine that is also a sender. The question is not whether two models coexist - they already do. The question is whether the coroutine side of that coexistence carries I/O facilities that exploit the properties `coroutine_handle<>` provides: concrete operation states, type-erased streams, separate compilation, ABI stability. `task` bridges the models. It does not provide I/O.
+
+**Q: Two async models are harder to teach.**
+
+A: Section 7 concedes this. The cost is real. The paper does not argue the cost is zero. It documents what the coroutine model provides for networking (Sections 5 and 6) and what the sender model provides for its domains (Section 3), and observes that neither model can provide what the other provides.
+
+---
+
+## 9. Conclusion
 
 The sender model makes design choices that give the optimizer full pipeline visibility, enable zero-allocation composition, and provide type-level completion contracts. These choices are correct for GPU dispatch, heterogeneous execution, and compile-time work graphs - the domains where `std::execution` is deployed at scale.
 
-The coroutine model makes the opposite choice. `coroutine_handle<>` erases the caller. That erasure is the fork in the road. It forecloses pipeline optimization. It requires a frame allocation. But it produces a causal chain - concrete operation states, type-erased streams, separate compilation, ABI stability, a three-layer architecture - that delivers what C++ networking has been waiting for since 2005.
+The coroutine model makes the opposite choice. `coroutine_handle<>` erases the caller. That erasure is the fork in the road. It forecloses pipeline optimization. It requires a frame allocation. But it produces a causal chain - concrete operation states, type-erased streams, separate compilation, ABI stability, a three-layer architecture - that resolves the properties the committee could not ship in twenty years of networking attempts.
 
-Both models make the right trade-offs for their domain. The standard is stronger with both.
+Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
 ---
 

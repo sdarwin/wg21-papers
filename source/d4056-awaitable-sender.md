@@ -69,7 +69,9 @@ The delay ran on a pool worker. Zero allocation beyond the coroutine frame.
 
 The bridge works for `delay`. What about `read_some`?
 
-`read_some` returns `io_result<size_t>` - an `(error_code, size_t)` pair. The adapter must route this through three channels. [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> documented the trade-off: route the whole pair through `set_value` and the composition algebra is bypassed; decompose it and the byte count is destroyed on error. Neither option preserves both values and retains composition. The same finding now appears inside the bridge adapter itself.
+`read_some` returns `io_result<size_t>` - an `(error_code, size_t)` pair. The adapter must route this through three channels. The sender model provides three completion channels: `set_value` for success, `set_error` for failure, and `set_stopped` for cancellation. Algorithms like `when_all`, `upon_error`, and `retry` key on which channel fires. [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> documented the trade-off: route the whole pair through `set_value` and the composition algebra is bypassed; decompose it and the byte count is destroyed on error because `set_error` carries only the `error_code`. Neither option preserves both values and retains composition. The same finding now appears inside the bridge adapter itself.
+
+There is a floor below which compound results should not cross into the sender channel model.
 
 ---
 
@@ -88,13 +90,11 @@ auto as_sender(IoAw&& aw)
         !detail::is_compound_ec_result_v<
             std::decay_t<R>>,
         "as_sender does not accept awaitables "
-        "whose result is a tuple-like whose "
-        "first element is error_code and that "
-        "has additional elements. Wrap the "
-        "operation "
-        "in a task<error_code> that inspects "
-        "the compound result and returns "
-        "the error code.");
+        "whose result destructures into "
+        "(error_code, ...). Wrap the "
+        "operation in a task<error_code> "
+        "that inspects the compound result "
+        "and returns the error code.");
     return awaitable_sender<std::decay_t<IoAw>>{
         std::forward<IoAw>(aw)};
 }
@@ -180,7 +180,13 @@ auto sndr = read_some_task(stream, buf)
 
 `task` is general-purpose. A `static_assert` rejecting compound `error_code` results would be too broad. The constraint belongs at a bridge point with I/O intent, not on the general-purpose coroutine type. A programmer who uses `task<pair<error_code, size_t>>` directly gets the value-channel behavior documented in [P4053R0](https://wg21.link/p4053r0)<sup>[7]</sup> Section 5 - both values preserved, composition algebra bypassed.
 
-A sender adapter - `split_ec` - could enforce the floor inside the pipeline:
+[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> converts unhandled `set_error` to an exception via `AS-EXCEPT-PTR`. The observation is architectural: `as_sender` enforces the abstraction floor at the IoAwaitable-to-sender boundary. `task` does not enforce it. The programmer chooses where the floor lives.
+
+---
+
+## 8. `split_ec`
+
+A sender adapter can enforce the floor inside the pipeline:
 
 ```cpp
 do_read(sock, buf)           // sender completing with
@@ -195,17 +201,17 @@ do_read(sock, buf)           // sender completing with
 
 `split_ec` advertises both `set_value_t()` and `set_error_t(std::error_code)` and selects between them at runtime. The implementation is a receiver adapter - no type erasure, no variant sender, no allocation. The complete implementation is in [Capy](https://github.com/cppalliance/capy)<sup>[3]</sup>.
 
-[P3552R3](https://wg21.link/p3552r3)<sup>[12]</sup> converts unhandled `set_error` to an exception via `AS-EXCEPT-PTR`. The observation is architectural: `as_sender` enforces the abstraction floor at the IoAwaitable-to-sender boundary. `split_ec` enforces it inside the pipeline. `task` does not enforce it. The programmer chooses where the floor lives.
+Three enforcement points, one abstraction floor. `as_sender` enforces it at the IoAwaitable-to-sender boundary. `split_ec` enforces it inside the pipeline. `task` does not enforce it. The programmer chooses where the floor lives.
 
 ---
 
-## 8. Conclusion
+## 9. Conclusion
 
-The three-channel problem is not a defect of the sender model. It is a consequence of bridging at the wrong abstraction level. The compound result stays below the floor. The binary outcome crosses above it. The channels work.
+The compound result stays below the floor. The binary outcome crosses above it. The channels work.
 
 ---
 
-## 9. Acknowledgments
+## 10. Acknowledgments
 
 The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[4]</sup> and for the channel-routing enumeration in [P2762R2](https://wg21.link/p2762r2)<sup>[8]</sup>, Micha&lstrok; Dominiak, Eric Niebler, and Lewis Baker for `std::execution`, Chris Kohlhoff for identifying the partial-success problem in [P2430R0](https://wg21.link/p2430r0)<sup>[9]</sup>, Kirk Shoop for the completion-token heuristic analysis in [P2471R1](https://wg21.link/p2471r1)<sup>[10]</sup>, Fabio Fracassi for [P3570R2](https://wg21.link/p3570r2)<sup>[11]</sup>, Peter Dimov for the refined channel mapping, and Ville Voutilainen for reflector discussion on the abstraction floor.
 
@@ -689,13 +695,11 @@ auto as_sender(IoAw&& aw)
         !detail::is_compound_ec_result_v<
             std::decay_t<R>>,
         "as_sender does not accept awaitables "
-        "whose result is a tuple-like whose "
-        "first element is error_code and that "
-        "has additional elements. Wrap the "
-        "operation "
-        "in a task<error_code> that inspects "
-        "the compound result and returns "
-        "the error code.");
+        "whose result destructures into "
+        "(error_code, ...). Wrap the "
+        "operation in a task<error_code> "
+        "that inspects the compound result "
+        "and returns the error code.");
     return awaitable_sender<
         std::decay_t<IoAw>>{
             std::forward<IoAw>(aw)};

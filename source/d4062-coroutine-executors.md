@@ -306,7 +306,9 @@ The admission is honest, and honesty is admirable. The compositions existed. Asi
 
 It should not surprise anyone that a reviewer found this mechanism opaque. Kohlhoff's universal async model - `async_result`, completion tokens, default completion token template parameters, the initiating function ceremony that prepares the result inside the operation body - is the most complex customization point the authors have encountered. The complexity that made it hard to learn was the same complexity that made it important to learn: it was the mechanism that answered [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>'s composition question on the completion-model axis.
 
-The gap was institutional. The universal async model was the most complex mechanism in the Networking TS, and its complexity made it opaque to reviewers who had not built on it. The committee acted on an analysis that acknowledged uncertainty about the TS's composition capabilities. The evidentiary standard did not match the stakes.
+The gap was institutional. The universal async model was the most complex mechanism in the Networking TS, and its complexity made it opaque to reviewers who had not built on it.
+
+The committee removed a Technical Specification from its work program. The consequences of that decision persist today. The analysis that informed it said, in its own words, "I don't know" whether the TS's asynchronous operations could compose. The compositions existed. They were deployed. They were documented in [N3747](https://wg21.link/n3747)<sup>[14]</sup>. A decision of that magnitude, informed by acknowledged uncertainty about a mechanism that was already shipping, could have prompted an investigation. It prompted a conclusion.
 
 Under the work framing, there is no reason to look for `async_result` because the executor is the composition mechanism. The universal async model is part of the continuation framing. When the continuation framing was lost, `async_result` became invisible.
 

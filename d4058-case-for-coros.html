@@ -868,8 +868,8 @@ outline: none;
   <li><a href="#where-stdexecution-excels" id="toc-where-stdexecution-excels">3. Where
   <code>std::execution</code> Excels</a></li>
   <li><a href="#the-price-of-coroutines" id="toc-the-price-of-coroutines">4. The Price of Coroutines</a></li>
-  <li><a href="#what-c-has-been-waiting-for" id="toc-what-c-has-been-waiting-for">5. What C++ Has Been Waiting
-  For</a>
+  <li><a href="#the-stream-contract" id="toc-the-stream-contract">5. The
+  Stream Contract</a>
   <ul>
   <li><a href="#asios-asyncreadstream" id="toc-asios-asyncreadstream">5.1 Asio’s
   <code>AsyncReadStream</code></a></li>
@@ -900,7 +900,8 @@ outline: none;
   </ul></li>
   <li><a href="#what-trade-offs" id="toc-what-trade-offs">7. What
   Trade-Offs?</a></li>
-  <li><a href="#conclusion" id="toc-conclusion">8. Conclusion</a></li>
+  <li><a href="#anticipated-objections" id="toc-anticipated-objections">8. Anticipated Objections</a></li>
+  <li><a href="#conclusion" id="toc-conclusion">9. Conclusion</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
@@ -962,7 +963,7 @@ serve both.</p>
 <hr />
 <h2 id="two-models">2. Two Models</h2>
 <p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[8]</sup> Section
-9.4.1 defines the result:</p>
+9.4.1 [task.overview] defines the result:</p>
 <blockquote>
 <p>“The <code>task</code> class template represents a sender that can be
 used as the return type of coroutines.”</p>
@@ -972,9 +973,8 @@ coroutine that is also a sender. Shipping it is an implicit endorsement
 of two async models in the C++ standard. The committee has already paid
 for two models.</p>
 <p>On September 28, 2020, LEWG polled: “We must have a single async
-model for the C++ Standard Library.” The result was no consensus. In
-October 2021, <a href="https://wg21.link/p2453r0">P2453R0</a><sup>[9]</sup> published the
-outcomes of an electronic poll with 56 participants:</p>
+model for the C++ Standard Library.” The result was no consensus (<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[9]</sup>, Poll 1
+comment). On September 28, 2021, the Executors telecon polled again (<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[9]</sup>):</p>
 <blockquote>
 <p>“We believe we need one grand unified model for asynchronous
 execution in the C++ Standard Library, that covers structured
@@ -983,7 +983,7 @@ concurrency, event based programming, active patterns, etc.”</p>
 favor).</p>
 </blockquote>
 <p>The “one model” premise was polled twice. It achieved consensus
-neither time. And <code>task</code> ships two models regardless.</p>
+neither time. <code>task</code> ships two models.</p>
 <p>This parallels the coroutine frame allocation: you pay once, you get
 everything that rides on it. Since the price is paid, the question is
 not whether to have two models but whether to get value from both.</p>
@@ -1094,8 +1094,7 @@ same type erasure that gives you <code>any_stream</code>,
 <code>task&lt;T&gt;</code> with one parameter, and non-template
 operation states. The price subsidizes everything in Section 6.</p>
 <hr />
-<h2 id="what-c-has-been-waiting-for">5. What C++ Has Been Waiting
-For</h2>
+<h2 id="the-stream-contract">5. The Stream Contract</h2>
 <p>The committee has been trying to standardize networking since <a href="https://wg21.link/n1925">N1925</a><sup>[15]</sup> (2005). The
 contract that every attempt has been built on comes from Asio.</p>
 <h3 id="asios-asyncreadstream">5.1 Asio’s
@@ -1197,13 +1196,13 @@ can deliver. The operation state becomes concrete. The stream becomes
 type-erasable. The library becomes separately compilable. The API
 becomes ABI-stable. None of these are possible when the completion
 mechanism is a template parameter.</p>
-<p>The ecosystem ran from the frame allocation. We embraced it. What we
-found is that the frame - the one cost everyone fears - subsidizes
-everything the ecosystem has been waiting for. Each consequence in the
-chain that follows is possible only because the previous one holds.
-Remove any link and the rest collapse. The chain is not a list of
-independent benefits. It is a single argument, nine steps long, and it
-begins with the frame.</p>
+<p>The frame allocation is the cost every design avoids. This design
+accepts it. What follows is that the frame - the one cost that cannot be
+eliminated - subsidizes everything the ecosystem has been waiting for.
+Each consequence in the chain that follows is possible only because the
+previous one holds. Remove any link and the rest collapse. The chain is
+not a list of independent benefits. It is a single argument, nine steps
+long, and it begins with the frame.</p>
 <h3 id="type-erasure-is-structural">6.1 Type Erasure Is Structural</h3>
 <table>
 <tr>
@@ -1398,8 +1397,8 @@ platform layer: <code>tcp_socket</code>, <code>tls_stream</code>,
 timers, DNS, signals. Capy delivers value on its own - sans-I/O
 protocols, buffered streams, test mocks, all compile against Capy
 without Corosio. The architecture that made separate compilation
-possible is the same architecture that made the library split
-possible.</p>
+possible is the same architecture that made the library split possible.
+One frame. Two libraries. Zero recompilation.</p>
 <h3 id="synchronous-and-asynchronous-in-one-abstraction">6.6 Synchronous
 and Asynchronous in One Abstraction</h3>
 <p><code>co_await</code> checks <code>await_ready()</code> first. If the
@@ -1413,8 +1412,8 @@ algorithm does not know the difference.</p>
 <p>A pipeline of <code>tcp_socket</code> -&gt; <code>tls_stream</code>
 -&gt; <code>decompression_stream</code> -&gt; HTTP parser works
 regardless of which layers suspend. The synchronous layers pay zero
-suspension cost. One abstraction. Sync and async. No
-<code>is_async</code> flag. No separate sync API.</p>
+suspension cost. No <code>is_async</code> flag. No separate sync API.
+One abstraction.</p>
 <h3 id="the-stream-is-abi-stable">6.7 The Stream Is ABI-Stable</h3>
 <p>The vtable layout of <code>any_read_stream</code> does not change.
 Libraries compiled today work with new transports tomorrow. A
@@ -1529,21 +1528,46 @@ networking in return.</p>
 </tr>
 </tbody>
 </table>
-<p>The right column is empty because
-<code>connect(sender, receiver)</code> stamps the receiver type into the
-operation state. The operation state is a template. It cannot live in
-the socket. The stream cannot be type-erased without per-operation
-allocation. It cannot compile once. It is not ABI-stable. This is not an
-implementation gap. It is the design decision that gives senders their
-optimizer visibility and their zero-allocation pipelines. The same
-decision that makes senders excellent for GPU dispatch makes them
-structurally unable to produce type-erased streams.</p>
-<p>The committee has been trying to ship networking since 2005. Every
-attempt failed in part because the template-heavy design could not be
-separately compiled and was not ABI-stable. The left column solves both.
-The right column cannot.</p>
+<p><code>connect(sender, receiver)</code> stamps the receiver type into
+the operation state. The same design decision that gives senders their
+optimizer visibility and their zero-allocation pipelines (Section 3)
+produces a template operation state that cannot live in the socket,
+cannot be type-erased without per-operation allocation, and cannot
+compile once.</p>
+<p>The committee has been trying to ship networking since 2005. The
+template-heavy designs that reached the committee could not be
+separately compiled and were not ABI-stable. The committee did not ship
+networking.</p>
 <hr />
-<h2 id="conclusion">8. Conclusion</h2>
+<h2 id="anticipated-objections">8. Anticipated Objections</h2>
+<p><strong>Q: Why not type-erase senders with
+<code>any_sender</code>?</strong></p>
+<p>A: <code>any_sender</code> type-erases the sender, not the receiver.
+<code>connect(any_sender, receiver)</code> still stamps the receiver
+type into the operation state. The operation state remains a template.
+The I/O object still cannot embed it, the stream still cannot compile
+once, and the ABI still depends on the receiver type.
+<code>any_sender</code> solves a different problem - it erases the
+sender’s identity from the caller. The coroutine model erases the
+caller’s identity from the I/O operation. Section 6.1 documents the
+distinction.</p>
+<p><strong>Q: Does <code>std::execution::task</code> not already bridge
+both models?</strong></p>
+<p>A: It does. Section 2 documents this. <code>task</code> is a
+coroutine that is also a sender. The question is not whether two models
+coexist - they already do. The question is whether the coroutine side of
+that coexistence carries I/O facilities that exploit the properties
+<code>coroutine_handle&lt;&gt;</code> provides: concrete operation
+states, type-erased streams, separate compilation, ABI stability.
+<code>task</code> bridges the models. It does not provide I/O.</p>
+<p><strong>Q: Two async models are harder to teach.</strong></p>
+<p>A: Section 7 concedes this. The cost is real. The paper does not
+argue the cost is zero. It documents what the coroutine model provides
+for networking (Sections 5 and 6) and what the sender model provides for
+its domains (Section 3), and observes that neither model can provide
+what the other provides.</p>
+<hr />
+<h2 id="conclusion">9. Conclusion</h2>
 <p>The sender model makes design choices that give the optimizer full
 pipeline visibility, enable zero-allocation composition, and provide
 type-level completion contracts. These choices are correct for GPU
@@ -1554,10 +1578,10 @@ domains where <code>std::execution</code> is deployed at scale.</p>
 the fork in the road. It forecloses pipeline optimization. It requires a
 frame allocation. But it produces a causal chain - concrete operation
 states, type-erased streams, separate compilation, ABI stability, a
-three-layer architecture - that delivers what C++ networking has been
-waiting for since 2005.</p>
-<p>Both models make the right trade-offs for their domain. The standard
-is stronger with both.</p>
+three-layer architecture - that resolves the properties the committee
+could not ship in twenty years of networking attempts.</p>
+<p>Two models, each correct for its domain, is a stronger standard than
+one model asked to serve both.</p>
 <hr />
 <h2 id="acknowledgments">Acknowledgments</h2>
 <p>The author thanks Chris Kohlhoff for Asio’s stream model, buffer

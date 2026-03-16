@@ -28,11 +28,15 @@ This paper is one of a suite of six that examines the relationship between compo
 
 The authors developed [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> (coroutine primitives, no sockets, no platform I/O) and `beman::execution`<sup>[5]</sup>. The authors provide information, ask nothing, and serve at the pleasure of the chair.
 
-The authors regard `std::execution` as an important contribution to C++ and support its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The authors' position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
+The authors regard `std::execution` as an important contribution to C++ and support its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`.
+
+The authors' position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
 ---
 
 ## 2. The Bridge
+
+`await_sender` consumes a `std::execution` sender from inside a coroutine. The sender runs on whatever scheduler it was given; the coroutine resumes on its own executor.
 
 ```cpp
 capy::task<int> compute(auto sched)
@@ -61,6 +65,8 @@ capy::task<int> compute(auto sched)
 
 ## 3. Demonstration
 
+Output from the example in Section 2, compiled with MSVC 19.43 against [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `beman::execution`<sup>[5]</sup> (a community implementation of `std::execution`):
+
 ```
 main thread: 32208
   sender running on thread 9560
@@ -82,9 +88,9 @@ The bridge inspects error completion signatures at compile time. If the sender a
 auto [ec, val] = co_await await_sender(sndr);
 ```
 
-No exceptions for `error_code`. Otherwise `await_resume` returns `T` directly; genuine exceptions are rethrown. Static dispatch. The `operation_cancelled` type in Appendix A is illustrative; a production implementation would use a project-appropriate cancellation exception.
+No exceptions for `error_code`. Otherwise `await_resume` returns `T` directly; genuine exceptions are rethrown and cancellation is surfaced as an exception. Static dispatch, zero runtime cost. The `operation_cancelled` type in Appendix A is illustrative; a production implementation would use a project-appropriate cancellation exception.
 
-This is the consuming side of the **abstraction floor** ([P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup> Section 4):
+The error-code dispatch is the consuming side of the **abstraction floor** ([P4056R0](https://wg21.link/p4056r0)<sup>[12]</sup> Section 4):
 
 | Region          | What the code sees                           |
 | --------------- | -------------------------------------------- |
@@ -99,21 +105,26 @@ Does not use `execution::task`.
 
 ## 5. What the Bridge Does Not Require
 
-| Property                                | `execution::task` | Bridge |
-| --------------------------------------- | ------------------ | ------ |
-| Routine I/O errors become exceptions    | Yes                | No     |
-| Type erasure on connect                 | Yes                | No     |
-| `AS-EXCEPT-PTR` for `error_code`        | Yes                | No     |
-| Zero allocations beyond coroutine frame | No                 | Yes    |
-| Usable from `std::execution::task`      | Yes                | No     |
+[P3552R3](https://wg21.link/p3552r3)<sup>[15]</sup>, "Add a Coroutine Task Type," defines `std::execution::task`. Its `connect` operation type-erases the operation state, and its error path converts `error_code` to `exception_ptr` via `AS-EXCEPT-PTR`. The bridge avoids both mechanisms:
 
-`std::execution::task` is not necessary to consume senders.
+| Property                             | `execution::task`         | Bridge |
+| ------------------------------------ | ------------------------- | ------ |
+| Routine I/O errors become exceptions | Yes (via `AS-EXCEPT-PTR`) | No     |
+| Type erasure on connect              | Yes                       | No     |
+| Allocation beyond coroutine frame    | Yes (type-erased state)   | No     |
+| Requires `std::execution::task`      | -                         | No     |
+
+The bridge consumes senders without `std::execution::task`.
 
 ---
 
 ## 6. The Narrowest Abstraction
 
-The bridge depends on [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and `std::execution`. No platform I/O dependency. The coroutine type does not change when the bridge is added.
+The bridge depends on two things: [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> (coroutine primitives) and `std::execution` (sender/receiver protocol). No platform I/O. No networking headers. No additional coroutine type. The implementation in Appendix A uses `beman::execution`<sup>[5]</sup>, a community implementation of `std::execution`, but the bridge requires only the standard sender/receiver concepts.
+
+Narrower than `execution::task`: the bridge does not type-erase, does not allocate, and does not impose an `Environment` parameter. Narrower than a completion-token adapter: the bridge does not require Asio or any I/O service. The coroutine type the programmer already uses does not change when the bridge is added.
+
+The bridge is the proof that coexistence works. Senders compose. Coroutines do I/O. One class template connects them.
 
 ---
 
@@ -152,6 +163,8 @@ The authors thank Dietmar K&uuml;hl for `beman::execution`<sup>[5]</sup> and for
 13. [P4050R0](https://wg21.link/p4050r0) - "On Task Type Diversity" (Vinnie Falco, 2026). https://wg21.link/p4050r0
 
 14. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+
+15. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
 
 ---
 
