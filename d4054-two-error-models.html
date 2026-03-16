@@ -947,12 +947,12 @@ coroutines, the floor is opt-in. In senders, the composition algebra
 lives above it.</p>
 <p>This paper is one of a suite of six that examines the relationship
 between compound I/O results and the sender three-channel model. The
-companion papers are <a href="https://wg21.link/p4050r0">P4050R0</a><sup>[14]</sup>, “On Task
-Type Diversity”; <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[6]</sup>, “Sender I/O:
-A Constructed Comparison”; <a href="https://wg21.link/p4055r0">P4055R0</a><sup>[12]</sup>, “Consuming
-Senders from Coroutine-Native Code”; <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[13]</sup>, “Producing
-Senders from Coroutine-Native Code”; and <a href="https://wg21.link/p4058r0">P4058R0</a><sup>[18]</sup>, “The Case
-for Coroutines.”</p>
+companion papers are <a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a><sup>[14]</sup>,
+“On the Diversity of Coroutine Task Types”; <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[6]</sup>,
+“Sender I/O: A Constructed Comparison”; <a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a><sup>[12]</sup>,
+“Consuming Senders from Coroutine-Native Code”; <a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[13]</sup>,
+“Producing Senders from Coroutine-Native Code”; and <a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a><sup>[18]</sup>,
+“The Case for Coroutines.”</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -975,7 +975,7 @@ Symmetry), 9 (The Boundary), 10 (The Abstraction Floor).</li>
 <li>Added reflector quotes from Voutilainen, Petersen, Maurer, Kohlhoff,
 Kühl, Shoop, and Sutter throughout, with permission.</li>
 <li>Added <code>std::execution</code> support disclosure paragraph.</li>
-<li>Added <a href="https://wg21.link/p4058r0">P4058R0</a><sup>[18]</sup>
+<li>Added <a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a><sup>[18]</sup>
 to the companion list.</li>
 </ul>
 <hr />
@@ -1458,12 +1458,12 @@ count alongside the error code. The generic algorithms do not see the
 byte count through the channel. They see it through a side channel the
 programmer constructs.</p>
 <p>For compound-result I/O, the application-specific wiring point
-arrives at every operation. <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[6]</sup> provides the
-concrete measurement. Four echo-server implementations - two
-sender-based, two coroutine-based - implement identical protocol logic.
-The sender constructions require between 2x and 3.5x the line count of
-the coroutine constructions, with the additional lines concentrated in
-channel-routing and type-erasure machinery.</p>
+arrives at every operation. <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[6]</sup>
+provides the concrete measurement. Four echo-server implementations -
+two sender-based, two coroutine-based - implement identical protocol
+logic. The sender constructions require between 2x and 3.5x the line
+count of the coroutine constructions, with the additional lines
+concentrated in channel-routing and type-erasure machinery.</p>
 <table>
 <colgroup>
 <col style="width: 23%" />
@@ -1615,9 +1615,9 @@ wiring (Section 9).</p>
 <p>Any async facility that separates error and value paths has an
 abstraction floor. Identifying where it sits relative to composition is
 a design decision, not an accident.</p>
-<p><a href="https://wg21.link/p4056r0">P4056R0</a><sup>[13]</sup> uses
-the abstraction floor as a design constraint. <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[6]</sup> shows the
-floor in each of four echo server constructions.</p>
+<p><a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[13]</sup>
+uses the abstraction floor as a design constraint. <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[6]</sup>
+shows the floor in each of four echo server constructions.</p>
 <hr />
 <h2 id="the-trade-off-space">11. The Trade-Off Space</h2>
 <p>Six positions are available for handling compound I/O results in a
@@ -1815,9 +1815,9 @@ https://github.com/cppalliance/corosio</p></li>
 <li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
 Coroutine I/O primitives library.
 https://github.com/cppalliance/capy</p></li>
-<li><p><a href="https://wg21.link/p4053r0">P4053R0</a> - “Sender I/O: A
-Constructed Comparison” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4053r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a>
+- “Sender I/O: A Constructed Comparison” (Vinnie Falco, Steve Gerbino,
+2026). https://isocpp.org/files/papers/P4053R0.pdf</p></li>
 <li><p><a href="https://wg21.link/p4007r0">P4007R0</a> - “Senders and
 Coroutines” (Vinnie Falco, Mungo Gill, 2026).
 https://wg21.link/p4007r0</p></li>
@@ -1833,14 +1833,15 @@ https://wg21.link/p2471r1</p></li>
 <li><p><a href="https://wg21.link/p3570r2">P3570R2</a> - “Optional
 variants in sender/receiver” (Fabio Fracassi, 2025).
 https://wg21.link/p3570r2</p></li>
-<li><p><a href="https://wg21.link/p4055r0">P4055R0</a> - “Consuming
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4055r0</p></li>
-<li><p><a href="https://wg21.link/p4056r0">P4056R0</a> - “Producing
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4056r0</p></li>
-<li><p><a href="https://wg21.link/p4050r0">P4050R0</a> - “On Task Type
-Diversity” (Vinnie Falco, 2026). https://wg21.link/p4050r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a>
+- “Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a>
+- “Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a>
+- “On the Diversity of Coroutine Task Types” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4050R0.pdf</p></li>
 <li><p>Lib-ext reflector, “Complicated success at coroutine/sender
 composition boundaries (from SG14 Mar 11),” March 2026.
 http://lists.isocpp.org/lib-ext/2026/03/31333.php</p></li>
@@ -1850,8 +1851,9 @@ http://lists.isocpp.org/lib-ext/2026/03/31330.php</p></li>
 <li><p>Ian Petersen, four sender implementations of channel dispatch,
 March 2026 (accessed 2026-03-15).
 https://godbolt.org/z/7W51hYE7c</p></li>
-<li><p><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
-Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a>
+- “The Case for Coroutines” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4058R0.pdf</p></li>
 <li><p><a href="https://wg21.link/p1525r1">P1525R1</a> - “One-Way
 execute is a Poor Basis Operation” (Eric Niebler, Kirk Shoop, Lewis
 Baker, Lee Howes et al., 2020). https://wg21.link/p1525r1</p></li>

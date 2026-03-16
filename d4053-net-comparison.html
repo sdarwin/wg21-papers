@@ -965,12 +965,12 @@ sender model and receives the coroutine model’s behavior. The finding is
 about cost, not defect.</p>
 <p>This paper is one of a suite of six that examines the relationship
 between compound I/O results and the sender three-channel model. The
-companion papers are <a href="https://wg21.link/p4050r0">P4050R0</a><sup>[15]</sup>, “On Task
-Type Diversity”; <a href="https://wg21.link/p4054r0">P4054R0</a><sup>[7]</sup>, “Two Error
-Models”; <a href="https://wg21.link/p4055r0">P4055R0</a><sup>[13]</sup>,
-“Consuming Senders from Coroutine-Native Code”; <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[14]</sup>, “Producing
-Senders from Coroutine-Native Code”; and <a href="https://wg21.link/p4058r0">P4058R0</a><sup>[17]</sup>, “The Case
-for Coroutines.”</p>
+companion papers are <a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a><sup>[15]</sup>,
+“On the Diversity of Coroutine Task Types”; <a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[7]</sup>,
+“Two Error Models”; <a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a><sup>[13]</sup>,
+“Consuming Senders from Coroutine-Native Code”; <a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[14]</sup>,
+“Producing Senders from Coroutine-Native Code”; and <a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a><sup>[17]</sup>,
+“The Case for Coroutines.”</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -1174,10 +1174,10 @@ cancel siblings. The <code>expected</code> approach is “just use
 <code>set_value</code>” with monadic syntax. It belongs in the first
 column of the trade-off table.</p>
 <p>This is the sender instantiation of the industry advice documented in
-<a href="https://wg21.link/p4054r0">P4054R0</a><sup>[7]</sup>: use the
-value channel whenever the result is not 100% failure. POSIX, Asio, Go,
-and Rust all follow this convention. The coroutine-native echo server
-(Section 2) does the same thing - it returns
+<a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[7]</sup>:
+use the value channel whenever the result is not 100% failure. POSIX,
+Asio, Go, and Rust all follow this convention. The coroutine-native echo
+server (Section 2) does the same thing - it returns
 <code>(error_code, size_t)</code> through the value channel and inspects
 both with <code>if (ec)</code>.</p>
 <p>The function signature says
@@ -1666,9 +1666,9 @@ the binary outcome, not to the compound I/O result.</p>
 Under “just use <code>set_value</code>,” it happens inside a
 <code>let_value</code> handler or a coroutine body - the same place it
 happens in coroutine-native code. The composition algebra takes over
-after the reduction. This is the abstraction floor (<a href="https://wg21.link/p4056r0">P4056R0</a><sup>[14]</sup> Section 4):
-compound results below, binary outcomes above, composition algebra above
-the floor.</p>
+after the reduction. This is the abstraction floor (<a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[14]</sup>
+Section 4): compound results below, binary outcomes above, composition
+algebra above the floor.</p>
 <p>Both paradigms produce the binary outcome the composition algebra
 consumes. A coroutine body reduces <code>(error_code, size_t)</code> to
 a binary outcome with <code>if (ec)</code>. A <code>let_value</code>
@@ -1811,7 +1811,7 @@ We will construct the comparison and publish the results.</p>
 <h3 id="q2-are-these-gaps-being-addressed-by-ongoing-work">Q2: Are these
 gaps being addressed by ongoing work?</h3>
 <p>Several of the ergonomic issues documented here are the subject of
-active committee work, including <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup> and <a href="https://wg21.link/d3980r0">D3980R0</a><sup>[19]</sup>. The authors
+active committee work, including <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[18]</sup> and <a href="https://wg21.link/p3980r0">P3980R0</a><sup>[19]</sup>. The authors
 welcome that work. Voutilainen confirmed on the LEWG reflector (March
 14, 2026)<sup>[20]</sup> that one needed facility is not yet in the
 standard:</p>
@@ -2071,8 +2071,9 @@ https://wg21.link/p2430r0</p></li>
 “<code>async_scope</code> - Creating scopes for non-sequential
 concurrency” (Ian Petersen, Jessica Wong, Kirk Shoop, et al., 2025).
 https://wg21.link/p3149r9</p></li>
-<li><p><a href="https://wg21.link/p4054r0">P4054R0</a> - “Two Error
-Models” (Vinnie Falco, 2026). https://wg21.link/p4054r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a>
+- “Two Error Models” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4054R0.pdf</p></li>
 <li><p>IEEE Std 1003.1-2024 - POSIX <code>read()</code> /
 <code>write()</code> specification.
 https://pubs.opengroup.org/onlinepubs/9799919799/</p></li>
@@ -2088,23 +2089,25 @@ https://wg21.link/p2471r1</p></li>
 <li><p><a href="https://wg21.link/p3570r2">P3570R2</a> - “Optional
 variants in sender/receiver” (Fabio Fracassi, 2025).
 https://wg21.link/p3570r2</p></li>
-<li><p><a href="https://wg21.link/p4055r0">P4055R0</a> - “Consuming
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4055r0</p></li>
-<li><p><a href="https://wg21.link/p4056r0">P4056R0</a> - “Producing
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4056r0</p></li>
-<li><p><a href="https://wg21.link/p4050r0">P4050R0</a> - “On Task Type
-Diversity” (Vinnie Falco, 2026). https://wg21.link/p4050r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a>
+- “Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a>
+- “Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a>
+- “On the Diversity of Coroutine Task Types” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4050R0.pdf</p></li>
 <li><p>Ville Voutilainen, <a href="https://git.qt.io/vivoutil/libunifex-with-qt">libunifex-with-qt</a>
 - Qt/stdexec integration examples (2024).
 https://git.qt.io/vivoutil/libunifex-with-qt</p></li>
-<li><p><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
-Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a>
+- “The Case for Coroutines” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4058R0.pdf</p></li>
 <li><p><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
 Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</p></li>
-<li><p><a href="https://wg21.link/d3980r0">D3980R0</a> - “Task’s
-Allocator Use” (Dietmar Kühl, 2026). https://wg21.link/d3980r0</p></li>
+<li><p><a href="https://wg21.link/p3980r0">P3980R0</a> - “Task’s
+Allocator Use” (Dietmar Kühl, 2026). https://wg21.link/p3980r0</p></li>
 <li><p>LEWG reflector (lib-ext), March 2026. Threads: “Complicated
 success at coroutine/sender composition boundaries”
 (http://lists.isocpp.org/lib-ext/2026/03/31375.php) and “std::execution

@@ -928,12 +928,12 @@ production precedent (Boost.Asio), and by <code>task</code>’s own
 author.</p>
 <p>This paper is one of a suite of six that examines the relationship
 between compound I/O results and the sender three-channel model. The
-companion papers are <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[9]</sup>, “Sender I/O:
-A Constructed Comparison”; <a href="https://wg21.link/p4054r0">P4054R0</a><sup>[10]</sup>, “Two Error
-Models”; <a href="https://wg21.link/p4055r0">P4055R0</a><sup>[11]</sup>,
-“Consuming Senders from Coroutine-Native Code”; <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[12]</sup>, “Producing
-Senders from Coroutine-Native Code”; and <a href="https://wg21.link/p4058r0">P4058R0</a><sup>[13]</sup>, “The Case
-for Coroutines.”</p>
+companion papers are <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[9]</sup>,
+“Sender I/O: A Constructed Comparison”; <a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[10]</sup>,
+“Two Error Models”; <a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a><sup>[11]</sup>,
+“Consuming Senders from Coroutine-Native Code”; <a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[12]</sup>,
+“Producing Senders from Coroutine-Native Code”; and <a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a><sup>[13]</sup>,
+“The Case for Coroutines.”</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -994,8 +994,9 @@ the author’s own contributions. Allocator propagation - how the
 allocator flows to child operations through the environment - is an
 engineering problem with known solutions. Categorization of compound I/O
 results into the three channels (<code>set_value</code>,
-<code>set_error</code>, <code>set_stopped</code>) is the subject of <a href="https://wg21.link/p4054r0">P4054R0</a><sup>[10]</sup> and <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[9]</sup>, not this
-paper.</p>
+<code>set_error</code>, <code>set_stopped</code>) is the subject of <a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[10]</sup>
+and <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[9]</sup>,
+not this paper.</p>
 <hr />
 <h2 id="the-claim">3. The Claim</h2>
 <p>A standard task type provides a lingua franca. It eliminates pairwise
@@ -1075,16 +1076,20 @@ queries yet. Already incompatible.</p>
 <p>Library A needs to propagate tenant context in a multi-tenant
 service:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">get_tenant_id_t</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="dt">forwarding_query_t</span> <span class="op">{};</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="dt">get_tenant_id_t</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    get_tenant_id<span class="op">{};</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> env_a <span class="op">{</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">scheduler_type</span> <span class="op">=</span> my_thread_pool<span class="op">;</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    tenant_id tid<span class="op">;</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> query<span class="op">(</span><span class="dt">get_tenant_id_t</span><span class="op">)</span> <span class="at">const</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">-&gt;</span> tenant_id <span class="op">{</span> <span class="cf">return</span> tid<span class="op">;</span> <span class="op">}</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="kw">auto</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    query<span class="op">(</span><span class="dt">forwarding_query_t</span><span class="op">)</span> <span class="kw">noexcept</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="op">-&gt;</span> <span class="dt">bool</span> <span class="op">{</span> <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="dt">get_tenant_id_t</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    get_tenant_id<span class="op">{};</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> env_a <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">scheduler_type</span> <span class="op">=</span> my_thread_pool<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    tenant_id tid<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> query<span class="op">(</span><span class="dt">get_tenant_id_t</span><span class="op">)</span> <span class="at">const</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="op">-&gt;</span> tenant_id <span class="op">{</span> <span class="cf">return</span> tid<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
 <p>One custom query. Completely reasonable. Library B knows nothing
 about <code>get_tenant_id</code>. <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[3]</sup> provides
 <code>write_env</code> in [exec.write.env] - the caller names each
@@ -1186,13 +1191,13 @@ any of this. It is a syntactic mechanism for injecting key-value pairs.
 The semantic burden is entirely on the caller.</p>
 <h3 id="what-about-the-standard-queries">5.4 What about the standard
 queries?</h3>
-<p>The standard defines eight forwarding queries:
-<code>get_scheduler</code>, <code>get_allocator</code>,
-<code>get_stop_token</code>, <code>get_domain</code>,
-<code>get_delegation_scheduler</code>,
-<code>get_forward_progress_guarantee</code>,
-<code>get_completion_scheduler&lt;Tag&gt;</code>, and
-<code>get_await_completion_adaptor</code>.</p>
+<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[3]</sup>
+defines seven forwarding queries: <code>get_scheduler</code>,
+<code>get_allocator</code>, <code>get_stop_token</code>,
+<code>get_domain</code>, <code>get_delegation_scheduler</code>,
+<code>get_forward_progress_guarantee</code>, and
+<code>get_completion_scheduler&lt;Tag&gt;</code>. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> adds an
+eighth: <code>get_await_completion_adaptor</code>.</p>
 <p>A conversion layer could forward these. But NVIDIA already defines
 custom queries (<code>get_stream_provider</code>,
 <code>get_stream</code>) that are not in this list. Any domain that
@@ -1543,9 +1548,10 @@ without fragmenting the ecosystem.</p>
 <p>Domain-specific task types interoperate through the C++20 awaitable
 protocol. The <a href="https://github.com/klemens-morgenstern/cross_await">cross_await</a><sup>[24]</sup>
 repository (Klemens Morgenstern) contains four cross-library composition
-examples, 51-105 lines each. Sender bridges follow the same pattern (<a href="https://wg21.link/p4055r0">P4055R0</a><sup>[11]</sup>, <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[12]</sup>). The
-ecosystem independently arrived at the design that avoids the problem
-documented in Section 5.</p>
+examples, 51-105 lines each. Sender bridges follow the same pattern (<a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a><sup>[11]</sup>,
+<a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[12]</sup>).
+The ecosystem independently arrived at the design that avoids the
+problem documented in Section 5.</p>
 <hr />
 <h2 id="concepts-mitigate-the-risk">9. Concepts Mitigate the Risk</h2>
 <p>The fix is a general pattern: define a concept that constrains
@@ -1698,19 +1704,21 @@ the design of <code>std::execution::task</code>” (Jonathan Müller,
 Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</li>
 <li><a href="https://wg21.link/p3980r0">P3980R0</a> - “Task’s Allocator
 Use” (Dietmar Kühl, 2026). https://wg21.link/p3980r0</li>
-<li><a href="https://wg21.link/p4053r0">P4053R0</a> - “Sender I/O: A
-Constructed Comparison” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4053r0</li>
-<li><a href="https://wg21.link/p4054r0">P4054R0</a> - “Two Error Models”
-(Vinnie Falco, 2026). https://wg21.link/p4054r0</li>
-<li><a href="https://wg21.link/p4055r0">P4055R0</a> - “Consuming Senders
-from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4055r0</li>
-<li><a href="https://wg21.link/p4056r0">P4056R0</a> - “Producing Senders
-from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4056r0</li>
-<li><a href="https://wg21.link/p4058r0">P4058R0</a> - “The Case for
-Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4058r0</li>
+<li><a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a> -
+“Sender I/O: A Constructed Comparison” (Vinnie Falco, Steve Gerbino,
+2026). https://isocpp.org/files/papers/P4053R0.pdf</li>
+<li><a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a> -
+“Two Error Models” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4054R0.pdf</li>
+<li><a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a> -
+“Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf</li>
+<li><a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a> -
+“Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf</li>
+<li><a href="https://isocpp.org/files/papers/P4058R0.pdf">P4058R0</a> -
+“The Case for Coroutines” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4058R0.pdf</li>
 </ol>
 <h3 id="stackoverflow-and-github">StackOverflow and GitHub</h3>
 <ol start="14" type="1">

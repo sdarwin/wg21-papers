@@ -928,12 +928,12 @@ working code, traces the causal chain from language mechanism to library
 design, and states the price.</p>
 <p>This paper is one of a suite of six that examines the relationship
 between compound I/O results and the sender three-channel model. The
-companion papers are <a href="https://wg21.link/p4050r0">P4050R0</a><sup>[1]</sup>, “On Task
-Type Diversity”; <a href="https://wg21.link/p4053r0">P4053R0</a><sup>[2]</sup>, “Sender I/O:
-A Constructed Comparison”; <a href="https://wg21.link/p4054r0">P4054R0</a><sup>[3]</sup>, “Two Error
-Models”; <a href="https://wg21.link/p4055r0">P4055R0</a><sup>[4]</sup>,
-“Consuming Senders from Coroutine-Native Code”; and <a href="https://wg21.link/p4056r0">P4056R0</a><sup>[5]</sup>, “Producing
-Senders from Coroutine-Native Code.”</p>
+companion papers are <a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a><sup>[1]</sup>,
+“On the Diversity of Coroutine Task Types”; <a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[2]</sup>,
+“Sender I/O: A Constructed Comparison”; <a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[3]</sup>,
+“Two Error Models”; <a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a><sup>[4]</sup>,
+“Consuming Senders from Coroutine-Native Code”; and <a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a><sup>[5]</sup>,
+“Producing Senders from Coroutine-Native Code.”</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
@@ -1480,7 +1480,8 @@ domain gate is the benefit. <a href="https://github.com/cppalliance/capy/blob/p4
 <code>auto [ec, n] = co_await sock.read_some(buf)</code>. Both values
 visible. No channel split. No data loss. The three-channel model routes
 results by channel. Compound results must choose a channel, losing data
-on the error path (<a href="https://wg21.link/p4053r0">P4053R0</a><sup>[2]</sup>, <a href="https://wg21.link/p4054r0">P4054R0</a><sup>[3]</sup>).</p></li>
+on the error path (<a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a><sup>[2]</sup>,
+<a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a><sup>[3]</sup>).</p></li>
 <li><p><strong>Symmetric transfer.</strong> <code>await_suspend</code>
 returns <code>coroutine_handle&lt;&gt;</code>. O(1) stack depth
 regardless of chain length.</p></li>
@@ -1604,19 +1605,21 @@ Gill, Mohammad Nejati, and Michael Vandeberg for feedback.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
-<li><p><a href="https://wg21.link/p4050r0">P4050R0</a> - “On Task Type
-Diversity” (Vinnie Falco, 2026). https://wg21.link/p4050r0</p></li>
-<li><p><a href="https://wg21.link/p4053r0">P4053R0</a> - “Sender I/O: A
-Constructed Comparison” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4053r0</p></li>
-<li><p><a href="https://wg21.link/p4054r0">P4054R0</a> - “Two Error
-Models” (Vinnie Falco, 2026). https://wg21.link/p4054r0</p></li>
-<li><p><a href="https://wg21.link/p4055r0">P4055R0</a> - “Consuming
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4055r0</p></li>
-<li><p><a href="https://wg21.link/p4056r0">P4056R0</a> - “Producing
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4056r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4050R0.pdf">P4050R0</a>
+- “On the Diversity of Coroutine Task Types” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4050R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4053R0.pdf">P4053R0</a>
+- “Sender I/O: A Constructed Comparison” (Vinnie Falco, Steve Gerbino,
+2026). https://isocpp.org/files/papers/P4053R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4054R0.pdf">P4054R0</a>
+- “Two Error Models” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4054R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4055R0.pdf">P4055R0</a>
+- “Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4056R0.pdf">P4056R0</a>
+- “Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf</p></li>
 <li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
 Coroutine-native networking library.
 https://github.com/cppalliance/corosio</p></li>
@@ -1647,6 +1650,9 @@ Networking Utilities to the C++ Standard Library” (Chris Kohlhoff,
 2005). https://wg21.link/n1925</p></li>
 <li><p>Boost.Asio AsyncReadStream requirements.
 https://www.boost.org/doc/libs/1_87_0/doc/html/boost_asio/reference/AsyncReadStream.html</p></li>
+<li><p><a href="https://wg21.link/p2464r0">P2464R0</a> - “Ruminations on
+networking and executors” (Ville Voutilainen, 2021).
+https://wg21.link/p2464r0</p></li>
 </ol>
 
 </body>
