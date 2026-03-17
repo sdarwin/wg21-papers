@@ -1,6 +1,6 @@
 ---
 title: "Retrospective: The Networking Claim and P2453R0"
-document: P4063R0
+document: P4097R0
 date: 2026-03-16
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,8 +11,7 @@ audience: WG21
 
 The committee expressed consensus that sender/receiver is a good basis for networking. The published evidence behind that word is documented here.
 
-In October 2021, LEWG polled: "The sender/receiver model (P2300) is a good basis for most asynchronous use cases, including networking, parallelism, and GPUs" (SF:24 / WF:16 / N:3 / WA:6 / SA:3 - consensus in favor). This paper searches the published record for the evidence that supported the word "networking" in that poll text - at the time of the vote and as of 2026. It is the fourth in a series of six papers that document the decisions that kept networking out of the C++ standard.
-
+In October 2021, LEWG polled: "The sender/receiver model (P2300) is a good basis for most asynchronous use cases, including networking, parallelism, and GPUs" (SF:24 / WF:16 / N:3 / WA:6 / SA:3 - consensus in favor). This paper searches the published record for the evidence that supported the word "networking" in that poll text - at the time of the vote and as of 2026.
 ---
 
 ## Revision History
@@ -25,9 +24,9 @@ In October 2021, LEWG polled: "The sender/receiver model (P2300) is a good basis
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[1]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[2]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. Coroutine-native I/O does not provide the sender composition algebra - `retry`, `when_all`, `upon_error` - that `std::execution` provides. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[1]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[2]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
-The author is revisiting the historical record systematically. This paper is one of several. The goal is to document - precisely and on the record - the decisions that kept networking out of the C++ standard. That effort requires re-examining consequential papers, including papers written by people the author respects.
+The committee has been trying to standardize networking since 2005. This retrospective examines the published record to identify the failure modes that prevented delivery, so the next attempt can avoid them. Its findings stand on their own. That effort requires re-examining consequential papers, including papers written by people the author respects.
 
 ### P2469R0
 
@@ -166,11 +165,11 @@ The following papers are authored or co-authored by the author of this paper. Th
 | --------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | [P4003R1](https://wg21.link/p4003r1)<sup>[14]</sup>            | Coroutines for I/O                                   | The coroutine executor concept for networking                                       |
 | [P4007R1](https://wg21.link/p4007r1)<sup>[15]</sup>            | Open Issues in `std::execution::task`                | `AS-EXCEPT-PTR` converts routine `error_code` to `exception_ptr`                   |
-| [P4053R0](https://wg21.link/p4053r0)<sup>[16]</sup>            | Sender I/O: A Constructed Comparison                 | Side-by-side sender vs. coroutine networking code                                   |
-| [P4054R0](https://wg21.link/p4054r0)<sup>[17]</sup>            | Two Error Models                                     | The sender error channel vs. `error_code` for I/O                                  |
-| [P4055R0](https://wg21.link/p4055r0)<sup>[18]</sup>            | Consuming Senders from Coroutine-Native Code         | Coroutine-to-sender interop bridge                                                  |
-| [P4056R0](https://wg21.link/p4056r0)<sup>[19]</sup>            | Producing Senders from Coroutine-Native Code         | Sender-to-coroutine interop bridge                                                  |
-| [P4058R0](https://wg21.link/p4058r0)<sup>[20]</sup>            | The Case for Coroutines                              | The argument for coroutine-native I/O as the foundation for networking              |
+| [P4090R0](https://wg21.link/p4090r0)<sup>[16]</sup>            | Sender I/O: A Constructed Comparison                 | Side-by-side sender vs. coroutine networking code                                   |
+| [P4091R0](https://wg21.link/p4091r0)<sup>[17]</sup>            | Two Error Models                                     | The sender error channel vs. `error_code` for I/O                                  |
+| [P4092R0](https://wg21.link/p4092r0)<sup>[18]</sup>            | Consuming Senders from Coroutine-Native Code         | Coroutine-to-sender interop bridge                                                  |
+| [P4093R0](https://wg21.link/p4093r0)<sup>[19]</sup>            | Producing Senders from Coroutine-Native Code         | Sender-to-coroutine interop bridge                                                  |
+| [P4088R0](https://wg21.link/p4088r0)<sup>[20]</sup>            | The Case for Coroutines                              | The argument for coroutine-native I/O as the foundation for networking              |
 | [P2583R3](https://wg21.link/p2583r3)<sup>[21]</sup>            | Symmetric Transfer and Sender Composition            | Symmetric transfer gap in sender task types                                         |
 
 The author's position on coroutine-native I/O is a consequence of the findings documented in this series, not a premise.
@@ -243,15 +242,15 @@ The author thanks Bryce Adelstein Lelbach, Fabio Fracassi, and Ben Craig for the
 
 15. [P4007R1](https://wg21.link/p4007r1) - "Open Issues in std::execution::task" (Vinnie Falco, 2026). https://wg21.link/p4007r1
 
-16. [P4053R0](https://wg21.link/p4053r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, 2026). https://wg21.link/p4053r0
+16. [P4090R0](https://wg21.link/p4090r0) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, 2026). https://wg21.link/p4090r0
 
-17. [P4054R0](https://wg21.link/p4054r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4054r0
+17. [P4091R0](https://wg21.link/p4091r0) - "Two Error Models" (Vinnie Falco, 2026). https://wg21.link/p4091r0
 
-18. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
+18. [P4092R0](https://wg21.link/p4092r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4092r0
 
-19. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
+19. [P4093R0](https://wg21.link/p4093r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4093r0
 
-20. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+20. [P4088R0](https://wg21.link/p4088r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4088r0
 
 21. [P2583R3](https://wg21.link/p2583r3) - "Symmetric Transfer and Sender Composition" (Vinnie Falco, 2026). https://wg21.link/p2583r3
 

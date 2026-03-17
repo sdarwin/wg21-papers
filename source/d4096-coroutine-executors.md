@@ -1,6 +1,6 @@
 ---
 title: "Retrospective: Coroutine Executors and P2464R0"
-document: P4062R0
+document: P4096R0
 date: 2026-03-14
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,7 +11,7 @@ audience: LEWG, SG1
 
 The paper that set aside the Networking TS analyzed the renamed API under one framing. The original framing produces different conclusions.
 
-[P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>, "Ruminations on networking and executors," identified three properties of [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup>, "A Unified Executors Proposal for C++," executors: no error channel, no lifecycle for submitted work, and no generic composition. [P4060R0](https://wg21.link/p4060r0)<sup>[7]</sup>, "Retrospective: The Unification of Executors and P0443," documents the scope expansion and terminology shift that produced [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup> from three independent executor models and defines two framings of `execute(F&&)` - the work framing and the continuation framing. This paper applies those framings. It documents the three properties as applied to the coroutine-native executor described in [P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup>, "Coroutines for I/O," and re-examines them as applied to [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup>'s `execute(F&&)`. The coroutine executor constrains the handle type to `coroutine_handle<>`, restoring the type constraint that the rename to `execute(F&&)` removed. The coroutine executor concept did not exist in its current form until [P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup> was published in 2026. Sections 3-6 place [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>'s criteria next to the coroutine executor's properties. Sections 7-8 document structured concurrency and the executor concept. Section 9 places [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>'s predictions next to five years of published outcomes.
+[P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>, "Ruminations on networking and executors," identified three properties of [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup>, "A Unified Executors Proposal for C++," executors: no error channel, no lifecycle for submitted work, and no generic composition. [P4094R0](https://wg21.link/p4094r0)<sup>[7]</sup>, "Retrospective: The Unification of Executors and P0443," documents the scope expansion and terminology shift that produced [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup> from three independent executor models and defines two framings of `execute(F&&)` - the work framing and the continuation framing. This paper applies those framings. It documents the three properties as applied to the coroutine-native executor described in [P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup>, "Coroutines for I/O," and re-examines them as applied to [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup>'s `execute(F&&)`. The coroutine executor constrains the handle type to `coroutine_handle<>`, restoring the type constraint that the rename to `execute(F&&)` removed. The coroutine executor concept did not exist in its current form until [P4003R0](https://wg21.link/p4003r0)<sup>[2]</sup> was published in 2026. Sections 3-6 place [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>'s criteria next to the coroutine executor's properties. Sections 7-8 document structured concurrency and the executor concept. Section 9 places [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup>'s predictions next to five years of published outcomes.
 
 ---
 
@@ -23,9 +23,9 @@ The paper that set aside the Networking TS analyzed the renamed API under one fr
 
 ## 1. Disclosure
 
-The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[5]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. Coroutine-native I/O does not provide the sender composition algebra - `retry`, `when_all`, `upon_error` - that `std::execution` provides. The authors provide information, ask nothing, and serve at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The authors developed and maintain [Corosio](https://github.com/cppalliance/corosio)<sup>[5]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believe coroutine-native I/O is the correct foundation for networking in C++. The authors provide information, ask nothing, and serve at the pleasure of the chair.
 
-The authors are revisiting the historical record systematically. This paper is one of several. The goal is to document - precisely and on the record - the decisions that kept networking out of the C++ standard. That effort requires re-examining consequential papers, including papers written by people the authors respect.
+The committee has been trying to standardize networking since 2005. This retrospective examines the published record to identify the failure modes that prevented delivery, so the next attempt can avoid them. Its findings stand on their own. That effort requires re-examining consequential papers, including papers written by people the authors respect.
 
 ### P2464R0
 
@@ -39,7 +39,7 @@ The authors are revisiting the historical record systematically. This paper is o
 
 ## 2. The Two Framings
 
-[P4060R0](https://wg21.link/p4060r0)<sup>[7]</sup> documents the scope expansion that produced [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup> from three independent executor models and the terminology shift that erased the continuation framing from the API surface. This section restates the two framings defined in [P4060R0](https://wg21.link/p4060r0)<sup>[7]</sup> Sections 2 and 6. The rest of this paper applies them.
+[P4094R0](https://wg21.link/p4094r0)<sup>[7]</sup> documents the scope expansion that produced [P0443R14](https://wg21.link/p0443r14)<sup>[3]</sup> from three independent executor models and the terminology shift that erased the continuation framing from the API surface. This section restates the two framings defined in [P4094R0](https://wg21.link/p4094r0)<sup>[7]</sup> Sections 2 and 6. The rest of this paper applies them.
 
 **The continuation framing.** `dispatch`/`post`/`defer` schedule a continuation on an execution context. The callable is a resumption handle. The operating system performs the work. The result is delivered to the continuation when it wakes up. The executor never touches the result.
 
@@ -96,7 +96,7 @@ Three terms. All three are downstream consequences of the work framing that the 
 
 2. "Succeeded." Under the continuation framing, a continuation does not succeed or fail. It resumes. The I/O result - error code, byte count - is delivered to the continuation when it wakes up. The continuation did not produce the result. The OS did.
 
-3. "Accepted the work submission." Under the continuation framing, no work was submitted. The caller yielded control. Kohlhoff's original API named this `dispatch`, `post`, and `defer` - continuation-scheduling primitives ([P4060R0](https://wg21.link/p4060r0)<sup>[7]</sup> Section 6). The rename to `execute` changed the name. The operation remained the same.
+3. "Accepted the work submission." Under the continuation framing, no work was submitted. The caller yielded control. Kohlhoff's original API named this `dispatch`, `post`, and `defer` - continuation-scheduling primitives ([P4094R0](https://wg21.link/p4094r0)<sup>[7]</sup> Section 6). The rename to `execute` changed the name. The operation remained the same.
 
 [P2464R0](https://wg21.link/p2464r0)<sup>[1]</sup> analyzed the renamed API under the work framing. The use cases it describes - queue full, executor shutting down - presuppose a fire-and-forget model where a caller hands off work and moves on. The original API did not operate that way.
 
@@ -428,7 +428,7 @@ The authors thank Peter Dimov for identifying that [P0443R14](https://wg21.link/
 4. [Capy](https://github.com/cppalliance/capy) - Coroutine I/O foundation library (Vinnie Falco). https://github.com/cppalliance/capy
 5. [Corosio](https://github.com/cppalliance/corosio) - Coroutine networking library (Vinnie Falco). https://github.com/cppalliance/corosio
 6. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak, Lewis Baker, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach, 2024). https://wg21.link/p2300r10
-7. [P4060R0](https://wg21.link/p4060r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4060r0
+7. [P4094R0](https://wg21.link/p4094r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4094r0
 8. [P2430R0](https://wg21.link/p2430r0) - "Partial success scenarios with sender/receiver" (Christopher Kohlhoff, 2021). https://wg21.link/p2430r0
 9. [P2762R2](https://wg21.link/p2762r2) - "Sender/Receiver for Networking" (Dietmar K&uuml;hl, 2023). https://wg21.link/p2762r2
 10. [P0113R0](https://wg21.link/p0113r0) - "Executors and Asynchronous Operations, Revision 2" (Christopher Kohlhoff, 2015). https://wg21.link/p0113r0

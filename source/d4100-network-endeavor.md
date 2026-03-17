@@ -1,6 +1,6 @@
 ---
-title: "Coroutine-Native I/O For C++29"
-document: P4048R0
+title: "The Network Endeavor: Coroutine-Native I/O for C++29"
+document: P4100R0
 date: 2026-03-09
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,11 +11,11 @@ reply-to:
 audience: LEWG
 ---
 
-# Coroutine-Native I/O For C++29
+# The Network Endeavor: Coroutine-Native I/O for C++29
 
 ## Abstract
 
-This document presents a plan to standardize I/O for C++29. The plan is an eleven-paper series based on two libraries we built - Capy and Corosio - that implement coroutine-native I/O on C++20. Both are available today with independent adopters.
+This is the roadmap for bringing networking to C++29 using coroutines - thirteen papers, two libraries, three independent adopters, and a timeline through 2028. The plan is an eleven-paper series based on two libraries we built - Capy and Corosio - that implement coroutine-native I/O on C++20. Both are available today with independent adopters.
 
 ---
 
@@ -29,7 +29,7 @@ This document presents a plan to standardize I/O for C++29. The plan is an eleve
 
 ## 1. Disclosure
 
-We are the authors of Capy and Corosio, a complete I/O stack built on C++20 coroutines: timers, files, signals, sockets, TLS, DNS. We have a stake in the outcome.
+This paper is the roadmap for the Network Endeavor, a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. We are the authors of Capy and Corosio, a complete I/O stack built on C++20 coroutines: timers, files, signals, sockets, TLS, DNS. We have a stake in the outcome.
 
 Our design has boundaries. It cannot express compile-time work graphs. It does not support heterogeneous dispatch. It assumes cooperative multitasking. Those are real costs, and they define where coroutine-native I/O ends and where other models provide value.
 

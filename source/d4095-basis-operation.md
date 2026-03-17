@@ -1,6 +1,6 @@
 ---
 title: "Retrospective: The Basis Operation and P1525"
-document: P4061R0
+document: P4095R0
 date: 2026-03-16
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,7 +11,7 @@ audience: SG1, LEWG
 
 Of the four deficiencies that [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup> identified in `execute(F&&)`, three do not arise under the original framing of the callable as a continuation, and the fourth addresses a different question.
 
-This paper documents what [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup>, "One-Way execute is a Poor Basis Operation," analyzed, what it did not analyze, and applies the two-framing distinction from [P4060R0](https://wg21.link/p4060r0)<sup>[5]</sup> to its diagnosis.
+This paper documents what [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup>, "One-Way execute is a Poor Basis Operation," analyzed, what it did not analyze, and applies the two-framing distinction from [P4094R0](https://wg21.link/p4094r0)<sup>[5]</sup> to its diagnosis.
 
 ---
 
@@ -25,9 +25,9 @@ This paper documents what [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup>, "O
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. Coroutine-native I/O does not provide the sender composition algebra - `retry`, `when_all`, `upon_error` - that `std::execution` provides. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
-The author is revisiting the historical record systematically. This paper is one of several. The goal is to document - precisely and on the record - the decisions that kept networking out of the C++ standard. That effort requires re-examining consequential papers, including papers written by people the author respects.
+The committee has been trying to standardize networking since 2005. This retrospective examines the published record to identify the failure modes that prevented delivery, so the next attempt can avoid them. Its findings stand on their own. That effort requires re-examining consequential papers, including papers written by people the author respects.
 
 ### P1525R0
 
@@ -87,7 +87,7 @@ These are real deficiencies of the `execute(F&&)` signature. The sender/receiver
 
 ## 3. What P1525R0 Did Not Analyze
 
-[P4060R0](https://wg21.link/p4060r0)<sup>[5]</sup> Section 6 documented a terminology shift: what began as continuation-scheduling primitives (`dispatch`/`post`/`defer`) was progressively renamed to `execute(F&&)`. The continuation framing - where the callable is a resumption handle and the operating system performs the work - was no longer visible on the API surface by the time [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup> was written.
+[P4094R0](https://wg21.link/p4094r0)<sup>[5]</sup> Section 6 documented a terminology shift: what began as continuation-scheduling primitives (`dispatch`/`post`/`defer`) was progressively renamed to `execute(F&&)`. The continuation framing - where the callable is a resumption handle and the operating system performs the work - was no longer visible on the API surface by the time [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup> was written.
 
 ### 3.1 The Continuation Framing
 
@@ -124,7 +124,7 @@ These are real deficiencies of the `execute(F&&)` signature. The sender/receiver
 
 ## 4. The Framing Dependency
 
-[P4060R0](https://wg21.link/p4060r0)<sup>[5]</sup> Section 6.4 defined two framings of `execute(F&&)`:
+[P4094R0](https://wg21.link/p4094r0)<sup>[5]</sup> Section 6.4 defined two framings of `execute(F&&)`:
 
 **The work framing.** `execute(F&&)` submits work. The callable is a unit of work. The executor runs it. Error handling, lifecycle, and composition are the executor's responsibility.
 
@@ -250,11 +250,11 @@ A: Correct. C++20 coroutines were ratified in 2020. The coroutine executor conce
 
 **Q: The continuation framing is a retroactive reinterpretation.**
 
-A: [P0113R0](https://wg21.link/p0113r0)<sup>[13]</sup> (Kohlhoff, 2015) defined `defer` as scheduling "a continuation of the caller." [P0688R0](https://wg21.link/p0688r0)<sup>[10]</sup> (2017) converted it to a property hint. [P4060R0](https://wg21.link/p4060r0)<sup>[5]</sup> Section 6 documents every paper in the chain. The continuation framing is the original framing. The work framing is the replacement.
+A: [P0113R0](https://wg21.link/p0113r0)<sup>[13]</sup> (Kohlhoff, 2015) defined `defer` as scheduling "a continuation of the caller." [P0688R0](https://wg21.link/p0688r0)<sup>[10]</sup> (2017) converted it to a property hint. [P4094R0](https://wg21.link/p4094r0)<sup>[5]</sup> Section 6 documents every paper in the chain. The continuation framing is the original framing. The work framing is the replacement.
 
 **Q: P1525R0's authors had deep async expertise.**
 
-A: They did. The issue is not who the authors were but what was visible on the API surface they were analyzing. The continuation framing was not encoded in the type system, not enforced by concepts, and not visible in the `execute(F&&)` signature. [P4060R0](https://wg21.link/p4060r0)<sup>[5]</sup> Section 6.3 documents how design rationale is lost across paper boundaries in multi-author standardization. The framing was not in the paper [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup> was analyzing.
+A: They did. The issue is not who the authors were but what was visible on the API surface they were analyzing. The continuation framing was not encoded in the type system, not enforced by concepts, and not visible in the `execute(F&&)` signature. [P4094R0](https://wg21.link/p4094r0)<sup>[5]</sup> Section 6.3 documents how design rationale is lost across paper boundaries in multi-author standardization. The framing was not in the paper [P1525R0](https://wg21.link/p1525r0)<sup>[1]</sup> was analyzing.
 
 **Q: This paper argues for the author's own library.**
 
@@ -278,7 +278,7 @@ The author thanks Eric Niebler, Kirk Shoop, Lewis Baker, and Lee Howes for [P152
 
 4. [P2300R10](https://wg21.link/p2300r10) - "std::execution" (Micha&lstrok; Dominiak, Lewis Baker, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach, 2024). https://wg21.link/p2300r10
 
-5. [P4060R0](https://wg21.link/p4060r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4060r0
+5. [P4094R0](https://wg21.link/p4094r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4094r0
 
 6. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
 

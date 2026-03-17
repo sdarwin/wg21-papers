@@ -1,6 +1,6 @@
 ---
 title: "Two Error Models"
-document: P4054R0
+document: P4091R0
 date: 2026-03-15
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -9,6 +9,8 @@ audience: LEWG
 
 ## Abstract
 
+Both coroutines and senders destroy compound data at an abstraction floor - the difference is that the sender floor sits below the composition algebra, and the coroutine floor is opt-in.
+
 In March 2026, Andrzej Krzemie&nacute;ski asked the lib-ext reflector<sup>[16]</sup>:
 
 > "Is there a component, or a technique, in `std::execution`, going into C++26, available today in one of the reference implementations where I could get a value via the value channel, and dispatch it to either of the three channels based on the value I get?"
@@ -16,8 +18,6 @@ In March 2026, Andrzej Krzemie&nacute;ski asked the lib-ext reflector<sup>[16]</
 The question launched a discussion. Ville Voutilainen, Ian Petersen, Jens Maurer, and the author explored the design space across several dozen messages. This paper follows that discussion and examines its implications for how the sender three-channel model interacts with compound I/O results.
 
 The finding: both coroutines and senders have an abstraction floor - a boundary where compound results are reduced to a single value. The coroutine floor is `throw`. The sender floor is `set_error`. Both destroy compound data when crossed. The difference is where the floor sits relative to composition. In coroutines, the floor is opt-in. In senders, the composition algebra lives above it.
-
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://isocpp.org/files/papers/P4050R0.pdf)<sup>[14]</sup>, "On the Diversity of Coroutine Task Types"; [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf)<sup>[6]</sup>, "Sender I/O: A Constructed Comparison"; [P4055R0](https://isocpp.org/files/papers/P4055R0.pdf)<sup>[12]</sup>, "Consuming Senders from Coroutine-Native Code"; [P4056R0](https://isocpp.org/files/papers/P4056R0.pdf)<sup>[13]</sup>, "Producing Senders from Coroutine-Native Code"; and [P4058R0](https://isocpp.org/files/papers/P4058R0.pdf)<sup>[18]</sup>, "The Case for Coroutines."
 
 ---
 
@@ -34,13 +34,13 @@ This paper is one of a suite of six that examines the relationship between compo
 - Added Sections 2 (The Question), 7 (The Equivalence), 8 (The Symmetry), 9 (The Boundary), 10 (The Abstraction Floor).
 - Added reflector quotes from Voutilainen, Petersen, Maurer, Kohlhoff, K&uuml;hl, Shoop, and Sutter throughout, with permission.
 - Added `std::execution` support disclosure paragraph.
-- Added [P4058R0](https://isocpp.org/files/papers/P4058R0.pdf)<sup>[18]</sup> to the companion list.
+- Added [P4088R0](https://isocpp.org/files/papers/P4088R0.pdf)<sup>[18]</sup> to the companion list.
 
 ---
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[4]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[5]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[4]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[5]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
 The author regards `std::execution` as an important contribution to C++ and supports its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The author's position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
@@ -295,7 +295,7 @@ When the discussion turned to whether the byte count could remain visible to gen
 
 The data can be preserved. The generic algorithms can participate. But the connection between them requires application-specific wiring - a lambda capture, shared state, or a function object that carries the byte count alongside the error code. The generic algorithms do not see the byte count through the channel. They see it through a side channel the programmer constructs.
 
-For compound-result I/O, the application-specific wiring point arrives at every operation. [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf)<sup>[6]</sup> provides the concrete measurement. Four echo-server implementations - two sender-based, two coroutine-based - implement identical protocol logic. The sender constructions require between 2x and 3.5x the line count of the coroutine constructions, with the additional lines concentrated in channel-routing and type-erasure machinery.
+For compound-result I/O, the application-specific wiring point arrives at every operation. [P4090R0](https://isocpp.org/files/papers/P4090R0.pdf)<sup>[6]</sup> provides the concrete measurement. Four echo-server implementations - two sender-based, two coroutine-based - implement identical protocol logic. The sender constructions require between 2x and 3.5x the line count of the coroutine constructions, with the additional lines concentrated in channel-routing and type-erasure machinery.
 
 | Domain           | Sync/Async | Error model      | Three-channel model fits? |
 | ---------------- | ---------- | ---------------- | ------------------------- |
@@ -336,7 +336,7 @@ The floors are structurally analogous but operationally opposite. Coroutines def
 
 Any async facility that separates error and value paths has an abstraction floor. Identifying where it sits relative to composition is a design decision, not an accident.
 
-[P4056R0](https://isocpp.org/files/papers/P4056R0.pdf)<sup>[13]</sup> uses the abstraction floor as a design constraint. [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf)<sup>[6]</sup> shows the floor in each of four echo server constructions.
+[P4093R0](https://isocpp.org/files/papers/P4093R0.pdf)<sup>[13]</sup> uses the abstraction floor as a design constraint. [P4090R0](https://isocpp.org/files/papers/P4090R0.pdf)<sup>[6]</sup> shows the floor in each of four echo server constructions.
 
 ---
 
@@ -425,7 +425,7 @@ Any quoted participant who wishes a passage retracted or revised may contact the
 
 5. [cppalliance/capy](https://github.com/cppalliance/capy) - Coroutine I/O primitives library. https://github.com/cppalliance/capy
 
-6. [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4053R0.pdf
+6. [P4090R0](https://isocpp.org/files/papers/P4090R0.pdf) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4090R0.pdf
 
 7. [P4007R0](https://wg21.link/p4007r0) - "Senders and Coroutines" (Vinnie Falco, Mungo Gill, 2026). https://wg21.link/p4007r0
 
@@ -437,11 +437,11 @@ Any quoted participant who wishes a passage retracted or revised may contact the
 
 11. [P3570R2](https://wg21.link/p3570r2) - "Optional variants in sender/receiver" (Fabio Fracassi, 2025). https://wg21.link/p3570r2
 
-12. [P4055R0](https://isocpp.org/files/papers/P4055R0.pdf) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf
+12. [P4092R0](https://isocpp.org/files/papers/P4092R0.pdf) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4092R0.pdf
 
-13. [P4056R0](https://isocpp.org/files/papers/P4056R0.pdf) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf
+13. [P4093R0](https://isocpp.org/files/papers/P4093R0.pdf) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4093R0.pdf
 
-14. [P4050R0](https://isocpp.org/files/papers/P4050R0.pdf) - "On the Diversity of Coroutine Task Types" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4050R0.pdf
+14. [P4089R0](https://isocpp.org/files/papers/P4089R0.pdf) - "On the Diversity of Coroutine Task Types" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4089R0.pdf
 
 15. Lib-ext reflector, "Complicated success at coroutine/sender composition boundaries (from SG14 Mar 11)," March 2026. http://lists.isocpp.org/lib-ext/2026/03/31333.php
 
@@ -449,7 +449,7 @@ Any quoted participant who wishes a passage retracted or revised may contact the
 
 17. Ian Petersen, four sender implementations of channel dispatch, March 2026 (accessed 2026-03-15). https://godbolt.org/z/7W51hYE7c
 
-18. [P4058R0](https://isocpp.org/files/papers/P4058R0.pdf) - "The Case for Coroutines" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4058R0.pdf
+18. [P4088R0](https://isocpp.org/files/papers/P4088R0.pdf) - "The Case for Coroutines" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4088R0.pdf
 
 19. [P1525R1](https://wg21.link/p1525r1) - "One-Way execute is a Poor Basis Operation" (Eric Niebler, Kirk Shoop, Lewis Baker, Lee Howes et al., 2020). https://wg21.link/p1525r1
 

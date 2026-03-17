@@ -1,6 +1,6 @@
 ---
 title: "The Case for Coroutines"
-document: P4058R0
+document: P4088R0
 date: 2026-03-15
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -9,11 +9,11 @@ audience: LEWG
 
 ## Abstract
 
+Five properties of C++20 coroutines combine to resolve the problems that have kept networking out of the C++ standard for twenty-one years.
+
 C++20 coroutines provide five properties: type erasure through `coroutine_handle<>`, promise customization through `promise_type`, stackless frames that suspend and resume independently, symmetric transfer through `await_suspend` returning a handle, and compiler-managed state that survives across suspension. Each property was designed for generality - async patterns, lazy evaluation, generators. None was designed for I/O.
 
 Combined, the five properties produce a substrate for serial byte-oriented I/O that resolves problems unique to C++: template explosion, compile-time cost, allocation control, and ABI instability. Type erasure plus compiler-managed state yields type-erased streams with zero per-operation allocation. Promise customization plus stackless frames yields frame allocator propagation before `operator new`. Symmetric transfer yields O(1) stack depth in deep coroutine chains. The synergy is not in any single property. It is in what the five produce together. This paper shows each property in working code, traces the causal chain from language mechanism to library design, and states the price.
-
-This paper is one of a suite of six that examines the relationship between compound I/O results and the sender three-channel model. The companion papers are [P4050R0](https://isocpp.org/files/papers/P4050R0.pdf)<sup>[1]</sup>, "On the Diversity of Coroutine Task Types"; [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf)<sup>[2]</sup>, "Sender I/O: A Constructed Comparison"; [P4054R0](https://isocpp.org/files/papers/P4054R0.pdf)<sup>[3]</sup>, "Two Error Models"; [P4055R0](https://isocpp.org/files/papers/P4055R0.pdf)<sup>[4]</sup>, "Consuming Senders from Coroutine-Native Code"; and [P4056R0](https://isocpp.org/files/papers/P4056R0.pdf)<sup>[5]</sup>, "Producing Senders from Coroutine-Native Code."
 
 ---
 
@@ -27,7 +27,7 @@ This paper is one of a suite of six that examines the relationship between compo
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)<sup>[18]</sup>), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
 The author regards `std::execution` as an important contribution to C++ and supports its standardization for the domains it serves well - GPU dispatch, heterogeneous execution, and compile-time work-graph composition among them. Nothing in this paper or its companions argues for removing, delaying, or diminishing `std::execution`. The author's position is narrower: that networking and stream I/O present a compound-result structure that the three-channel model was not designed to carry, and that this domain is better served by a coroutine-native facility that can coexist with senders and interoperate where the domains meet. Two models, each correct for its domain, is a stronger standard than one model asked to serve both.
 
@@ -89,7 +89,7 @@ These are deployed at scale. [P2470R0](https://wg21.link/p2470r0)<sup>[12]</sup>
 
 Coroutines are not free. Three costs are irreducible.
 
-**Frame allocation.** When a function becomes a coroutine, the compiler moves everything that would normally live on the stack - every local variable, every function parameter, the suspension point that records where execution left off, and the awaitable machinery that manages resumption - into a heap-allocated block called the coroutine frame. Every coroutine that suspends must allocate this frame through `operator new`. The frame size is determined by the compiler. The caller cannot `sizeof` it, cannot stack-allocate it, cannot embed it in a struct. HALO ([P0981R0](https://wg21.link/p0981r0)<sup>[13]</sup>) can elide the allocation when the compiler proves the frame's lifetime is bounded by the caller's scope, but no compiler guarantees HALO. The recycling allocator ([recycling_memory_resource](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/ex/recycling_memory_resource.hpp)<sup>[7]</sup>) amortizes the cost to a thread-local pool lookup - nanoseconds instead of microseconds - but the allocation still happens. Senders do not pay this cost. Sender operation states can be stack-allocated or embedded in the parent's operation state.
+**Frame allocation.** When a function becomes a coroutine, the compiler moves everything that would normally live on the stack - every local variable, every function parameter, the suspension point that records where execution left off, and the awaitable machinery that manages resumption - into a heap-allocated block called the coroutine frame. Every coroutine that suspends must allocate this frame through `operator new`. The frame size is determined by the compiler. The caller cannot `sizeof` it, cannot stack-allocate it, cannot embed it in a struct. HALO ([P0981R0](https://wg21.link/p0981r0)<sup>[13]</sup>) can elide the allocation when the compiler proves the frame's lifetime is bounded by the caller's scope, but no compiler guarantees HALO. The recycling allocator ([recycling_memory_resource](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/ex/recycling_memory_resource.hpp)<sup>[7]</sup>) amortizes the cost to a thread-local pool lookup - nanoseconds instead of microseconds - but the allocation still happens. Senders do not pay this cost. Sender operation states can be stack-allocated or embedded in the parent's operation state.
 
 **Opaque resume.** The compiler cannot see through `std::coroutine_handle<>::resume()`. Every suspension point is an optimization barrier. The optimizer cannot inline across it. In tight inner loops this is measurable. This is the fundamental cost of type erasure through the handle. Senders do not pay this cost. Sender operation states are fully visible to the optimizer within a pipeline.
 
@@ -116,7 +116,7 @@ Two operations. Twenty years. The contract has not changed. The Networking TS fo
 
 ### 5.2 The C++20 Concept
 
-[ReadStream](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/concept/read_stream.hpp)<sup>[7]</sup> formalizes the same contract as a C++20 concept:
+[ReadStream](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/concept/read_stream.hpp)<sup>[7]</sup> formalizes the same contract as a C++20 concept:
 
 ```cpp
 template<typename T>
@@ -198,7 +198,7 @@ From here forward, the paper walks the coroutine chain alone.
 
 ### 6.2 The Operation State Is Not a Template
 
-Windows (IOCP). [overlapped_op](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/native/detail/iocp/win_overlapped_op.hpp)<sup>[6]</sup> and [read_op](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/native/detail/iocp/win_socket.hpp)<sup>[6]</sup>:
+Windows (IOCP). [overlapped_op](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/native/detail/iocp/win_overlapped_op.hpp)<sup>[6]</sup> and [read_op](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/native/detail/iocp/win_socket.hpp)<sup>[6]</sup>:
 
 ```cpp
 struct overlapped_op : OVERLAPPED
@@ -219,7 +219,7 @@ struct read_op : overlapped_op
 };
 ```
 
-Linux (epoll). [epoll_op.hpp](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/native/detail/epoll/epoll_op.hpp)<sup>[6]</sup>:
+Linux (epoll). [epoll_op.hpp](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/native/detail/epoll/epoll_op.hpp)<sup>[6]</sup>:
 
 ```cpp
 struct epoll_read_op final
@@ -234,7 +234,7 @@ Not templates. Not parameterized on the caller. Known at library-build time. The
 
 ### 6.3 The Operation State Lives in the Socket
 
-[win_socket_internal](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/native/detail/iocp/win_socket.hpp)<sup>[6]</sup>:
+[win_socket_internal](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/native/detail/iocp/win_socket.hpp)<sup>[6]</sup>:
 
 ```cpp
 class win_socket_internal
@@ -251,7 +251,7 @@ Three operation states. Members of the socket. Pre-allocated when the socket is 
 
 ### 6.4 The Stream Can Be Type-Erased
 
-[any_read_stream](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/io/any_read_stream.hpp)<sup>[7]</sup> type-erases any `ReadStream`. The erasure is on the awaitable, not the stream. The [vtable](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/io/any_read_stream.hpp)<sup>[7]</sup> dispatches `await_ready`, `await_suspend`, `await_resume` through function pointers:
+[any_read_stream](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/io/any_read_stream.hpp)<sup>[7]</sup> type-erases any `ReadStream`. The erasure is on the awaitable, not the stream. The [vtable](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/io/any_read_stream.hpp)<sup>[7]</sup> dispatches `await_ready`, `await_suspend`, `await_resume` through function pointers:
 
 ```cpp
 struct vtable
@@ -321,7 +321,7 @@ The vtable layout of `any_read_stream` does not change. Libraries compiled today
 
 ### 6.8 The Three Layers Emerge
 
-The user chooses the trade-off. [io_stream](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/io/io_stream.hpp)<sup>[6]</sup>, [tcp_socket](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/tcp_socket.hpp)<sup>[6]</sup>, [native_tcp_socket](https://github.com/cppalliance/corosio/blob/p4058r0/include/boost/corosio/native/native_tcp_socket.hpp)<sup>[6]</sup>:
+The user chooses the trade-off. [io_stream](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/io/io_stream.hpp)<sup>[6]</sup>, [tcp_socket](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/tcp_socket.hpp)<sup>[6]</sup>, [native_tcp_socket](https://github.com/cppalliance/corosio/blob/p4088r0/include/boost/corosio/native/native_tcp_socket.hpp)<sup>[6]</sup>:
 
 ```
 io_stream                        // abstract (Layer 3)
@@ -345,15 +345,15 @@ The coroutine frame paid for in Section 4 holds the local variables, the suspens
 
 Additional properties that ride on the same frame:
 
-- **Compile-time domain gate.** The two-argument `await_suspend(coroutine_handle<>, io_env const*)` is a deliberate trade-off. The alternative was a single-argument `await_suspend` that extracts the environment from the promise, costing one fewer parameter. The two-argument form was chosen because it buys compile-time enforcement: any awaitable that does not accept `io_env const*` is a type error inside an I/O task. Foreign awaitables that do not speak the I/O protocol are rejected by the compiler, not by a runtime mismatch. The pointer is the cost. The domain gate is the benefit. [IoAwaitable](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/concept/io_awaitable.hpp)<sup>[7]</sup>.
+- **Compile-time domain gate.** The two-argument `await_suspend(coroutine_handle<>, io_env const*)` is a deliberate trade-off. The alternative was a single-argument `await_suspend` that extracts the environment from the promise, costing one fewer parameter. The two-argument form was chosen because it buys compile-time enforcement: any awaitable that does not accept `io_env const*` is a type error inside an I/O task. Foreign awaitables that do not speak the I/O protocol are rejected by the compiler, not by a runtime mismatch. The pointer is the cost. The domain gate is the benefit. [IoAwaitable](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/concept/io_awaitable.hpp)<sup>[7]</sup>.
 
-- **Compound result preservation.** `auto [ec, n] = co_await sock.read_some(buf)`. Both values visible. No channel split. No data loss. The three-channel model routes results by channel. Compound results must choose a channel, losing data on the error path ([P4053R0](https://isocpp.org/files/papers/P4053R0.pdf)<sup>[2]</sup>, [P4054R0](https://isocpp.org/files/papers/P4054R0.pdf)<sup>[3]</sup>).
+- **Compound result preservation.** `auto [ec, n] = co_await sock.read_some(buf)`. Both values visible. No channel split. No data loss. The three-channel model routes results by channel. Compound results must choose a channel, losing data on the error path ([P4090R0](https://isocpp.org/files/papers/P4090R0.pdf)<sup>[2]</sup>, [P4091R0](https://isocpp.org/files/papers/P4091R0.pdf)<sup>[3]</sup>).
 
 - **Symmetric transfer.** `await_suspend` returns `coroutine_handle<>`. O(1) stack depth regardless of chain length.
 
-- **One-parameter `task<T>`.** [task.hpp](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/task.hpp)<sup>[7]</sup>: `template<typename T = void> struct task`. One parameter. No Environment. The promise carries the environment.
+- **One-parameter `task<T>`.** [task.hpp](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/task.hpp)<sup>[7]</sup>: `template<typename T = void> struct task`. One parameter. No Environment. The promise carries the environment.
 
-- **Structured concurrency.** [when_all](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/when_all.hpp)<sup>[7]</sup> and [when_any](https://github.com/cppalliance/capy/blob/p4058r0/include/boost/capy/when_any.hpp)<sup>[7]</sup>. Both return `task<>`. Stop tokens propagate through `io_env`. Children complete before the parent resumes.
+- **Structured concurrency.** [when_all](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/when_all.hpp)<sup>[7]</sup> and [when_any](https://github.com/cppalliance/capy/blob/p4088r0/include/boost/capy/when_any.hpp)<sup>[7]</sup>. Both return `task<>`. Stop tokens propagate through `io_env`. Children complete before the parent resumes.
 
 ---
 
@@ -370,9 +370,11 @@ Six objections to the coroutine-native model are well-known. We concede every on
 
 These are real costs. The question is what each model offers networking in return.
 
-| Coroutines                                               | Senders |
-| -------------------------------------------------------- | ------- |
-| Type-erased streams, separate compilation, ABI stability | ?       |
+| Coroutines                | Senders |
+| ------------------------- | ------- |
+| Type-erased streams       | ?       |
+| Separate compilation      | ?       |
+| ABI stability             | ?       |
 
 `connect(sender, receiver)` stamps the receiver type into the operation state. The same design decision that gives senders their optimizer visibility and their zero-allocation pipelines (Section 3) produces a template operation state that cannot live in the socket, cannot be type-erased without per-operation allocation, and cannot compile once.
 
@@ -466,15 +468,15 @@ The author thanks Chris Kohlhoff for Asio's stream model, buffer sequences, and 
 
 ## References
 
-1. [P4050R0](https://isocpp.org/files/papers/P4050R0.pdf) - "On the Diversity of Coroutine Task Types" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4050R0.pdf
+1. [P4089R0](https://isocpp.org/files/papers/P4089R0.pdf) - "On the Diversity of Coroutine Task Types" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4089R0.pdf
 
-2. [P4053R0](https://isocpp.org/files/papers/P4053R0.pdf) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4053R0.pdf
+2. [P4090R0](https://isocpp.org/files/papers/P4090R0.pdf) - "Sender I/O: A Constructed Comparison" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4090R0.pdf
 
-3. [P4054R0](https://isocpp.org/files/papers/P4054R0.pdf) - "Two Error Models" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4054R0.pdf
+3. [P4091R0](https://isocpp.org/files/papers/P4091R0.pdf) - "Two Error Models" (Vinnie Falco, 2026). https://isocpp.org/files/papers/P4091R0.pdf
 
-4. [P4055R0](https://isocpp.org/files/papers/P4055R0.pdf) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4055R0.pdf
+4. [P4092R0](https://isocpp.org/files/papers/P4092R0.pdf) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4092R0.pdf
 
-5. [P4056R0](https://isocpp.org/files/papers/P4056R0.pdf) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4056R0.pdf
+5. [P4093R0](https://isocpp.org/files/papers/P4093R0.pdf) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4093R0.pdf
 
 6. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
 
@@ -499,3 +501,5 @@ The author thanks Chris Kohlhoff for Asio's stream model, buffer sequences, and 
 16. Boost.Asio AsyncReadStream requirements. https://www.boost.org/doc/libs/1_87_0/doc/html/boost_asio/reference/AsyncReadStream.html
 
 17. [P2464R0](https://wg21.link/p2464r0) - "Ruminations on networking and executors" (Ville Voutilainen, 2021). https://wg21.link/p2464r0
+
+18. [P4100R0](https://wg21.link/p4100r0) - "The Network Endeavor: Coroutine-Native I/O for C++29" (Vinnie Falco, Steve Gerbino, Michael Vandeberg, Mungo Gill, Mohammad Nejati, 2026). https://wg21.link/p4100r0

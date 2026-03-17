@@ -1,6 +1,6 @@
 ---
 title: "Retrospective: The Unification of Executors and P0443"
-document: P4060R0
+document: P4094R0
 date: 2026-03-16
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,7 +11,7 @@ audience: WG21
 
 The unification of three working executor models had unanticipated downstream consequences.
 
-In 2014, three deployed executor models - networking, GPU dispatch, and thread pools - were unified into [P0443R0](https://wg21.link/p0443r0)<sup>[1]</sup>, which went through fourteen revisions, was never deployed as unified, and was replaced by [P2300R10](https://wg21.link/p2300r10)<sup>[2]</sup>. This paper examines the published record for the evidence that supported the unification decision and documents a terminology shift that erased the continuation framing from the API surface of [P0443R14](https://wg21.link/p0443r14)<sup>[23]</sup>. Section 6 defines two framings of `execute(F&&)` - the work framing and the continuation framing - that subsequent papers in this series apply. It is the first in a series of six papers that document - precisely and on the record - the decisions that kept networking out of the C++ standard.
+In 2014, three deployed executor models - networking, GPU dispatch, and thread pools - were unified into [P0443R0](https://wg21.link/p0443r0)<sup>[1]</sup>, which went through fourteen revisions, was never deployed as unified, and was replaced by [P2300R10](https://wg21.link/p2300r10)<sup>[2]</sup>. This paper examines the published record for the evidence that supported the unification decision and documents a terminology shift that erased the continuation framing from the API surface of [P0443R14](https://wg21.link/p0443r14)<sup>[23]</sup>. Section 6 defines two framings of `execute(F&&)` - the work framing and the continuation framing - that subsequent papers in this series apply.
 
 ---
 
@@ -25,9 +25,9 @@ In 2014, three deployed executor models - networking, GPU dispatch, and thread p
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[3]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[4]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
-The author is revisiting the historical record systematically. This paper is one of several. The goal is to document - precisely and on the record - the decisions that kept networking out of the C++ standard. That effort requires re-examining consequential papers, including papers written by people the author respects.
+The committee has been trying to standardize networking since 2005. This retrospective examines the published record to identify the failure modes that prevented delivery, so the next attempt can avoid them. Its findings stand on their own. That effort requires re-examining consequential papers, including papers written by people the author respects.
 
 ### P0443
 
@@ -378,7 +378,7 @@ An application that runs networking on an I/O reactor and parallel algorithms on
 
 ### 7.4 Are Interop Bridges Expensive?
 
-If models are separate, bridging between them has a cost. [P4055R0](https://wg21.link/p4055r0)<sup>[26]</sup>, "Consuming Senders from Coroutine-Native Code," and [P4056R0](https://wg21.link/p4056r0)<sup>[27]</sup>, "Producing Senders from Coroutine-Native Code," demonstrate coroutine-to-sender and sender-to-coroutine bridges. The implementations exist.
+If models are separate, bridging between them has a cost. [P4092R0](https://wg21.link/p4092r0)<sup>[26]</sup>, "Consuming Senders from Coroutine-Native Code," and [P4093R0](https://wg21.link/p4093r0)<sup>[27]</sup>, "Producing Senders from Coroutine-Native Code," demonstrate coroutine-to-sender and sender-to-coroutine bridges. The implementations exist.
 
 Is the bridge cost bounded and acceptable, or does it accumulate into a tax that makes separate models impractical? The implementations are published.
 
@@ -482,9 +482,9 @@ The author thanks Chris Kohlhoff for the executor model that started the journey
 
 25. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
 
-26. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
+26. [P4092R0](https://wg21.link/p4092r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4092r0
 
-27. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
+27. [P4093R0](https://wg21.link/p4093r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4093r0
 
 28. [P0113R0](https://wg21.link/p0113r0) - "Executors and Asynchronous Operations, Revision 2" (Christopher Kohlhoff, 2015). https://wg21.link/p0113r0
 

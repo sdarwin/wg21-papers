@@ -1,6 +1,6 @@
 ---
 title: "Twenty-One Years: The Arc of Networking in C++"
-document: P4065R0
+document: P4099R0
 date: 2026-03-16
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -11,7 +11,7 @@ audience: WG21
 
 Four decisions, each locally reasonable, each under-evidenced, produced a decade without networking in the C++ standard.
 
-This paper assembles the findings of five companion papers into a single causal chain: the unification of executors (2014, [P4060R0](https://wg21.link/p4060r0)<sup>[1]</sup>), the basis-operation pivot (2019, [P4061R0](https://wg21.link/p4061r0)<sup>[2]</sup>), the P2464 diagnosis (2021, [P4062R0](https://wg21.link/p4062r0)<sup>[3]</sup>), the networking claim in the poll (2021, [P4063R0](https://wg21.link/p4063r0)<sup>[4]</sup>), and the evidence base for the trajectory ([P4064R0](https://wg21.link/p4064r0)<sup>[5]</sup>). Each paper documents one decision point. This paper places them in sequence, documents what is now available that was not available when those decisions were made, and credits the work that produced the tools the committee now has. It is the sixth and final paper in the series.
+This paper assembles the findings of five companion papers into a single causal chain: the unification of executors (2014, [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup>), the basis-operation pivot (2019, [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup>), the P2464 diagnosis (2021, [P4096R0](https://wg21.link/p4096r0)<sup>[3]</sup>), the networking claim in the poll (2021, [P4097R0](https://wg21.link/p4097r0)<sup>[4]</sup>), and the evidence base for the trajectory ([P4098R0](https://wg21.link/p4098r0)<sup>[5]</sup>). Each paper documents one decision point. This paper places them in sequence, documents what is now available that was not available when those decisions were made, and credits the work that produced the tools the committee now has.
 
 ---
 
@@ -25,9 +25,9 @@ This paper assembles the findings of five companion papers into a single causal 
 
 ## 1. Disclosure
 
-The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. Coroutine-native I/O does not provide the sender composition algebra - `retry`, `when_all`, `upon_error` - that `std::execution` provides. The author provides information, asks nothing, and serves at the pleasure of the chair.
+This paper is part of the Network Endeavor ([P4100R0](https://wg21.link/p4100r0)), a thirteen-paper project to bring networking to C++29 using a coroutine-native approach. The author developed and maintains [Corosio](https://github.com/cppalliance/corosio)<sup>[6]</sup> and [Capy](https://github.com/cppalliance/capy)<sup>[7]</sup> and believes coroutine-native I/O is the correct foundation for networking in C++. Coroutine-native I/O does not provide the sender composition algebra - `retry`, `when_all`, `upon_error` - that `std::execution` provides. The author provides information, asks nothing, and serves at the pleasure of the chair.
 
-The author is revisiting the historical record systematically. This paper is one of several. The goal is to document - precisely and on the record - the decisions that kept networking out of the C++ standard. That effort requires re-examining consequential papers, including papers written by people the author respects.
+The committee has been trying to standardize networking since 2005. This retrospective examines the published record to identify the failure modes that prevented delivery, so the next attempt can avoid them. Its findings stand on their own. That effort requires re-examining consequential papers, including papers written by people the author respects.
 
 ---
 
@@ -35,11 +35,11 @@ The author is revisiting the historical record systematically. This paper is one
 
 | Year      | Decision                                                                                            | Rationale                                                                                                       | Published evidence                                                                                                                                  | Companion paper                                              |
 | --------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 2014      | Three independent executor models unified into one                                                  | Shared execution contexts; N x M explosion; synchronization coherence                                           | One hypothetical code snippet. No prototype. No survey. No deployment data showing friction from separate models.                                   | [P4060R0](https://wg21.link/p4060r0)<sup>[1]</sup>          |
-| 2019      | `execute(F&&)` diagnosed as deficient; Cologne pivot to Sender/Receiver                             | No error channel, no cancellation signal, no zero-allocation scheduling                                         | Diagnosis under the work framing only. Continuation framing not examined. Networking use case not analyzed.                                         | [P4061R0](https://wg21.link/p4061r0)<sup>[2]</sup>          |
-| 2021      | P2464R0 diagnosis applied to Networking TS; networking set aside                                    | Executor is a "work-submitter"; no error channel; no generic composition                                        | Analysis under the work framing only. `async_result` and N3747 not addressed. Deployed compositions not examined.                                  | [P4062R0](https://wg21.link/p4062r0)<sup>[3]</sup>          |
-| 2021      | Poll: sender/receiver "a good basis... including networking" - consensus in favor                   | P2300 deployments at Facebook, NVIDIA, Bloomberg                                                                | Deployments are for GPU dispatch, thread pools, and infrastructure. No sender-based networking deployment. No prototype. One hypothetical example.  | [P4063R0](https://wg21.link/p4063r0)<sup>[4]</sup>          |
-| 2014-2026 | Twenty claims shaped the trajectory; evidence documented where it exists                            | Various                                                                                                         | Evidence concentrated in GPU/infrastructure domains. Networking evidence column empty for most claims.                                              | [P4064R0](https://wg21.link/p4064r0)<sup>[5]</sup>          |
+| 2014      | Three independent executor models unified into one                                                  | Shared execution contexts; N x M explosion; synchronization coherence                                           | One hypothetical code snippet. No prototype. No survey. No deployment data showing friction from separate models.                                   | [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup>          |
+| 2019      | `execute(F&&)` diagnosed as deficient; Cologne pivot to Sender/Receiver                             | No error channel, no cancellation signal, no zero-allocation scheduling                                         | Diagnosis under the work framing only. Continuation framing not examined. Networking use case not analyzed.                                         | [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup>          |
+| 2021      | P2464R0 diagnosis applied to Networking TS; networking set aside                                    | Executor is a "work-submitter"; no error channel; no generic composition                                        | Analysis under the work framing only. `async_result` and N3747 not addressed. Deployed compositions not examined.                                  | [P4096R0](https://wg21.link/p4096r0)<sup>[3]</sup>          |
+| 2021      | Poll: sender/receiver "a good basis... including networking" - consensus in favor                   | P2300 deployments at Facebook, NVIDIA, Bloomberg                                                                | Deployments are for GPU dispatch, thread pools, and infrastructure. No sender-based networking deployment. No prototype. One hypothetical example.  | [P4097R0](https://wg21.link/p4097r0)<sup>[4]</sup>          |
+| 2014-2026 | Twenty claims shaped the trajectory; evidence documented where it exists                            | Various                                                                                                         | Evidence concentrated in GPU/infrastructure domains. Networking evidence column empty for most claims.                                              | [P4098R0](https://wg21.link/p4098r0)<sup>[5]</sup>          |
 
 Each decision was locally reasonable. Each was made by experienced practitioners under real constraints. No decision was careless. The record is now complete.
 
@@ -63,13 +63,13 @@ The following capabilities exist in 2026 that did not exist when the decisions i
 
 **C++20 coroutines** were ratified in 2020. They did not exist in 2014 when the unification decision was made, or in 2019 when [P1525R0](https://wg21.link/p1525r0)<sup>[10]</sup> diagnosed the basis operation. The coroutine executor concept constrains the handle type to `coroutine_handle<>`, restoring the type constraint that the rename from `dispatch`/`post`/`defer` to `execute(F&&)` removed.
 
-**The coroutine executor concept** was published in [P4003R0](https://wg21.link/p4003r0)<sup>[12]</sup> (2026). It provides `dispatch(coroutine_handle<>)` and `post(coroutine_handle<>)` - continuation-scheduling primitives with a typed handle. The four deficiencies [P1525R0](https://wg21.link/p1525r0)<sup>[10]</sup> identified do not arise under this concept ([P4061R0](https://wg21.link/p4061r0)<sup>[2]</sup> Section 4).
+**The coroutine executor concept** was published in [P4003R0](https://wg21.link/p4003r0)<sup>[12]</sup> (2026). It provides `dispatch(coroutine_handle<>)` and `post(coroutine_handle<>)` - continuation-scheduling primitives with a typed handle. The four deficiencies [P1525R0](https://wg21.link/p1525r0)<sup>[10]</sup> identified do not arise under this concept ([P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> Section 4).
 
-**The two-framing distinction** - work framing vs. continuation framing - was documented in [P4060R0](https://wg21.link/p4060r0)<sup>[1]</sup> Section 6. The continuation framing was the original framing ([P0113R0](https://wg21.link/p0113r0)<sup>[13]</sup>, 2015). The work framing replaced it through two stages of simplification. No published paper in the causal chain discussed the shift. The distinction is now available for the committee to apply.
+**The two-framing distinction** - work framing vs. continuation framing - was documented in [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup> Section 6. The continuation framing was the original framing ([P0113R0](https://wg21.link/p0113r0)<sup>[13]</sup>, 2015). The work framing replaced it through two stages of simplification. No published paper in the causal chain discussed the shift. The distinction is now available for the committee to apply.
 
-**The rationale-loss mechanism** was documented in [P4060R0](https://wg21.link/p4060r0)<sup>[1]</sup> Section 6.3. API surfaces transfer between papers; design rationale does not, unless someone actively carries it forward. The continuation framing was carried by institutional knowledge rather than by the type system. When the property hint was removed by authors who did not carry that knowledge forward, the framing dropped out. This is a structural property of multi-author standardization, not a criticism of any individual.
+**The rationale-loss mechanism** was documented in [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup> Section 6.3. API surfaces transfer between papers; design rationale does not, unless someone actively carries it forward. The continuation framing was carried by institutional knowledge rather than by the type system. When the property hint was removed by authors who did not carry that knowledge forward, the framing dropped out. This is a structural property of multi-author standardization, not a criticism of any individual.
 
-**Interop bridges** between the coroutine model and the sender model were published in [P4055R0](https://wg21.link/p4055r0)<sup>[14]</sup> and [P4056R0](https://wg21.link/p4056r0)<sup>[15]</sup>. The two models can coexist and interoperate.
+**Interop bridges** between the coroutine model and the sender model were published in [P4092R0](https://wg21.link/p4092r0)<sup>[14]</sup> and [P4093R0](https://wg21.link/p4093r0)<sup>[15]</sup>. The two models can coexist and interoperate.
 
 **`std::execution::task`** ([P3552R3](https://wg21.link/p3552r3)<sup>[16]</sup>) is simultaneously a coroutine and a sender. The committee has already voted to ship a type that fuses two async models into one. The price of two models has been paid.
 
@@ -99,7 +99,7 @@ struct read_operation
 </tr>
 </table>
 
-`coroutine_handle<>` erases the caller. `connect(sender, receiver)` stamps the caller into the operation state. The first choice produces type-erased streams, separate compilation, and ABI stability - properties that have been difficult to achieve in twenty years of networking attempts. The second produces full pipeline visibility, zero-allocation composition, and compile-time work graphs - the properties that make `std::execution` valuable for GPU dispatch, heterogeneous execution, and infrastructure. Neither model can acquire the other's properties without surrendering its own. The technical analysis is in [P4058R0](https://wg21.link/p4058r0)<sup>[17]</sup>.
+`coroutine_handle<>` erases the caller. `connect(sender, receiver)` stamps the caller into the operation state. The first choice produces type-erased streams, separate compilation, and ABI stability - properties that have been difficult to achieve in twenty years of networking attempts. The second produces full pipeline visibility, zero-allocation composition, and compile-time work graphs - the properties that make `std::execution` valuable for GPU dispatch, heterogeneous execution, and infrastructure. Neither model can acquire the other's properties without surrendering its own. The technical analysis is in [P4088R0](https://wg21.link/p4088r0)<sup>[17]</sup>.
 
 The committee has already voted to ship `std::execution::task` ([P3552R3](https://wg21.link/p3552r3)<sup>[16]</sup>), a type that is simultaneously a coroutine and a sender. The price of two async models has been paid. The question is whether both models should carry I/O facilities that exploit their respective strengths.
 
@@ -109,7 +109,7 @@ The committee has already voted to ship `std::execution::task` ([P3552R3](https:
 
 **Q: This is hindsight bias.**
 
-A: The companion papers document what evidence was available at the time each decision was made. The questions in Sections 4 and 5 of [P4060R0](https://wg21.link/p4060r0)<sup>[1]</sup> could have been asked in 2014. They were not. The two-framing analysis in [P4061R0](https://wg21.link/p4061r0)<sup>[2]</sup> could not have been performed in 2019 because C++20 coroutines did not yet exist. This paper distinguishes between the two cases.
+A: The companion papers document what evidence was available at the time each decision was made. The questions in Sections 4 and 5 of [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup> could have been asked in 2014. They were not. The two-framing analysis in [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> could not have been performed in 2019 because C++20 coroutines did not yet exist. This paper distinguishes between the two cases.
 
 **Q: P2300 will eventually cover networking.**
 
@@ -135,15 +135,15 @@ The effort to bring async programming to C++ has been genuine, sustained, and co
 
 ## References
 
-1. [P4060R0](https://wg21.link/p4060r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4060r0
+1. [P4094R0](https://wg21.link/p4094r0) - "Retrospective: The Unification of Executors and P0443" (Vinnie Falco, 2026). https://wg21.link/p4094r0
 
-2. [P4061R0](https://wg21.link/p4061r0) - "Retrospective: The Basis Operation and P1525" (Vinnie Falco, 2026). https://wg21.link/p4061r0
+2. [P4095R0](https://wg21.link/p4095r0) - "Retrospective: The Basis Operation and P1525" (Vinnie Falco, 2026). https://wg21.link/p4095r0
 
-3. [P4062R0](https://wg21.link/p4062r0) - "Retrospective: Coroutine Executors and P2464R0" (Vinnie Falco, 2026). https://wg21.link/p4062r0
+3. [P4096R0](https://wg21.link/p4096r0) - "Retrospective: Coroutine Executors and P2464R0" (Vinnie Falco, 2026). https://wg21.link/p4096r0
 
-4. [P4063R0](https://wg21.link/p4063r0) - "Retrospective: The Networking Claim and P2453R0" (Vinnie Falco, 2026). https://wg21.link/p4063r0
+4. [P4097R0](https://wg21.link/p4097r0) - "Retrospective: The Networking Claim and P2453R0" (Vinnie Falco, 2026). https://wg21.link/p4097r0
 
-5. [P4064R0](https://wg21.link/p4064r0) - "Retrospective: Claims and Evidence" (Vinnie Falco, 2026). https://wg21.link/p4064r0
+5. [P4098R0](https://wg21.link/p4098r0) - "Retrospective: Claims and Evidence" (Vinnie Falco, 2026). https://wg21.link/p4098r0
 
 6. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
 
@@ -161,13 +161,13 @@ The effort to bring async programming to C++ has been genuine, sustained, and co
 
 13. [P0113R0](https://wg21.link/p0113r0) - "Executors and Asynchronous Operations, Revision 2" (Christopher Kohlhoff, 2015). https://wg21.link/p0113r0
 
-14. [P4055R0](https://wg21.link/p4055r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4055r0
+14. [P4092R0](https://wg21.link/p4092r0) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4092r0
 
-15. [P4056R0](https://wg21.link/p4056r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4056r0
+15. [P4093R0](https://wg21.link/p4093r0) - "Producing Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://wg21.link/p4093r0
 
 16. [P3552R3](https://wg21.link/p3552r3) - "Add a Coroutine Task Type" (Dietmar K&uuml;hl, Maikel Nadolski, 2025). https://wg21.link/p3552r3
 
-17. [P4058R0](https://wg21.link/p4058r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4058r0
+17. [P4088R0](https://wg21.link/p4088r0) - "The Case for Coroutines" (Vinnie Falco, 2026). https://wg21.link/p4088r0
 
 18. [P1791R0](https://wg21.link/p1791r0) - "Evolution of the P0443 Unified Executors Proposal to accommodate new requirements" (Christopher Kohlhoff, Jamie Allsop, 2019). https://wg21.link/p1791r0
 
