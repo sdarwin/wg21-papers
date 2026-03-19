@@ -134,22 +134,22 @@ The awaitable is the right shape for an I/O operation because it is the shape th
 
 The tension between "frame hidden from the caller" and "frame visible to the caller" has been present since the earliest coroutine proposals. This section traces the published record so the reader can follow the trail.
 
-| Year | Paper                                                             | Author(s)                    | Design                                                                                  |
-| ---- | ----------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------- |
-| 2015 | [N4453](https://wg21.link/n4453)<sup>[6]</sup>                   | Kohlhoff                     | Resumable Expressions. Single `resumable` keyword, "suspend down."                      |
-| 2015 | [P0114R0](https://wg21.link/p0114r0)<sup>[7]</sup>               | Kohlhoff                     | Resumable Expressions (revised).                                                        |
-| 2015 | [P0158R0](https://wg21.link/p0158r0)<sup>[8]</sup>               | Allsop et al.                | Coroutines belong in a TS. Argued for more time.                                        |
-| 2018 | [P0057R8](https://wg21.link/p0057r8)<sup>[9]</sup>               | Nishanov                     | Coroutines TS. Frame-erased. The design that shipped.                                   |
-| 2018 | [P0973R0](https://wg21.link/p0973r0)<sup>[10]</sup>              | Romer, Dennett               | Coroutines TS Use Cases and Design Issues. Critique: implicit allocation, hidden frame.  |
-| 2018 | [P1063R0](https://wg21.link/p1063r0)<sup>[11]</sup>              | Romer, Dennett, Carruth      | Core Coroutines. Frame-visible alternative. Expose minimal primitives.                   |
-| 2018 | [P1134R0](https://vinniefalco.github.io/papers/drafts/d1134r0.html)<sup>[12]</sup> | Falco | An Elegant Coroutine Abstraction. Library-only stackless coroutines.                     |
-| 2018 | [P1342R0](https://wg21.link/p1342r0)<sup>[13]</sup>              | Baker                        | Unifying Coroutines TS and Core Coroutines. Attempted compromise.                        |
-| 2019 | [P1362R0](https://wg21.link/p1362r0)<sup>[14]</sup>              |                              | Incremental Approach: Coroutines TS + Core Coroutines.                                   |
-| 2019 | [P1492R0](https://wg21.link/p1492r0)<sup>[15]</sup>              | Smith, Vandevoorde et al.    | Language and implementation impact of coroutine proposals.                                |
-| 2019 | [P1493R0](https://wg21.link/p1493r0)<sup>[16]</sup>              |                              | Comparison of coroutine proposals (use cases).                                           |
-| 2019 | [P0912R5](https://wg21.link/p0912r5)<sup>[17]</sup>              |                              | Merge Coroutines TS into C++20. The frame-erased model ships.                            |
-| 2024 | [P0876R22](https://wg21.link/p0876r22)<sup>[18]</sup>            | Kowalke                      | `fiber_context`. Stackful coroutines. Complementary, not competing.                      |
-| 2024 | [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup>              | Morgenstern                  | Implementation defined coroutine extensions. Legalizes `coroutine_handle` specialization. |
+| Year | Paper                                                             | Author(s)                          | Design                                                                                  |
+| ---- | ----------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------- |
+| 2015 | [N4453](https://wg21.link/n4453)<sup>[6]</sup>                   | Kohlhoff                           | Resumable Expressions. Single `resumable` keyword, "suspend down."                      |
+| 2015 | [P0114R0](https://wg21.link/p0114r0)<sup>[7]</sup>               | Kohlhoff                           | Resumable Expressions (revised).                                                        |
+| 2015 | [P0158R0](https://wg21.link/p0158r0)<sup>[8]</sup>               | Allsop et al.                      | Coroutines belong in a TS. Argued for more time.                                        |
+| 2018 | [P0057R8](https://wg21.link/p0057r8)<sup>[9]</sup>               | Nishanov                           | Coroutines TS. Frame-erased. The design that shipped.                                   |
+| 2018 | [P0973R0](https://wg21.link/p0973r0)<sup>[10]</sup>              | Romer, Dennett                     | Coroutines TS Use Cases and Design Issues. Critique: implicit allocation, hidden frame.  |
+| 2018 | [P1063R0](https://wg21.link/p1063r0)<sup>[11]</sup>              | Romer, Dennett, Carruth            | Core Coroutines. Frame-visible alternative. Expose minimal primitives.                   |
+| 2018 | [P1134R0](https://vinniefalco.github.io/papers/drafts/d1134r0.html)<sup>[12]</sup> | Falco                   | An Elegant Coroutine Abstraction. Library-only stackless coroutines.                     |
+| 2018 | [P1342R0](https://wg21.link/p1342r0)<sup>[13]</sup>              | Baker                              | Unifying Coroutines TS and Core Coroutines. Attempted compromise.                        |
+| 2018 | [P1362R0](https://wg21.link/p1362r0)<sup>[14]</sup>              | Nishanov                           | Incremental Approach: Coroutine TS + Core Coroutines.                                    |
+| 2019 | [P1492R0](https://wg21.link/p1492r0)<sup>[15]</sup>              | Smith, Vandevoorde et al.          | Language and implementation impact of coroutine proposals.                                |
+| 2019 | [P1493R0](https://wg21.link/p1493r0)<sup>[16]</sup>              | Romer, Nishanov, Baker, Mihailov   | Coroutines: Use-cases and Trade-offs.                                                    |
+| 2019 | [P0912R5](https://wg21.link/p0912r5)<sup>[17]</sup>              | Nishanov                           | Merge Coroutines TS into C++20. The frame-erased model ships.                            |
+| 2026 | [P0876R22](https://wg21.link/p0876r22)<sup>[18]</sup>            | Kowalke, Goodspeed                 | `fiber_context`. Stackful coroutines. Complementary, not competing.                      |
+| 2024 | [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup>              | Morgenstern                        | Implementation defined coroutine extensions. Legalizes `coroutine_handle` specialization. |
 
 The committee explored both frame-erased and frame-visible designs. It chose frame-erased. That was the right choice for I/O - type erasure through `coroutine_handle<>` gives type-erased streams, split compilation, and ABI stability. The I/O library compiles once.
 
@@ -417,15 +417,15 @@ The author thanks Gor Nishanov for the C++20 coroutine model and its explicit su
 
 13. [P1342R0](https://wg21.link/p1342r0) - "Unifying Coroutines TS and Core Coroutines" (Lewis Baker, 2018). https://wg21.link/p1342r0
 
-14. [P1362R0](https://wg21.link/p1362r0) - "Incremental Approach: Coroutines TS + Core Coroutines" (2019). https://wg21.link/p1362r0
+14. [P1362R0](https://wg21.link/p1362r0) - "Incremental Approach: Coroutine TS + Core Coroutines" (Gor Nishanov, 2018). https://wg21.link/p1362r0
 
 15. [P1492R0](https://wg21.link/p1492r0) - "Language and implementation impact of coroutine proposals" (Richard Smith, Daveed Vandevoorde et al., 2019). https://wg21.link/p1492r0
 
-16. [P1493R0](https://wg21.link/p1493r0) - "Comparison of coroutine proposals" (2019). https://wg21.link/p1493r0
+16. [P1493R0](https://wg21.link/p1493r0) - "Coroutines: Use-cases and Trade-offs" (Geoffrey Romer, Gor Nishanov, Lewis Baker, Mihail Mihailov, 2019). https://wg21.link/p1493r0
 
-17. [P0912R5](https://wg21.link/p0912r5) - "Merge Coroutines TS into C++20 working draft" (2019). https://wg21.link/p0912r5
+17. [P0912R5](https://wg21.link/p0912r5) - "Merge Coroutines TS into C++20 working draft" (Gor Nishanov, 2019). https://wg21.link/p0912r5
 
-18. [P0876R22](https://wg21.link/p0876r22) - "fiber_context - fibers without scheduler" (Oliver Kowalke, 2024). https://wg21.link/p0876r22
+18. [P0876R22](https://wg21.link/p0876r22) - "fiber_context - fibers without scheduler" (Oliver Kowalke, Nat Goodspeed, 2026). https://wg21.link/p0876r22
 
 19. [P3203R0](https://wg21.link/p3203r0) - "Implementation defined coroutine extensions" (Klemens Morgenstern, 2024). https://wg21.link/p3203r0
 
