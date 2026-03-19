@@ -954,9 +954,9 @@ to bring networking to C++29 using a coroutine-native approach. The
 author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>
 and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
 and believes coroutine-native I/O is the correct foundation for
-networking in C++. Coroutine-native I/O cannot express compile-time work
-graphs. The author provides information, asks nothing, and serves at the
-pleasure of the chair.</p>
+networking in C++. Coroutine-native I/O does not target compile-time
+work graphs. The author provides information, asks nothing, and serves
+at the pleasure of the chair.</p>
 <p>This paper seeks input from EWG, SG1, LEWG, and the sender/receiver
 community. The ideas are presented for discussion, not as a finished
 proposal. The author invites collaboration from compiler implementers,
@@ -1064,8 +1064,8 @@ The machinery to connect a sender to a coroutine -
 <code>execution::task</code>, or a bridge like the one in <a href="https://wg21.link/p4092r0">P4092R0</a><sup>[5]</sup> - is the tax
 coroutines pay. <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[22]</sup>, “Add a
 Coroutine Task Type,” is this tax made standard: it type-erases the
-operation state, allocates, and converts routine <code>error_code</code>
-to <code>exception_ptr</code> through <code>AS-EXCEPT-PTR</code>.</p>
+operation state, allocates, and converts an <code>error_code</code> to
+<code>exception_ptr</code> through <code>AS-EXCEPT-PTR</code>.</p>
 <p><strong>If the I/O operation is an awaitable,</strong> coroutines
 consume it directly. <code>co_await stream.read_some(buf)</code> is the
 language feature working as designed. The compiler provides the handle.
@@ -1212,18 +1212,18 @@ object in the sender’s world.</p>
 <h2 id="three-kinds-of-coroutines">6. Three Kinds of Coroutines</h2>
 <p>C++ has shipped multiple models for parallel execution
 (<code>std::execution_policy</code> and <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[20]</sup> senders
-with <code>bulk</code>), for formatted output (<code>iostream</code> and
-<code>std::format</code>), and for error handling (exceptions and
-<code>error_code</code>). Multiple coroutine models serving different
-domains is consistent with the committee’s practice. Unlike
-<code>iostream</code> and <code>std::format</code>, which overlap
-significantly, the three coroutine models serve non-overlapping domains:
-stackful coroutines serve deep suspension through coroutine-unaware
-APIs, frame-erased coroutines serve type-erased I/O with split
-compilation and ABI stability, and frame-visible coroutines (if they
-ever exist) serve compile-time work graphs that need the frame in the
-type system. Each addresses a use case the others structurally
-cannot.</p>
+with <code>bulk</code>), multiple models for formatted output
+(<code>iostream</code> and <code>std::format</code>), and multiple
+models for error handling (exceptions and <code>error_code</code>).
+Multiple coroutine models serving different domains is consistent with
+the committee’s practice. Unlike <code>iostream</code> and
+<code>std::format</code>, which overlap significantly, the three
+coroutine models serve non-overlapping domains: stackful coroutines
+serve deep suspension through coroutine-unaware APIs, frame-erased
+coroutines serve type-erased I/O with split compilation and ABI
+stability, and frame-visible coroutines (if they ever exist) serve
+compile-time work graphs that need the frame in the type system. Each
+addresses a use case the others structurally cannot.</p>
 <h3 id="stackful-fibers">6.1 Stackful (fibers)</h3>
 <p><a href="https://wg21.link/p0876r22">P0876R22</a><sup>[18]</sup>
 (Kowalke) proposes <code>fiber_context</code> - stackful coroutines that
@@ -1279,7 +1279,7 @@ its own lifetime.</p>
 compiler tail-calls the returned handle, avoiding stack buildup in
 coroutine chains. A sender pipeline is not a coroutine. It does not have
 an <code>await_suspend</code> that the compiler can tail-call out of.
-Symmetric transfer is a coroutine optimization that senders do not
+Symmetric transfer is a coroutine mechanism that senders do not
 need.</p>
 <p>The sender provides an executor that maps <code>dispatch</code> to
 <code>post</code>:</p>
@@ -1317,22 +1317,33 @@ sender-provided executor that collapses <code>dispatch</code> to
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="kw">noexcept</span></span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> h <span class="op">=</span> make_callback_handle<span class="op">(</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            <span class="op">+[](</span><span class="dt">void</span><span class="op">*</span> p<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span><span class="op">*</span> self <span class="op">=</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">static_cast</span><span class="op">&lt;</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>                        read_op_state<span class="op">*&gt;(</span>p<span class="op">);</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span> result <span class="op">=</span> self<span class="op">-&gt;</span><span class="va">aw_</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>                    <span class="op">.</span>await_resume<span class="op">();</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>                set_value<span class="op">(</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>                    <span class="bu">std::</span>move<span class="op">(</span>self<span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">),</span></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>                    result<span class="op">);</span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">},</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>            <span class="kw">this</span><span class="op">);</span></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">aw_</span><span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span><span class="va">env_</span><span class="op">);</span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">aw_</span><span class="op">.</span>await_ready<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            set_value<span class="op">(</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>                <span class="va">aw_</span><span class="op">.</span>await_resume<span class="op">());</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> h <span class="op">=</span> make_callback_handle<span class="op">(</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>            <span class="op">+[](</span><span class="dt">void</span><span class="op">*</span> p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span><span class="op">*</span> self <span class="op">=</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">static_cast</span><span class="op">&lt;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>                        read_op_state<span class="op">*&gt;(</span>p<span class="op">);</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span> result <span class="op">=</span> self<span class="op">-&gt;</span><span class="va">aw_</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>                    <span class="op">.</span>await_resume<span class="op">();</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>                set_value<span class="op">(</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>                    <span class="bu">std::</span>move<span class="op">(</span>self<span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">),</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>                    result<span class="op">);</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>            <span class="op">},</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>            <span class="kw">this</span><span class="op">);</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        <span class="va">aw_</span><span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span><span class="va">env_</span><span class="op">);</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>The <code>await_ready</code> check is a no-op for
+<code>read_some_awaitable</code> (which always returns
+<code>false</code>), but a general sender-to-awaitable bridge must
+respect the full awaitable protocol.</p>
 <p>The <code>io_env</code> carries the sender’s executor. The awaitable
 submits the operation to the reactor. The reactor calls the executor.
 The executor calls <code>.resume()</code> on the callback handle. The
@@ -1487,7 +1498,7 @@ zero-allocation entry into the awaitable protocol. The consequences go
 beyond I/O.</p>
 <ul>
 <li><p><strong>The entire awaitable ecosystem opens to senders.</strong>
-Every awaitable anyone has written - timers, mutexes, channels,
+Every IoAwaitable anyone has written - timers, mutexes, channels,
 semaphores, file I/O, database queries, HTTP clients - becomes
 consumable by sender pipelines at zero allocation cost. Awaitable
 authors change nothing. Sender authors gain a new universe of composable
