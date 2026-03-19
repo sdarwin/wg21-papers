@@ -156,8 +156,6 @@ Ensures every artifact produced by the pipeline has a clean bridge to `std::exec
 
 The reciprocal commitment: the pipeline teams accept that interoperability with `std::execution` is a hard requirement and design for it. The Compatibility Team accepts that coroutine-native I/O makes different trade-offs and does not require that networking adopt sender semantics internally. Both sides acknowledge the cost. Both sides get a voice.
 
-The P2300 architects staff this team.
-
 ### 4.7 Continuous Production
 
 Each team works paper by paper. The eleven papers flow through the pipeline. Multiple papers occupy different stages simultaneously - Paper 1 in Wording while Paper 2 is in Design while Paper 3 is in Implementation. Every handoff produces a visible artifact in the GitHub repository.
@@ -166,7 +164,7 @@ Each team works paper by paper. The eleven papers flow through the pipeline. Mul
 
 ## 5. The People
 
-WG21 has enormous talent. The following is our best assessment of the expertise available in the committee and the broader community. No one is assigned. Everyone is invited. These tables reflect the author's understanding of where each person's strengths align with the work. They are a starting point, not a roster. Anyone who wants to contribute to any team is welcome - the only criterion is willingness.
+WG21 has enormous talent. The following teams reflect the work areas. The Vision Integrity Team is staffed by the Capy and Corosio architects. All other teams are open - anyone whose expertise aligns with the work is welcome.
 
 ### 5.1 Vision Integrity Team
 
@@ -180,72 +178,33 @@ WG21 has enormous talent. The following is our best assessment of the expertise 
 
 ### 5.2 `std::execution` Compatibility Team
 
-| Person                       | Affiliation | Demonstrated Strengths                                          |
-| ---------------------------- | ----------- | --------------------------------------------------------------- |
-| Eric Niebler                 | NVIDIA      | Ranges, sender composition, structured concurrency              |
-| Micha&lstrok; Dominiak       | NVIDIA      | P2300 lead author; type erasure and language feature expertise  |
-| Lewis Baker                  | (ind.)      | Coroutines, symmetric transfer; cppcoro, folly::coro            |
-| Lee Howes                    | (ind.)      | Async infrastructure, futures, system execution context         |
-| Kirk Shoop                   | Microsoft   | Sender algorithms and reactive composition patterns             |
-| Michael Garland              | NVIDIA      | GPU parallel programming; heterogeneous dispatch                |
-| Bryce Adelstein Lelbach      | NVIDIA      | Parallel algorithms, mdspan; LEWG process experience            |
-| Mark Hoemmen                 | NVIDIA      | P2300 steward; linalg, mdspan; cross-domain integration         |
-| Dietmar K&uuml;hl            | Bloomberg   | Sender networking (P2762), task design (P3552)                  |
+| Person | Affiliation | Demonstrated Strengths |
+| ------ | ----------- | ---------------------- |
+| TBD    |             |                        |
 
 ### 5.3 Implementation Team
 
-| Person              | Affiliation  | Demonstrated Strengths                                                |
-| ------------------- | ------------ | --------------------------------------------------------------------- |
-| Chris Kohlhoff      | (ind.)       | Asio architect; twenty years of stream model and buffer design        |
-| Steve Gerbino       | C++ Alliance | Corosio co-author; constructed comparisons across designs             |
-| Mohammad Nejati     | C++ Alliance | Corosio co-author; platform backends (IOCP, epoll, kqueue)            |
-| Mungo Gill          | C++ Alliance | Capy co-author; frame allocator propagation                           |
-| Michael Vandeberg   | C++ Alliance | Corosio co-author                                                     |
-| Klemens Morgenstern | (ind.)       | Boost.Cobalt author; cross-library bridge experience                  |
-| Ruben Perez         | (ind.)       | Boost.MySQL; independent adopter migrating to Corosio                 |
-| Lee Howes           | (ind.)       | folly::coro and system execution context; production scale            |
-| Lewis Baker         | (ind.)       | cppcoro, folly::coro; symmetric transfer and coroutine internals      |
+| Person | Affiliation | Demonstrated Strengths |
+| ------ | ----------- | ---------------------- |
+| TBD    |             |                        |
 
 ### 5.4 Design Team
 
-| Person                       | Affiliation | Demonstrated Strengths                                                    |
-| ---------------------------- | ----------- | ------------------------------------------------------------------------- |
-| Eric Niebler                 | NVIDIA      | Ranges, sender composition; first-principles API design                   |
-| Micha&lstrok; Dominiak       | NVIDIA      | P2300 lead author; type erasure and language feature expertise             |
-| Kirk Shoop                   | Microsoft   | Sender algorithms and reactive composition patterns                       |
-| Dietmar K&uuml;hl            | Bloomberg   | Sender networking (P2762), task design (P3552); bridge experience         |
-| Peter Dimov                  | (ind.)      | Minimal abstractions; Boost library design; allocator expertise           |
-| John Lakos                   | Bloomberg   | Physical design, allocators, levelization; dependency architecture         |
-| Howard Hinnant               | (retired)   | Move semantics, chrono, libc++; former LWG Chair                          |
-| Jonathan M&uuml;ller         | think-cell  | Coroutine safety analysis, task design                                    |
-| Michael Garland              | NVIDIA      | GPU parallel programming; heterogeneous dispatch requirements             |
-| Mark Hoemmen                 | NVIDIA      | P2300 steward; linalg, mdspan; cross-domain integration                   |
-| Bryce Adelstein Lelbach      | NVIDIA      | Parallel algorithms, mdspan; LEWG process experience                      |
-| Ville Voutilainen            | Qt Company  | EWG Chair; language evolution; allocator review                           |
-| Andrzej Krzemie&#324;ski     | (ind.)      | Contracts, error handling, postconditions; error model design             |
+| Person | Affiliation | Demonstrated Strengths |
+| ------ | ----------- | ---------------------- |
+| TBD    |             |                        |
 
 ### 5.5 Wording Team
 
-| Person                 | Affiliation | Demonstrated Strengths                                                |
-| ---------------------- | ----------- | --------------------------------------------------------------------- |
-| Nina Ranns             | (ind.)      | CWG expertise; WG21 Secretary; contracts and allocator wording        |
-| Dietmar K&uuml;hl      | Bloomberg   | Extensive wording experience (P2762, P3552)                           |
-| Nicolai Josuttis       | (ind.)      | Standard library wording; teachability and clarity                    |
-| Micha&lstrok; Dominiak | NVIDIA      | P2300 wording author; editorial precision                             |
-| Inbal Levi             | Microsoft   | LEWG Chair; process coordination                                      |
-| David Sankel           | Adobe       | Beman Project lead; library wording experience                        |
+| Person | Affiliation | Demonstrated Strengths |
+| ------ | ----------- | ---------------------- |
+| TBD    |             |                        |
 
 ### 5.6 Testing Team
 
-| Person              | Affiliation  | Demonstrated Strengths                                            |
-| ------------------- | ------------ | ----------------------------------------------------------------- |
-| Steve Gerbino       | C++ Alliance | Constructed comparisons; systematic testing                       |
-| Ruben Perez         | (ind.)       | Independent adopter; real-world migration testing                 |
-| Klemens Morgenstern | (ind.)       | Cross-library interop testing                                     |
-| Nicolai Josuttis    | (ind.)       | Teachability testing; can the wording be understood?              |
-| (open)              |              | Non-WG21 contributors welcome: anyone who can read a spec         |
-
-People appear on multiple teams where their expertise spans boundaries. That is intentional. The teams are work areas, not silos.
+| Person | Affiliation | Demonstrated Strengths |
+| ------ | ----------- | ---------------------- |
+| TBD    |             |                        |
 
 ---
 
@@ -253,15 +212,9 @@ People appear on multiple teams where their expertise spans boundaries. That is 
 
 Networking in C++ affects every company that deploys C++ at scale. This endeavor explicitly invites corporate stakeholders to put their requirements on the table - openly, at every stage.
 
-| Organization   | Stake                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------- |
-| NVIDIA         | Largest `std::execution` investment; GPU dispatch, heterogeneous execution              |
-| Meta           | folly::coro deployed at billion-user scale; production async infrastructure             |
-| Google         | `Co<T>` coroutine type; production safety constraints                                  |
-| Bloomberg      | Physical design, allocators, P3552 task; ABI stability and separate compilation         |
-| Microsoft      | Sender algorithms, reactive extensions, compiler implementation                        |
-| Apple          | Standard library implementation (libc++); implementation perspective                   |
-| C++ Alliance   | Capy, Corosio, Boost libraries; implementation and deployment experience               |
+| Organization | Stake |
+| ------------ | ----- |
+| TBD          |       |
 
 If a company needs something from the design, they say so. The requirement is documented, visible, and addressed. No hidden agendas. Every stakeholder's cards are on the table.
 

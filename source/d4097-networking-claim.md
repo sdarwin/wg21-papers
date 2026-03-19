@@ -12,6 +12,7 @@ audience: WG21
 The committee expressed consensus that sender/receiver is a good basis for networking. The published evidence behind that word is documented here.
 
 In October 2021, LEWG polled: "The sender/receiver model (P2300) is a good basis for most asynchronous use cases, including networking, parallelism, and GPUs" (SF:24 / WF:16 / N:3 / WA:6 / SA:3 - consensus in favor). This paper searches the published record for the evidence that supported the word "networking" in that poll text - at the time of the vote and as of 2026.
+
 ---
 
 ## Revision History
@@ -58,7 +59,7 @@ The chair's published interpretation:
 
 ### 2.1 Context
 
-In WG21, the people who write proposals are often the same people who present them, champion them, and participate in the polls that advance them. This is normal and expected - domain experts are the people best positioned to do the work. The following co-authorships are documented for completeness, not as a criticism. Bryce Adelstein Lelbach served as LEWG Chair and is a co-author of [P2300R10](https://wg21.link/p2300r10)<sup>[4]</sup>. Eric Niebler authored the [P2300](https://wg21.link/p2300)<sup>[4]</sup> presentation slides ([P2470R0](https://wg21.link/p2470r0)<sup>[9]</sup>) and is a co-author of [P2300R10](https://wg21.link/p2300r10)<sup>[4]</sup> and [P1525R0](https://wg21.link/p1525r0)<sup>[10]</sup>. Both contributed substantially to the design that the poll evaluated. The poll was open to all LEWG members and the results reflect the committee's collective judgment.
+In WG21, the people who write proposals are often the same people who present them, champion them, and participate in the polls that advance them. This is normal and expected - domain experts are the people best positioned to do the work. The following co-authorships are documented for completeness. Bryce Adelstein Lelbach served as LEWG Chair and is a co-author of [P2300R10](https://wg21.link/p2300r10)<sup>[4]</sup>. Eric Niebler authored the [P2300](https://wg21.link/p2300)<sup>[4]</sup> presentation slides ([P2470R0](https://wg21.link/p2470r0)<sup>[9]</sup>) and is a co-author of [P2300R10](https://wg21.link/p2300r10)<sup>[4]</sup> and [P1525R0](https://wg21.link/p1525r0)<sup>[10]</sup>. Both contributed substantially to the design that the poll evaluated. The poll was open to all LEWG members and the results reflect the committee's collective judgment.
 
 ### 2.2 Selected Voter Comments
 

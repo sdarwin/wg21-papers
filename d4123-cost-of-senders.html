@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4048R0: Networking for C++29: A Call to Action</title>
+  <title>D4123R0: The Cost of Senders for Coroutine I/O</title>
   <style type="text/css">
 
 @font-face {
@@ -842,22 +842,19 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>Networking for C++29: A Call to Action</h1>
+<h1>The Cost of Senders for Coroutine I/O</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4048R0</p>
-  <p><strong>Date:</strong> 2026-03-16</p>
-  <p><strong>Audience:</strong> WG21</p>
+  <p><strong>Document Number:</strong> D4123R0</p>
+  <p><strong>Date:</strong> 2026-03-17</p>
+  <p><strong>Audience:</strong> LEWG, SG1</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a></p>
 </div>
 
 <!-- Table of Contents -->
 <nav class="toc">
   <h2 class="toc-title">Table of Contents</h2>
-  <ul>
-  <li><a href="#networking-for-c29-a-call-to-action" id="toc-networking-for-c29-a-call-to-action">Networking for C++29: A
-  Call to Action</a>
   <ul>
   <li><a href="#abstract" id="toc-abstract">Abstract</a></li>
   <li><a href="#revision-history" id="toc-revision-history">Revision
@@ -866,525 +863,1006 @@ outline: none;
   <li><a href="#r0-march-2026-post-croydon-mailing" id="toc-r0-march-2026-post-croydon-mailing">R0: March 2026
   (post-Croydon mailing)</a></li>
   </ul></li>
-  <li><a href="#the-moment" id="toc-the-moment">1. The Moment</a></li>
-  <li><a href="#prerequisites" id="toc-prerequisites">2.
-  Prerequisites</a>
+  <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
+  <li><a href="#the-concessions" id="toc-the-concessions">2. The
+  Concessions</a></li>
+  <li><a href="#three-paths" id="toc-three-paths">3. Three Paths</a>
   <ul>
-  <li><a href="#domain-partition" id="toc-domain-partition">2.1 Domain
-  Partition</a></li>
-  <li><a href="#interoperability-commitment" id="toc-interoperability-commitment">2.2 Interoperability
-  Commitment</a></li>
-  <li><a href="#architectural-coherence" id="toc-architectural-coherence">2.3 Architectural Coherence</a></li>
+  <li><a href="#coroutine-native-task" id="toc-coroutine-native-task">3.1 Coroutine-Native Task</a></li>
+  <li><a href="#case-a-stdexecutiontaskt-ioenv-with-io-awaitables" id="toc-case-a-stdexecutiontaskt-ioenv-with-io-awaitables">3.2 Case A:
+  <code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
+  Awaitables</a></li>
+  <li><a href="#case-b-stdexecutiontaskt-ioenv-with-io-senders" id="toc-case-b-stdexecutiontaskt-ioenv-with-io-senders">3.3 Case B:
+  <code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
+  Senders</a></li>
+  <li><a href="#spec-mandated-costs-per-task-to-task-co_await" id="toc-spec-mandated-costs-per-task-to-task-co_await">3.4
+  Spec-Mandated Costs (per task-to-task <code>co_await</code>)</a></li>
   </ul></li>
-  <li><a href="#a-new-way-of-working" id="toc-a-new-way-of-working">3. A
-  New Way of Working</a>
+  <li><a href="#the-gap" id="toc-the-gap">4. The Gap</a></li>
+  <li><a href="#the-gap-explained" id="toc-the-gap-explained">5. The Gap
+  Explained</a>
   <ul>
-  <li><a href="#communication" id="toc-communication">3.1
-  Communication</a></li>
-  <li><a href="#artifacts" id="toc-artifacts">3.2 Artifacts</a></li>
-  <li><a href="#implementation" id="toc-implementation">3.3
-  Implementation</a></li>
-  <li><a href="#knowledge-preservation" id="toc-knowledge-preservation">3.4 Knowledge Preservation</a></li>
+  <li><a href="#template-parameters" id="toc-template-parameters">5.1
+  Template Parameters</a></li>
+  <li><a href="#sender-concept-instantiation" id="toc-sender-concept-instantiation">5.2 Sender Concept
+  Instantiation</a></li>
+  <li><a href="#task-to-task-co_await-cost" id="toc-task-to-task-co_await-cost">5.3 Task-to-Task
+  <code>co_await</code> Cost</a></li>
+  <li><a href="#completion-cost" id="toc-completion-cost">5.4 Completion
+  Cost</a></li>
+  <li><a href="#the-combinator-gap" id="toc-the-combinator-gap">5.5 The
+  Combinator Gap</a></li>
+  <li><a href="#io_env-indirection" id="toc-io_env-indirection">5.6
+  <code>io_env</code> Indirection</a></li>
+  <li><a href="#io-operations-as-senders-case-b" id="toc-io-operations-as-senders-case-b">5.7 I/O Operations as Senders
+  (Case B)</a></li>
   </ul></li>
-  <li><a href="#the-pipeline" id="toc-the-pipeline">4. The Pipeline</a>
-  <ul>
-  <li><a href="#implementation-team" id="toc-implementation-team">4.1
-  Implementation Team</a></li>
-  <li><a href="#design-team" id="toc-design-team">4.2 Design
-  Team</a></li>
-  <li><a href="#wording-team" id="toc-wording-team">4.3 Wording
-  Team</a></li>
-  <li><a href="#testing-team" id="toc-testing-team">4.4 Testing
-  Team</a></li>
-  <li><a href="#vision-integrity-team" id="toc-vision-integrity-team">4.5 Vision Integrity Team</a></li>
-  <li><a href="#stdexecution-compatibility-team" id="toc-stdexecution-compatibility-team">4.6
-  <code>std::execution</code> Compatibility Team</a></li>
-  <li><a href="#continuous-production" id="toc-continuous-production">4.7 Continuous Production</a></li>
-  </ul></li>
-  <li><a href="#the-people" id="toc-the-people">5. The People</a>
-  <ul>
-  <li><a href="#vision-integrity-team-1" id="toc-vision-integrity-team-1">5.1 Vision Integrity Team</a></li>
-  <li><a href="#stdexecution-compatibility-team-1" id="toc-stdexecution-compatibility-team-1">5.2
-  <code>std::execution</code> Compatibility Team</a></li>
-  <li><a href="#implementation-team-1" id="toc-implementation-team-1">5.3 Implementation Team</a></li>
-  <li><a href="#design-team-1" id="toc-design-team-1">5.4 Design
-  Team</a></li>
-  <li><a href="#wording-team-1" id="toc-wording-team-1">5.5 Wording
-  Team</a></li>
-  <li><a href="#testing-team-1" id="toc-testing-team-1">5.6 Testing
-  Team</a></li>
-  </ul></li>
-  <li><a href="#corporate-stakeholders" id="toc-corporate-stakeholders">6. Corporate Stakeholders</a></li>
-  <li><a href="#the-pipeline-in-motion" id="toc-the-pipeline-in-motion">7. The Pipeline in Motion</a></li>
-  <li><a href="#the-stakes" id="toc-the-stakes">8. The Stakes</a></li>
+  <li><a href="#the-shipping-schedule-risk" id="toc-the-shipping-schedule-risk">6. The Shipping Schedule
+  Risk</a></li>
+  <li><a href="#the-zero-overhead-principle" id="toc-the-zero-overhead-principle">7. The Zero-Overhead
+  Principle</a></li>
+  <li><a href="#conclusion" id="toc-conclusion">8. Conclusion</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
-  </ul></li>
   </ul>
 </nav>
 
-<h1 id="networking-for-c29-a-call-to-action">Networking for C++29: A
-Call to Action</h1>
 <h2 id="abstract">Abstract</h2>
-<p>Twenty-one years is long enough.</p>
-<p>The Network Endeavor (<a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup>) defines the
-work: eleven papers, two stages, two libraries shipping today. This
-paper proposes how to do the work - a production pipeline, a continuous
-workflow, and an open invitation to the people whose expertise can make
-it succeed. The committee has the talent. The implementations exist. The
-only missing ingredient is coordination.</p>
+<p>Every concession granted. The gap remains. I/O users pay for what
+they do not need.</p>
+<p>This paper grants <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> every
+engineering fix that has been proposed or discussed, assumes they all
+ship, and compares against the best possible conforming implementation
+of <code>std::execution::task</code> - one that eliminates every cost
+not mandated by [exec.task]. Two cases are examined. Case A: I/O
+operations return awaitables. The gap is in the task-to-task suspend
+path - <code>state&lt;Rcvr&gt;</code> construction and scheduler
+extraction per child task, spec-mandated. Case B: I/O operations return
+senders, the stated direction for networking. The gap extends to every
+I/O operation - every read, every write, every timer, every DNS lookup
+pays
+<code>connect</code>/<code>start</code>/<code>state&lt;Rcvr&gt;</code>
+overhead that does not exist in the coroutine-native model.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
 mailing)</h3>
 <ul>
-<li>Initial version.</li>
+<li>Initial version</li>
 </ul>
 <hr />
-<h2 id="the-moment">1. The Moment</h2>
-<p>The committee has been trying to standardize networking since <a href="https://wg21.link/n1925">N1925</a><sup>[2]</sup> (2005). The
-Networking TS reached publication in 2018. It was not merged. The
-executor unification effort consumed a decade. Networking waited.</p>
-<p>The committee polled twice on whether a single async model should
-govern the entire standard library. Neither poll achieved consensus (<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[3]</sup>). The
-committee has two async models - <code>std::execution</code> ships in
-C++26, and <code>std::execution::task</code> is both a coroutine and a
-sender. The price of two models has already been paid.</p>
-<p>C++29 is the target. The Network Endeavor (<a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup>) defines the
-work: eleven papers backed by two shipping libraries - Capy and Corosio
-- with three independent adopters. The companion papers document the
-technical foundations: coroutine properties (<a href="https://wg21.link/p4088r0">P4088R0</a><sup>[4]</sup>), domain
-separation (<a href="https://wg21.link/p4099r0">P4099R0</a><sup>[5]</sup>), and
-sender-coroutine bridges (<a href="https://wg21.link/p4092r0">P4092R0</a><sup>[6]</sup>, <a href="https://wg21.link/p4093r0">P4093R0</a><sup>[7]</sup>).</p>
-<p>The work is defined. What remains is the question every large
-institution eventually faces: can we organize ourselves to deliver?</p>
-<p>This paper is the Network Endeavor’s organizational proposal. It is
-authored by the endeavor’s architects. The pipeline, the teams, and the
-workflow are our design. The invitation to the
-<code>std::execution</code> architects and to the broader committee is
-genuine - the endeavor cannot succeed without their expertise, and their
-requirements must be addressed. But this is our proposal, not a jointly
-authored plan. We are asking the committee to let us do the work, with
-every stakeholder’s requirements visible, documented, and addressed at
-every stage.</p>
+<h2 id="disclosure">1. Disclosure</h2>
+<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[4]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[5]</sup>
+and believes coroutine-native I/O is the correct foundation for
+networking in C++. The author provides information, asks nothing, and
+serves at the pleasure of the chair.</p>
+<p>The author regards <code>std::execution</code> as an important
+contribution to C++ and supports its standardization for the domains it
+serves well - GPU dispatch, heterogeneous execution, and compile-time
+work-graph composition among them. Nothing in this paper argues for
+removing, delaying, or diminishing <code>std::execution</code>.</p>
 <hr />
-<h2 id="prerequisites">2. Prerequisites</h2>
-<p>Two agreements must hold before the pipeline described in this paper
-can function. Both are the subject of companion papers. This paper does
-not relitigate them - it assumes they are accepted and builds on
-them.</p>
-<h3 id="domain-partition">2.1 Domain Partition</h3>
-<p>Coroutine-native I/O serves byte-oriented networking.
-<code>std::execution</code> serves GPU dispatch, heterogeneous
-execution, and compile-time work graphs. Two models, each correct for
-its domain. The technical basis is documented in <a href="https://wg21.link/p4088r0">P4088R0</a><sup>[4]</sup> and <a href="https://wg21.link/p4099r0">P4099R0</a><sup>[5]</sup>.</p>
-<p>Domain specialization is not fragmentation. C++ has multiple
-container types, multiple string types, multiple smart pointer types.
-GPU compute has <code>nvexec</code> with CUDA extensions and a separate
-namespace. Two async models for two distinct domains is the same
-principle the committee has applied throughout the standard.</p>
-<h3 id="interoperability-commitment">2.2 Interoperability
-Commitment</h3>
-<p>Both models must interoperate. Coroutine-native code must be able to
-consume senders. Sender-based code must be able to consume awaitables.
-The bridge papers (<a href="https://wg21.link/p4092r0">P4092R0</a><sup>[6]</sup>, <a href="https://wg21.link/p4093r0">P4093R0</a><sup>[7]</sup>) have
-explored the mechanisms. The cost is acknowledged by both sides: the
-coroutine side accepts that interop is a hard requirement; the sender
-side accepts that coroutine-native I/O makes different trade-offs -
-frame allocation, type erasure, ABI stability - that serve networking’s
-specific needs.</p>
-<h3 id="architectural-coherence">2.3 Architectural Coherence</h3>
-<p>The Networking TS was compromised by successive design demands that
-eroded its architectural coherence (<a href="https://wg21.link/p4094r0">P4094R0</a><sup>[8]</sup>). The stream
-model, the buffer sequences, and the executor architecture were each
-sound. The accumulated weight of unification requirements - each
-individually reasonable - produced a design that could not ship.</p>
-<p>This endeavor maintains structural safeguards to prevent that pattern
-from recurring. Section 4 describes them.</p>
-<hr />
-<h2 id="a-new-way-of-working">3. A New Way of Working</h2>
-<p>The committee’s traditional workflow is meeting-centric: papers are
-published in mailings, discussed at plenary meetings three times a year,
-and revised between meetings by their authors. For a single paper, this
-works. For an eleven-paper series with cross-cutting dependencies, it is
-too slow.</p>
-<p>This paper proposes a continuous workflow that operates between
-meetings and delivers visible progress at every stage.</p>
-<h3 id="communication">3.1 Communication</h3>
+<h2 id="the-concessions">2. The Concessions</h2>
+<p>This paper grants <code>std::execution::task</code> every engineering
+fix that has been proposed, discussed, or implied. The following are
+assumed to ship:</p>
 <ul>
-<li><strong>Mattermost</strong> - A dedicated instance with channels for
-each team (Section 4). Real-time collaboration, asynchronous by default.
-No mandatory meetings. Synchronous calls when a team needs them, not on
-a fixed schedule.</li>
-<li><strong>SG4 and LEWG mailing lists</strong> - Formal discussion of
-design decisions that affect the committee’s direction.</li>
-<li><strong>The Reflector</strong> - Committee-wide announcements and
-cross-team coordination.</li>
+<li><strong>Case A (concession):</strong> I/O operations return
+awaitables, not senders. The template operation state problem (<a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[6]</sup>
+Section 6.1) does not arise. This is the generous case.</li>
+<li><strong>Case B (stated direction):</strong> I/O operations return
+senders. It has been stated in internal discussions that the plan is for
+I/O primitives to be senders. Under Case B, every <code>co_await</code>
+of an I/O sender inside a <code>task&lt;T, IoEnv&gt;</code> goes through
+<code>connect</code>/<code>start</code>/<code>state&lt;Rcvr&gt;</code>.
+The <code>state&lt;Rcvr&gt;</code> lives on the coroutine frame (no
+separate allocation), but the CPU cost of construction and environment
+extraction is per I/O operation. The narrow task-to-task fix (LWG4348)
+does not apply because the I/O operation is not a task.</li>
+<li>Symmetric transfer works task-to-task. The stack overflow
+vulnerability (<a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup>) is
+resolved.</li>
+<li>Frame allocator timing is fixed. The rework in <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
+ships. The allocator reaches <code>promise_type::operator new</code>
+before the frame is allocated.</li>
+<li><code>AS-EXCEPT-PTR</code> does not convert routine
+<code>error_code</code> to <code>exception_ptr</code>. Routine I/O
+errors do not become exceptions.</li>
+<li>Compound results are handled inside the coroutine body via
+structured bindings.
+<code>auto [ec, n] = co_await sock.read_some(buf)</code> works.</li>
+<li><code>co_yield with_error</code> is unnecessary. Compound results
+stay in the coroutine body. The mechanism that <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup> identified as
+blocking symmetric transfer is not needed.</li>
+<li><code>IoEnv</code> is standardized as the networking environment,
+carrying a type-erased executor and a stop token.</li>
+<li>The promise delivers <code>IoEnv</code> to I/O awaitables through
+<code>await_transform</code>.</li>
+<li>Type-erased streams work under both models under Case A. Zero
+per-operation allocation. Under Case B, type-erased streams returning
+senders require <code>any_sender</code>, which allocates per operation -
+see Section 5.7.</li>
+<li>Separate compilation works under both models. I/O functions go in
+<code>.cpp</code> files.</li>
+<li>ABI stability works under both models. The vtable layout does not
+change.</li>
+<li><code>when_all</code> and <code>when_any</code> provide structured
+concurrency under both models. Children complete before the parent
+resumes. Stop tokens propagate.</li>
+<li>Predicate-based combinators are achievable under both models. A
+custom <code>when_all</code> that inspects <code>set_value</code>
+arguments through a predicate can cancel siblings on I/O errors. Both
+models can build this.</li>
+<li>No performance gap on the I/O hot path. The awaitable, the syscall,
+the resumption, and the frame allocation are identical.</li>
+<li>Cross-domain bridges work. <a href="https://isocpp.org/files/papers/P4092R0.pdf">P4092R0</a><sup>[9]</sup>
+and <a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a><sup>[10]</sup>
+demonstrate sender-to-coroutine and coroutine-to-sender
+interoperation.</li>
+<li>Compound I/O results are routed through
+<code>set_error(tuple(ec, T...))</code> on failure and
+<code>set_value(T...)</code> on success. The standard
+<code>when_all</code> cancels siblings on I/O error under this routing.
+Both values are preserved in the error payload. Downstream composition
+costs are examined in Section 5.5.3.</li>
+<li>The reference implementation of <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> is a work in
+progress. It introduces costs beyond what [exec.task] mandates. This
+paper does not compare against any existing implementation. It compares
+against the best possible conforming implementation - one that
+eliminates every cost not mandated by the normative text of [exec.task].
+This paper analyzes the normative text and identifies operations that no
+conforming implementation can skip. Implementers who believe a
+conforming implementation can eliminate any of these operations are
+invited to demonstrate which normative requirement is not binding.</li>
 </ul>
-<h3 id="artifacts">3.2 Artifacts</h3>
-<ul>
-<li><strong>A shared GitHub repository</strong> for papers, design
-documents, specs, and rationale. Every artifact is version-controlled
-and publicly visible.</li>
-<li><strong>Non-WG21 contributors</strong> can participate in testing,
-wording review, and implementation. The repository is open.</li>
-<li><strong>Every design decision</strong> is documented with its
-rationale - including dissenting views and the reasons disagreements
-were resolved. The record is complete.</li>
-</ul>
-<h3 id="implementation">3.3 Implementation</h3>
-<ul>
-<li><strong>The Beman Project</strong> serves as the reference
-implementation vehicle. As papers move through the pipeline, the
-implementation team contributes to Beman continuously.</li>
-<li><strong>Cross-platform CI</strong>, test suites, and benchmarks are
-available to the committee at every stage. The committee can clone the
-repo and run the tests.</li>
-</ul>
-<h3 id="knowledge-preservation">3.4 Knowledge Preservation</h3>
-<ul>
-<li><strong>WG21 SAGE</strong> captures the reasoning behind every
-decision, so future revisits have full context.</li>
-<li>Rationale is documented at every decision point. Not just what was
-decided, but why - and what alternatives were considered and
-rejected.</li>
-<li>Institutional knowledge is a first-class deliverable alongside the
-feature itself. When this endeavor is complete, the committee will have
-not just networking in the standard, but a complete record of how it got
-there.</li>
-</ul>
+<p>Everything above is granted without reservation.</p>
 <hr />
-<h2 id="the-pipeline">4. The Pipeline</h2>
-<p>Six teams. Four in a sequential production pipeline. Two
-cross-cutting review teams.</p>
-<p><img role="img" aria-label src="data:image/svg+xml;base64,PHN2ZyBhcmlhLXJvbGVkZXNjcmlwdGlvbj0iZmxvd2NoYXJ0LXYyIiByb2xlPSJncmFwaGljcy1kb2N1bWVudCBkb2N1bWVudCIgdmlld0JveD0iLTggLTggMTA1Mi40NzI2NTYyNSA1OTkiIGhlaWdodD0iNTk5IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB3aWR0aD0iMTA1Mi40NzI2NTYyNSIgaWQ9Im15LXN2ZyIgc3R5bGU9ImJhY2tncm91bmQtY29sb3I6IHdoaXRlOyI+PHN0eWxlPiNteS1zdmd7Zm9udC1mYW1pbHk6YXJpYWwsc2Fucy1zZXJpZjtmb250LXNpemU6MTRweDtmaWxsOiMzMzM7fSNteS1zdmcgLmVycm9yLWljb257ZmlsbDojNTUyMjIyO30jbXktc3ZnIC5lcnJvci10ZXh0e2ZpbGw6IzU1MjIyMjtzdHJva2U6IzU1MjIyMjt9I215LXN2ZyAuZWRnZS10aGlja25lc3Mtbm9ybWFse3N0cm9rZS13aWR0aDoycHg7fSNteS1zdmcgLmVkZ2UtdGhpY2tuZXNzLXRoaWNre3N0cm9rZS13aWR0aDozLjVweDt9I215LXN2ZyAuZWRnZS1wYXR0ZXJuLXNvbGlke3N0cm9rZS1kYXNoYXJyYXk6MDt9I215LXN2ZyAuZWRnZS1wYXR0ZXJuLWRhc2hlZHtzdHJva2UtZGFzaGFycmF5OjM7fSNteS1zdmcgLmVkZ2UtcGF0dGVybi1kb3R0ZWR7c3Ryb2tlLWRhc2hhcnJheToyO30jbXktc3ZnIC5tYXJrZXJ7ZmlsbDojMzMzMzMzO3N0cm9rZTojMzMzMzMzO30jbXktc3ZnIC5tYXJrZXIuY3Jvc3N7c3Ryb2tlOiMzMzMzMzM7fSNteS1zdmcgc3Zne2ZvbnQtZmFtaWx5OmFyaWFsLHNhbnMtc2VyaWY7Zm9udC1zaXplOjE0cHg7fSNteS1zdmcgLmxhYmVse2ZvbnQtZmFtaWx5OmFyaWFsLHNhbnMtc2VyaWY7Y29sb3I6IzMzMzt9I215LXN2ZyAuY2x1c3Rlci1sYWJlbCB0ZXh0e2ZpbGw6IzMzMzt9I215LXN2ZyAuY2x1c3Rlci1sYWJlbCBzcGFuLCNteS1zdmcgcHtjb2xvcjojMzMzO30jbXktc3ZnIC5sYWJlbCB0ZXh0LCNteS1zdmcgc3BhbiwjbXktc3ZnIHB7ZmlsbDojMzMzO2NvbG9yOiMzMzM7fSNteS1zdmcgLm5vZGUgcmVjdCwjbXktc3ZnIC5ub2RlIGNpcmNsZSwjbXktc3ZnIC5ub2RlIGVsbGlwc2UsI215LXN2ZyAubm9kZSBwb2x5Z29uLCNteS1zdmcgLm5vZGUgcGF0aHtmaWxsOiNFQ0VDRkY7c3Ryb2tlOiM5MzcwREI7c3Ryb2tlLXdpZHRoOjFweDt9I215LXN2ZyAuZmxvd2NoYXJ0LWxhYmVsIHRleHR7dGV4dC1hbmNob3I6bWlkZGxlO30jbXktc3ZnIC5ub2RlIC5rYXRleCBwYXRoe2ZpbGw6IzAwMDtzdHJva2U6IzAwMDtzdHJva2Utd2lkdGg6MXB4O30jbXktc3ZnIC5ub2RlIC5sYWJlbHt0ZXh0LWFsaWduOmNlbnRlcjt9I215LXN2ZyAubm9kZS5jbGlja2FibGV7Y3Vyc29yOnBvaW50ZXI7fSNteS1zdmcgLmFycm93aGVhZFBhdGh7ZmlsbDojMzMzMzMzO30jbXktc3ZnIC5lZGdlUGF0aCAucGF0aHtzdHJva2U6IzMzMzMzMztzdHJva2Utd2lkdGg6Mi4wcHg7fSNteS1zdmcgLmZsb3djaGFydC1saW5re3N0cm9rZTojMzMzMzMzO2ZpbGw6bm9uZTt9I215LXN2ZyAuZWRnZUxhYmVse2JhY2tncm91bmQtY29sb3I6I2U4ZThlODt0ZXh0LWFsaWduOmNlbnRlcjt9I215LXN2ZyAuZWRnZUxhYmVsIHJlY3R7b3BhY2l0eTowLjU7YmFja2dyb3VuZC1jb2xvcjojZThlOGU4O2ZpbGw6I2U4ZThlODt9I215LXN2ZyAubGFiZWxCa2d7YmFja2dyb3VuZC1jb2xvcjpyZ2JhKDIzMiwgMjMyLCAyMzIsIDAuNSk7fSNteS1zdmcgLmNsdXN0ZXIgcmVjdHtmaWxsOiNmZmZmZGU7c3Ryb2tlOiNhYWFhMzM7c3Ryb2tlLXdpZHRoOjFweDt9I215LXN2ZyAuY2x1c3RlciB0ZXh0e2ZpbGw6IzMzMzt9I215LXN2ZyAuY2x1c3RlciBzcGFuLCNteS1zdmcgcHtjb2xvcjojMzMzO30jbXktc3ZnIGRpdi5tZXJtYWlkVG9vbHRpcHtwb3NpdGlvbjphYnNvbHV0ZTt0ZXh0LWFsaWduOmNlbnRlcjttYXgtd2lkdGg6MjAwcHg7cGFkZGluZzoycHg7Zm9udC1mYW1pbHk6YXJpYWwsc2Fucy1zZXJpZjtmb250LXNpemU6MTJweDtiYWNrZ3JvdW5kOmhzbCg4MCwgMTAwJSwgOTYuMjc0NTA5ODAzOSUpO2JvcmRlcjoxcHggc29saWQgI2FhYWEzMztib3JkZXItcmFkaXVzOjJweDtwb2ludGVyLWV2ZW50czpub25lO3otaW5kZXg6MTAwO30jbXktc3ZnIC5mbG93Y2hhcnRUaXRsZVRleHR7dGV4dC1hbmNob3I6bWlkZGxlO2ZvbnQtc2l6ZToxOHB4O2ZpbGw6IzMzMzt9I215LXN2ZyA6cm9vdHstLW1lcm1haWQtZm9udC1mYW1pbHk6InRyZWJ1Y2hldCBtcyIsdmVyZGFuYSxhcmlhbCxzYW5zLXNlcmlmO308L3N0eWxlPjxnPjxtYXJrZXIgb3JpZW50PSJhdXRvIiBtYXJrZXJIZWlnaHQ9IjEyIiBtYXJrZXJXaWR0aD0iMTIiIG1hcmtlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgcmVmWT0iNSIgcmVmWD0iNiIgdmlld0JveD0iMCAwIDEwIDEwIiBjbGFzcz0ibWFya2VyIGZsb3djaGFydCIgaWQ9Im15LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQiPjxwYXRoIHN0eWxlPSJzdHJva2Utd2lkdGg6IDE7IHN0cm9rZS1kYXNoYXJyYXk6IDEsIDA7IiBjbGFzcz0iYXJyb3dNYXJrZXJQYXRoIiBkPSJNIDAgMCBMIDEwIDUgTCAwIDEwIHoiLz48L21hcmtlcj48bWFya2VyIG9yaWVudD0iYXV0byIgbWFya2VySGVpZ2h0PSIxMiIgbWFya2VyV2lkdGg9IjEyIiBtYXJrZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIHJlZlk9IjUiIHJlZlg9IjQuNSIgdmlld0JveD0iMCAwIDEwIDEwIiBjbGFzcz0ibWFya2VyIGZsb3djaGFydCIgaWQ9Im15LXN2Z19mbG93Y2hhcnQtcG9pbnRTdGFydCI+PHBhdGggc3R5bGU9InN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogMSwgMDsiIGNsYXNzPSJhcnJvd01hcmtlclBhdGgiIGQ9Ik0gMCA1IEwgMTAgMTAgTCAxMCAwIHoiLz48L21hcmtlcj48bWFya2VyIG9yaWVudD0iYXV0byIgbWFya2VySGVpZ2h0PSIxMSIgbWFya2VyV2lkdGg9IjExIiBtYXJrZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIHJlZlk9IjUiIHJlZlg9IjExIiB2aWV3Qm94PSIwIDAgMTAgMTAiIGNsYXNzPSJtYXJrZXIgZmxvd2NoYXJ0IiBpZD0ibXktc3ZnX2Zsb3djaGFydC1jaXJjbGVFbmQiPjxjaXJjbGUgc3R5bGU9InN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogMSwgMDsiIGNsYXNzPSJhcnJvd01hcmtlclBhdGgiIHI9IjUiIGN5PSI1IiBjeD0iNSIvPjwvbWFya2VyPjxtYXJrZXIgb3JpZW50PSJhdXRvIiBtYXJrZXJIZWlnaHQ9IjExIiBtYXJrZXJXaWR0aD0iMTEiIG1hcmtlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgcmVmWT0iNSIgcmVmWD0iLTEiIHZpZXdCb3g9IjAgMCAxMCAxMCIgY2xhc3M9Im1hcmtlciBmbG93Y2hhcnQiIGlkPSJteS1zdmdfZmxvd2NoYXJ0LWNpcmNsZVN0YXJ0Ij48Y2lyY2xlIHN0eWxlPSJzdHJva2Utd2lkdGg6IDE7IHN0cm9rZS1kYXNoYXJyYXk6IDEsIDA7IiBjbGFzcz0iYXJyb3dNYXJrZXJQYXRoIiByPSI1IiBjeT0iNSIgY3g9IjUiLz48L21hcmtlcj48bWFya2VyIG9yaWVudD0iYXV0byIgbWFya2VySGVpZ2h0PSIxMSIgbWFya2VyV2lkdGg9IjExIiBtYXJrZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIHJlZlk9IjUuMiIgcmVmWD0iMTIiIHZpZXdCb3g9IjAgMCAxMSAxMSIgY2xhc3M9Im1hcmtlciBjcm9zcyBmbG93Y2hhcnQiIGlkPSJteS1zdmdfZmxvd2NoYXJ0LWNyb3NzRW5kIj48cGF0aCBzdHlsZT0ic3Ryb2tlLXdpZHRoOiAyOyBzdHJva2UtZGFzaGFycmF5OiAxLCAwOyIgY2xhc3M9ImFycm93TWFya2VyUGF0aCIgZD0iTSAxLDEgbCA5LDkgTSAxMCwxIGwgLTksOSIvPjwvbWFya2VyPjxtYXJrZXIgb3JpZW50PSJhdXRvIiBtYXJrZXJIZWlnaHQ9IjExIiBtYXJrZXJXaWR0aD0iMTEiIG1hcmtlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgcmVmWT0iNS4yIiByZWZYPSItMSIgdmlld0JveD0iMCAwIDExIDExIiBjbGFzcz0ibWFya2VyIGNyb3NzIGZsb3djaGFydCIgaWQ9Im15LXN2Z19mbG93Y2hhcnQtY3Jvc3NTdGFydCI+PHBhdGggc3R5bGU9InN0cm9rZS13aWR0aDogMjsgc3Ryb2tlLWRhc2hhcnJheTogMSwgMDsiIGNsYXNzPSJhcnJvd01hcmtlclBhdGgiIGQ9Ik0gMSwxIGwgOSw5IE0gMTAsMSBsIC05LDkiLz48L21hcmtlcj48ZyBjbGFzcz0icm9vdCI+PGcgY2xhc3M9ImNsdXN0ZXJzIj48ZyBpZD0icGlwZWxpbmUiIGNsYXNzPSJjbHVzdGVyIGRlZmF1bHQgZmxvd2NoYXJ0LWxhYmVsIj48cmVjdCBoZWlnaHQ9IjQzNiIgd2lkdGg9IjgzOC41OTc2NTYyNSIgeT0iMTQ3IiB4PSIwIiByeT0iMCIgcng9IjAiIHN0eWxlPSIiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNTguOTc4NTE1NjI1LCAxNDcpIiBjbGFzcz0iY2x1c3Rlci1sYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjEyMC42NDA2MjUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0ibm9kZUxhYmVsIj5Qcm9kdWN0aW9uIFBpcGVsaW5lPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIGlkPSJjcm9zc0N1dHRpbmciIGNsYXNzPSJjbHVzdGVyIGRlZmF1bHQgZmxvd2NoYXJ0LWxhYmVsIj48cmVjdCBoZWlnaHQ9IjgxIiB3aWR0aD0iODA0LjQ2NDg0Mzc1IiB5PSIwIiB4PSIxNy45NzI2NTYyNSIgcnk9IjAiIHJ4PSIwIiBzdHlsZT0iIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzUyLjUxNzU3ODEyNSwgMCkiIGNsYXNzPSJjbHVzdGVyLWxhYmVsIj48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjE2IiB3aWR0aD0iMTM1LjM3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJub2RlTGFiZWwiPkNyb3NzLUN1dHRpbmcgUmV2aWV3PC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjwvZz48ZyBjbGFzcz0iZWRnZVBhdGhzIj48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tc29saWQgZmxvd2NoYXJ0LWxpbmsgTFMtSU1QIExFLURFUyIgaWQ9IkwtSU1QLURFUy0wIiBkPSJNNzAwLjcwOCwyMTlMNjk1LjAwMSwyMjQuNUM2ODkuMjk1LDIzMCw2NzcuODgyLDI0MSw2NjYuMTc3LDI1MS40MzlDNjU0LjQ3MywyNjEuODc3LDY0Mi40NzcsMjcxLjc1NCw2MzYuNDc5LDI3Ni42OTNMNjMwLjQ4MSwyODEuNjMxIi8+PHBhdGggbWFya2VyLWVuZD0idXJsKCNteS1zdmdfZmxvd2NoYXJ0LXBvaW50RW5kKSIgc3R5bGU9ImZpbGw6bm9uZTsiIGNsYXNzPSJlZGdlLXRoaWNrbmVzcy1ub3JtYWwgZWRnZS1wYXR0ZXJuLXNvbGlkIGZsb3djaGFydC1saW5rIExTLURFUyBMRS1XUkQiIGlkPSJMLURFUy1XUkQtMCIgZD0iTTU0My42OTEsMzMyTDUzMS4wMTYsMzM3LjVDNTE4LjM0MSwzNDMsNDkyLjk5MSwzNTQsNDY3LjI3NiwzNjQuNjc0QzQ0MS41NjEsMzc1LjM0OCw0MTUuNDgyLDM4NS42OTcsNDAyLjQ0MywzOTAuODcxTDM4OS40MDMsMzk2LjA0NSIvPjxwYXRoIG1hcmtlci1lbmQ9InVybCgjbXktc3ZnX2Zsb3djaGFydC1wb2ludEVuZCkiIHN0eWxlPSJmaWxsOm5vbmU7IiBjbGFzcz0iZWRnZS10aGlja25lc3Mtbm9ybWFsIGVkZ2UtcGF0dGVybi1zb2xpZCBmbG93Y2hhcnQtbGluayBMUy1XUkQgTEUtVFNUIiBpZD0iTC1XUkQtVFNULTAiIGQ9Ik0zMjUuMjU0LDQ0NUwzMjUuMjU0LDQ1MC41QzMyNS4yNTQsNDU2LDMyNS4yNTQsNDY3LDMwNy4xNzUsNDc3Ljc2MUMyODkuMDk2LDQ4OC41MjMsMjUyLjkzOCw0OTkuMDQ2LDIzNC44NTksNTA0LjMwN0wyMTYuNzgsNTA5LjU2OSIvPjxwYXRoIG1hcmtlci1lbmQ9InVybCgjbXktc3ZnX2Zsb3djaGFydC1wb2ludEVuZCkiIHN0eWxlPSJmaWxsOm5vbmU7IiBjbGFzcz0iZWRnZS10aGlja25lc3Mtbm9ybWFsIGVkZ2UtcGF0dGVybi1zb2xpZCBmbG93Y2hhcnQtbGluayBMUy1UU1QgTEUtV1JEIiBpZD0iTC1UU1QtV1JELTAiIGQ9Ik0xMDcuMDc3LDUxMUwxMDEuNDUyLDUwNS41Qzk1LjgyNiw1MDAsODQuNTc1LDQ4OSwxMDIuNjEyLDQ3OC4xOTNDMTIwLjY0OSw0NjcuMzg3LDE2Ny45NzMsNDU2Ljc3MywxOTEuNjM1LDQ1MS40NjdMMjE1LjI5Nyw0NDYuMTYiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lO3N0cm9rZS13aWR0aDoycHg7c3Ryb2tlLWRhc2hhcnJheTozOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tZG90dGVkIGZsb3djaGFydC1saW5rIExTLVZJVCBMRS1JTVAiIGlkPSJMLVZJVC1JTVAtMCIgZD0iTTYzNC42MjUsNTUuMzkyTDY1NS4zMjUsNTkuNjZDNjc2LjAyNSw2My45MjgsNzE3LjQyNCw3Mi40NjQsNzM4LjEyNCw4Mi4yMzJDNzU4LjgyNCw5Miw3NTguODI0LDEwMyw3NTguODI0LDExNEM3NTguODI0LDEyNSw3NTguODI0LDEzNiw3NTYuNDMsMTQ0Ljk0MkM3NTQuMDM3LDE1My44ODMsNzQ5LjI0OSwxNjAuNzY2LDc0Ni44NTUsMTY0LjIwOEw3NDQuNDYyLDE2Ny42NDkiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lO3N0cm9rZS13aWR0aDoycHg7c3Ryb2tlLWRhc2hhcnJheTozOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tZG90dGVkIGZsb3djaGFydC1saW5rIExTLVZJVCBMRS1ERVMiIGlkPSJMLVZJVC1ERVMtMCIgZD0iTTU3Mi4xMzgsNTZMNTc0Ljc1Niw2MC4xNjdDNTc3LjM3NSw2NC4zMzMsNTgyLjYxMSw3Mi42NjcsNTg1LjIyOSw4Mi4zMzNDNTg3Ljg0OCw5Miw1ODcuODQ4LDEwMyw1ODcuODQ4LDExNEM1ODcuODQ4LDEyNSw1ODcuODQ4LDEzNiw1ODcuODQ4LDE0OS41ODNDNTg3Ljg0OCwxNjMuMTY3LDU4Ny44NDgsMTc5LjMzMyw1ODcuODQ4LDE5Ni44MzNDNTg3Ljg0OCwyMTQuMzMzLDU4Ny44NDgsMjMzLjE2Nyw1ODguNjY3LDI0Ny4yMTRDNTg5LjQ4NywyNjEuMjYsNTkxLjEyNiwyNzAuNTIxLDU5MS45NDUsMjc1LjE1MUw1OTIuNzY1LDI3OS43ODEiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lO3N0cm9rZS13aWR0aDoycHg7c3Ryb2tlLWRhc2hhcnJheTozOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tZG90dGVkIGZsb3djaGFydC1saW5rIExTLVZJVCBMRS1XUkQiIGlkPSJMLVZJVC1XUkQtMCIgZD0iTTQ5OC43MDMsNTZMNDgxLjU4MSw2MC4xNjdDNDY0LjQ1OCw2NC4zMzMsNDMwLjIxNCw3Mi42NjcsNDEzLjA5MSw4Mi4zMzNDMzk1Ljk2OSw5MiwzOTUuOTY5LDEwMywzOTUuOTY5LDExNEMzOTUuOTY5LDEyNSwzOTUuOTY5LDEzNiwzOTUuOTY5LDE0OS41ODNDMzk1Ljk2OSwxNjMuMTY3LDM5NS45NjksMTc5LjMzMywzOTUuOTY5LDE5Ni44MzNDMzk1Ljk2OSwyMTQuMzMzLDM5NS45NjksMjMzLjE2NywzOTUuOTY5LDI1MkMzOTUuOTY5LDI3MC44MzMsMzk1Ljk2OSwyODkuNjY3LDM5NS45NjksMzA4LjVDMzk1Ljk2OSwzMjcuMzMzLDM5NS45NjksMzQ2LjE2NywzODkuNzc1LDM2MC41MzJDMzgzLjU4MSwzNzQuODk3LDM3MS4xOTQsMzg0Ljc5NCwzNjUuMDAxLDM4OS43NDNMMzU4LjgwNywzOTQuNjkyIi8+PHBhdGggbWFya2VyLWVuZD0idXJsKCNteS1zdmdfZmxvd2NoYXJ0LXBvaW50RW5kKSIgc3R5bGU9ImZpbGw6bm9uZTtzdHJva2Utd2lkdGg6MnB4O3N0cm9rZS1kYXNoYXJyYXk6MzsiIGNsYXNzPSJlZGdlLXRoaWNrbmVzcy1ub3JtYWwgZWRnZS1wYXR0ZXJuLWRvdHRlZCBmbG93Y2hhcnQtbGluayBMUy1WSVQgTEUtVFNUIiBpZD0iTC1WSVQtVFNULTAiIGQ9Ik00OTAuMTcyLDQ4LjA4N0w0MzcuOTUyLDUzLjU3M0MzODUuNzMzLDU5LjA1OCwyODEuMjk0LDcwLjAyOSwyMjkuMDc1LDgxLjAxNUMxNzYuODU1LDkyLDE3Ni44NTUsMTAzLDE3Ni44NTUsMTE0QzE3Ni44NTUsMTI1LDE3Ni44NTUsMTM2LDE3Ni44NTUsMTQ5LjU4M0MxNzYuODU1LDE2My4xNjcsMTc2Ljg1NSwxNzkuMzMzLDE3Ni44NTUsMTk2LjgzM0MxNzYuODU1LDIxNC4zMzMsMTc2Ljg1NSwyMzMuMTY3LDE3Ni44NTUsMjUyQzE3Ni44NTUsMjcwLjgzMywxNzYuODU1LDI4OS42NjcsMTc2Ljg1NSwzMDguNUMxNzYuODU1LDMyNy4zMzMsMTc2Ljg1NSwzNDYuMTY3LDE3Ni44NTUsMzY1QzE3Ni44NTUsMzgzLjgzMywxNzYuODU1LDQwMi42NjcsMTc2Ljg1NSw0MjEuNUMxNzYuODU1LDQ0MC4zMzMsMTc2Ljg1NSw0NTkuMTY3LDE3Mi45NTksNDczLjM5N0MxNjkuMDYyLDQ4Ny42MjcsMTYxLjI2OCw0OTcuMjU0LDE1Ny4zNzEsNTAyLjA2N0wxNTMuNDc0LDUwNi44ODEiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lO3N0cm9rZS13aWR0aDoycHg7c3Ryb2tlLWRhc2hhcnJheTozOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tZG90dGVkIGZsb3djaGFydC1saW5rIExTLVNDVCBMRS1JTVAiIGlkPSJMLVNDVC1JTVAtMCIgZD0iTTQ0MC4xNzIsNTMuNDI2TDQ3OS44NjYsNTguMDIyQzUxOS41Niw2Mi42MTcsNTk4Ljk0OCw3MS44MDksNjM4LjY0Miw4MS45MDRDNjc4LjMzNiw5Miw2NzguMzM2LDEwMyw2NzguMzM2LDExNEM2NzguMzM2LDEyNSw2NzguMzM2LDEzNiw2ODEuNzQsMTQ1LjAzMUM2ODUuMTQzLDE1NC4wNjEsNjkxLjk1LDE2MS4xMjMsNjk1LjM1NCwxNjQuNjU0TDY5OC43NTgsMTY4LjE4NCIvPjxwYXRoIG1hcmtlci1lbmQ9InVybCgjbXktc3ZnX2Zsb3djaGFydC1wb2ludEVuZCkiIHN0eWxlPSJmaWxsOm5vbmU7c3Ryb2tlLXdpZHRoOjJweDtzdHJva2UtZGFzaGFycmF5OjM7IiBjbGFzcz0iZWRnZS10aGlja25lc3Mtbm9ybWFsIGVkZ2UtcGF0dGVybi1kb3R0ZWQgZmxvd2NoYXJ0LWxpbmsgTFMtU0NUIExFLURFUyIgaWQ9IkwtU0NULURFUy0wIiBkPSJNMzczLjA4MSw1NkwzODUuMDU5LDYwLjE2N0MzOTcuMDM3LDY0LjMzMyw0MjAuOTkzLDcyLjY2Nyw0MzIuOTcxLDgyLjMzM0M0NDQuOTQ5LDkyLDQ0NC45NDksMTAzLDQ0NC45NDksMTE0QzQ0NC45NDksMTI1LDQ0NC45NDksMTM2LDQ0NC45NDksMTQ5LjU4M0M0NDQuOTQ5LDE2My4xNjcsNDQ0Ljk0OSwxNzkuMzMzLDQ0NC45NDksMTk2LjgzM0M0NDQuOTQ5LDIxNC4zMzMsNDQ0Ljk0OSwyMzMuMTY3LDQ1OS4wMDUsMjQ3Ljc3N0M0NzMuMDYsMjYyLjM4OCw1MDEuMTcxLDI3Mi43NzUsNTE1LjIyNiwyNzcuOTY5TDUyOS4yODEsMjgzLjE2MyIvPjxwYXRoIG1hcmtlci1lbmQ9InVybCgjbXktc3ZnX2Zsb3djaGFydC1wb2ludEVuZCkiIHN0eWxlPSJmaWxsOm5vbmU7c3Ryb2tlLXdpZHRoOjJweDtzdHJva2UtZGFzaGFycmF5OjM7IiBjbGFzcz0iZWRnZS10aGlja25lc3Mtbm9ybWFsIGVkZ2UtcGF0dGVybi1kb3R0ZWQgZmxvd2NoYXJ0LWxpbmsgTFMtU0NUIExFLVdSRCIgaWQ9IkwtU0NULVdSRC0wIiBkPSJNMzA3LjI0NCw1NkwzMDEuNTI0LDYwLjE2N0MyOTUuODAzLDY0LjMzMywyODQuMzYzLDcyLjY2NywyNzguNjQyLDgyLjMzM0MyNzIuOTIyLDkyLDI3Mi45MjIsMTAzLDI3Mi45MjIsMTE0QzI3Mi45MjIsMTI1LDI3Mi45MjIsMTM2LDI3Mi45MjIsMTQ5LjU4M0MyNzIuOTIyLDE2My4xNjcsMjcyLjkyMiwxNzkuMzMzLDI3Mi45MjIsMTk2LjgzM0MyNzIuOTIyLDIxNC4zMzMsMjcyLjkyMiwyMzMuMTY3LDI3Mi45MjIsMjUyQzI3Mi45MjIsMjcwLjgzMywyNzIuOTIyLDI4OS42NjcsMjcyLjkyMiwzMDguNUMyNzIuOTIyLDMyNy4zMzMsMjcyLjkyMiwzNDYuMTY3LDI3Ny40MTYsMzYwLjQzNUMyODEuOTEsMzc0LjcwNCwyOTAuODk4LDM4NC40MDgsMjk1LjM5MiwzODkuMjZMMjk5Ljg4NiwzOTQuMTEyIi8+PHBhdGggbWFya2VyLWVuZD0idXJsKCNteS1zdmdfZmxvd2NoYXJ0LXBvaW50RW5kKSIgc3R5bGU9ImZpbGw6bm9uZTtzdHJva2Utd2lkdGg6MnB4O3N0cm9rZS1kYXNoYXJyYXk6MzsiIGNsYXNzPSJlZGdlLXRoaWNrbmVzcy1ub3JtYWwgZWRnZS1wYXR0ZXJuLWRvdHRlZCBmbG93Y2hhcnQtbGluayBMUy1TQ1QgTEUtVFNUIiBpZD0iTC1TQ1QtVFNULTAiIGQ9Ik0yNDQuMDE5LDU2TDIyMS4zMDMsNjAuMTY3QzE5OC41ODcsNjQuMzMzLDE1My4xNTUsNzIuNjY3LDEzMC40MzksODIuMzMzQzEwNy43MjMsOTIsMTA3LjcyMywxMDMsMTA3LjcyMywxMTRDMTA3LjcyMywxMjUsMTA3LjcyMywxMzYsMTA3LjcyMywxNDkuNTgzQzEwNy43MjMsMTYzLjE2NywxMDcuNzIzLDE3OS4zMzMsMTA3LjcyMywxOTYuODMzQzEwNy43MjMsMjE0LjMzMywxMDcuNzIzLDIzMy4xNjcsMTA3LjcyMywyNTJDMTA3LjcyMywyNzAuODMzLDEwNy43MjMsMjg5LjY2NywxMDcuNzIzLDMwOC41QzEwNy43MjMsMzI3LjMzMywxMDcuNzIzLDM0Ni4xNjcsMTA3LjcyMywzNjVDMTA3LjcyMywzODMuODMzLDEwNy43MjMsNDAyLjY2NywxMDcuNzIzLDQyMS41QzEwNy43MjMsNDQwLjMzMywxMDcuNzIzLDQ1OS4xNjcsMTA5LjY2Miw0NzMuMjY3QzExMS42MDEsNDg3LjM2OCwxMTUuNDc5LDQ5Ni43MzUsMTE3LjQxOCw1MDEuNDE5TDExOS4zNTcsNTA2LjEwMyIvPjxwYXRoIG1hcmtlci1lbmQ9InVybCgjbXktc3ZnX2Zsb3djaGFydC1wb2ludEVuZCkiIHN0eWxlPSJmaWxsOm5vbmU7IiBjbGFzcz0iZWRnZS10aGlja25lc3Mtbm9ybWFsIGVkZ2UtcGF0dGVybi1zb2xpZCBmbG93Y2hhcnQtbGluayBMUy1JTVAgTEUtQkVNIiBpZD0iTC1JTVAtQkVNLTAiIGQ9Ik03NDAuOTc1LDIxOUw3NDQuNjkzLDIyNC41Qzc0OC40MSwyMzAsNzU1Ljg0NiwyNDEsNzc4LjUzMSwyNTMuMDQ1QzgwMS4yMTYsMjY1LjA5LDgzOS4xNSwyNzguMTgxLDg1OC4xMTcsMjg0LjcyNkw4NzcuMDg0LDI5MS4yNzEiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tc29saWQgZmxvd2NoYXJ0LWxpbmsgTFMtREVTIExFLVNBRyIgaWQ9IkwtREVTLVNBRy0wIiBkPSJNNjQwLjI1MSwzMzJMNjUwLjE3NiwzMzcuNUM2NjAuMSwzNDMsNjc5Ljk0OCwzNTQsNzE5Ljg4LDM2Ni4xNDJDNzU5LjgxMSwzNzguMjg1LDgxOS44MjUsMzkxLjU3LDg0OS44MzIsMzk4LjIxMkw4NzkuODM5LDQwNC44NTUiLz48cGF0aCBtYXJrZXItZW5kPSJ1cmwoI215LXN2Z19mbG93Y2hhcnQtcG9pbnRFbmQpIiBzdHlsZT0iZmlsbDpub25lOyIgY2xhc3M9ImVkZ2UtdGhpY2tuZXNzLW5vcm1hbCBlZGdlLXBhdHRlcm4tc29saWQgZmxvd2NoYXJ0LWxpbmsgTFMtV1JEIExFLVdEIiBpZD0iTC1XUkQtV0QtMCIgZD0iTTQzNi42MjQsNDQ1TDQ2Mi42ODksNDUwLjVDNDg4Ljc1NCw0NTYsNTQwLjg4NSw0NjcsNjEyLjg0Miw0NzkuOTk2QzY4NC43OTksNDkyLjk5MSw3NzYuNTgzLDUwNy45ODMsODIyLjQ3NSw1MTUuNDc4TDg2OC4zNjcsNTIyLjk3NCIvPjwvZz48ZyBjbGFzcz0iZWRnZUxhYmVscyI+PGcgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCwgMCkiIGNsYXNzPSJsYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIwIiB3aWR0aD0iMCI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPjwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyBjbGFzcz0iZWRnZUxhYmVsIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwLCAwKSIgY2xhc3M9ImxhYmVsIj48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjAiIHdpZHRoPSIwIj48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9ImVkZ2VMYWJlbCI+PC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAsIDApIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMCIgd2lkdGg9IjAiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0iZWRnZUxhYmVsIj48L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzMuMzI0MjE4NzUsIDQ3OCkiIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNC4zOTg0Mzc1LCAtOCkiIGNsYXNzPSJsYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjI4Ljc5Njg3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPmZpeGVzPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc1OC44MjQyMTg3NSwgMTE0KSIgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTIzLjczNDM3NSwgLTgpIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSI0Ny40Njg3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPnJldmlld3M8L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTg3Ljg0NzY1NjI1LCAxOTUuNSkiIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMy43MzQzNzUsIC04KSIgY2xhc3M9ImxhYmVsIj48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjE2IiB3aWR0aD0iNDcuNDY4NzUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0iZWRnZUxhYmVsIj5yZXZpZXdzPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM5NS45Njg3NSwgMjUyKSIgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTIzLjczNDM3NSwgLTgpIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSI0Ny40Njg3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPnJldmlld3M8L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTc2Ljg1NTQ2ODc1LCAzMDguNSkiIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMy43MzQzNzUsIC04KSIgY2xhc3M9ImxhYmVsIj48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjE2IiB3aWR0aD0iNDcuNDY4NzUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0iZWRnZUxhYmVsIj5yZXZpZXdzPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY3OC4zMzU5Mzc1LCAxMTQpIiBjbGFzcz0iZWRnZUxhYmVsIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjMuNzM0Mzc1LCAtOCkiIGNsYXNzPSJsYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjQ3LjQ2ODc1Ij48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9ImVkZ2VMYWJlbCI+cmV2aWV3czwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NDQuOTQ5MjE4NzUsIDE5NS41KSIgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTIzLjczNDM3NSwgLTgpIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSI0Ny40Njg3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPnJldmlld3M8L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjcyLjkyMTg3NSwgMjUyKSIgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTIzLjczNDM3NSwgLTgpIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSI0Ny40Njg3NSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPnJldmlld3M8L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA3LjcyMjY1NjI1LCAzMDguNSkiIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMy43MzQzNzUsIC04KSIgY2xhc3M9ImxhYmVsIj48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjE2IiB3aWR0aD0iNDcuNDY4NzUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0iZWRnZUxhYmVsIj5yZXZpZXdzPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc2My4yODEyNSwgMjUyKSIgY2xhc3M9ImVkZ2VMYWJlbCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE3LjEyNSwgLTgpIiBjbGFzcz0ibGFiZWwiPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSIzNC4yNSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPmZlZWRzPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY5OS43OTY4NzUsIDM2NSkiIGNsYXNzPSJlZGdlTGFiZWwiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yNi44NTE1NjI1LCAtOCkiIGNsYXNzPSJsYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjUzLjcwMzEyNSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJlZGdlTGFiZWwiPnJhdGlvbmFsZTwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1OTMuMDE1NjI1LCA0NzgpIiBjbGFzcz0iZWRnZUxhYmVsIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjQuNTE1NjI1LCAtOCkiIGNsYXNzPSJsYWJlbCI+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjQ5LjAzMTI1Ij48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9ImVkZ2VMYWJlbCI+d29yZGluZzwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48L2c+PGcgY2xhc3M9Im5vZGVzIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3MjUuMDg5ODQzNzUsIDE5NS41KSIgZGF0YS1pZD0iSU1QIiBkYXRhLW5vZGU9InRydWUiIGlkPSJmbG93Y2hhcnQtSU1QLTIiIGNsYXNzPSJub2RlIGRlZmF1bHQgZGVmYXVsdCBmbG93Y2hhcnQtbGFiZWwiPjxyZWN0IGhlaWdodD0iNDciIHdpZHRoPSIxNTcuMDE1NjI1IiB5PSItMjMuNSIgeD0iLTc4LjUwNzgxMjUiIHJ5PSIwIiByeD0iMCIgc3R5bGU9IiIgY2xhc3M9ImJhc2ljIGxhYmVsLWNvbnRhaW5lciIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03MS4wMDc4MTI1LCAtMTYpIiBzdHlsZT0iIiBjbGFzcz0ibGFiZWwiPjxyZWN0Lz48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjMyIiB3aWR0aD0iMTQyLjAxNTYyNSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJub2RlTGFiZWwiPkltcGxlbWVudGF0aW9uIFRlYW08YnIgLz5DYXB5L0Nvcm9zaW8gLS0mZ3Q7IFNwZWM8L3NwYW4+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTk3Ljg0NzY1NjI1LCAzMDguNSkiIGRhdGEtaWQ9IkRFUyIgZGF0YS1ub2RlPSJ0cnVlIiBpZD0iZmxvd2NoYXJ0LURFUy0zIiBjbGFzcz0ibm9kZSBkZWZhdWx0IGRlZmF1bHQgZmxvd2NoYXJ0LWxhYmVsIj48cmVjdCBoZWlnaHQ9IjQ3IiB3aWR0aD0iMTczLjM5MDYyNSIgeT0iLTIzLjUiIHg9Ii04Ni42OTUzMTI1IiByeT0iMCIgcng9IjAiIHN0eWxlPSIiIGNsYXNzPSJiYXNpYyBsYWJlbC1jb250YWluZXIiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNzkuMTk1MzEyNSwgLTE2KSIgc3R5bGU9IiIgY2xhc3M9ImxhYmVsIj48cmVjdC8+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIzMiIgd2lkdGg9IjE1OC4zOTA2MjUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0ibm9kZUxhYmVsIj5EZXNpZ24gVGVhbTxiciAvPlNwZWMgLS0mZ3Q7IFN0YW5kYXJkIFNoYXBlPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMyNS4yNTM5MDYyNSwgNDIxLjUpIiBkYXRhLWlkPSJXUkQiIGRhdGEtbm9kZT0idHJ1ZSIgaWQ9ImZsb3djaGFydC1XUkQtNCIgY2xhc3M9Im5vZGUgZGVmYXVsdCBkZWZhdWx0IGZsb3djaGFydC1sYWJlbCI+PHJlY3QgaGVpZ2h0PSI0NyIgd2lkdGg9IjIyNi43OTY4NzUiIHk9Ii0yMy41IiB4PSItMTEzLjM5ODQzNzUiIHJ5PSIwIiByeD0iMCIgc3R5bGU9IiIgY2xhc3M9ImJhc2ljIGxhYmVsLWNvbnRhaW5lciIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xMDUuODk4NDM3NSwgLTE2KSIgc3R5bGU9IiIgY2xhc3M9ImxhYmVsIj48cmVjdC8+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIzMiIgd2lkdGg9IjIxMS43OTY4NzUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0ibm9kZUxhYmVsIj5Xb3JkaW5nIFRlYW08YnIgLz5TdGFuZGFyZCBTaGFwZSAtLSZndDsgV29ya2luZyBEcmFmdDwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzEuMTEzMjgxMjUsIDUzNC41KSIgZGF0YS1pZD0iVFNUIiBkYXRhLW5vZGU9InRydWUiIGlkPSJmbG93Y2hhcnQtVFNULTUiIGNsYXNzPSJub2RlIGRlZmF1bHQgZGVmYXVsdCBmbG93Y2hhcnQtbGFiZWwiPjxyZWN0IGhlaWdodD0iNDciIHdpZHRoPSIxNjEuMTU2MjUiIHk9Ii0yMy41IiB4PSItODAuNTc4MTI1IiByeT0iMCIgcng9IjAiIHN0eWxlPSIiIGNsYXNzPSJiYXNpYyBsYWJlbC1jb250YWluZXIiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNzMuMDc4MTI1LCAtMTYpIiBzdHlsZT0iIiBjbGFzcz0ibGFiZWwiPjxyZWN0Lz48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjMyIiB3aWR0aD0iMTQ2LjE1NjI1Ij48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9Im5vZGVMYWJlbCI+VGVzdGluZyBUZWFtPGJyIC8+V29yZGluZyAtLSZndDsgVGVzdCBDYXNlczwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjIuMzk4NDM3NSwgNDAuNSkiIGRhdGEtaWQ9IlZJVCIgZGF0YS1ub2RlPSJ0cnVlIiBpZD0iZmxvd2NoYXJ0LVZJVC0wIiBjbGFzcz0ibm9kZSBkZWZhdWx0IGRlZmF1bHQgZmxvd2NoYXJ0LWxhYmVsIj48cmVjdCBoZWlnaHQ9IjMxIiB3aWR0aD0iMTQ0LjQ1MzEyNSIgeT0iLTE1LjUiIHg9Ii03Mi4yMjY1NjI1IiByeT0iMCIgcng9IjAiIHN0eWxlPSIiIGNsYXNzPSJiYXNpYyBsYWJlbC1jb250YWluZXIiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNjQuNzI2NTYyNSwgLTgpIiBzdHlsZT0iIiBjbGFzcz0ibGFiZWwiPjxyZWN0Lz48Zm9yZWlnbk9iamVjdCBoZWlnaHQ9IjE2IiB3aWR0aD0iMTI5LjQ1MzEyNSI+PGRpdiBzdHlsZT0iZGlzcGxheTogaW5saW5lLWJsb2NrOyB3aGl0ZS1zcGFjZTogbm93cmFwOyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPjxzcGFuIGNsYXNzPSJub2RlTGFiZWwiPlZpc2lvbiBJbnRlZ3JpdHkgVGVhbTwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMjguNTIzNDM3NSwgNDAuNSkiIGRhdGEtaWQ9IlNDVCIgZGF0YS1ub2RlPSJ0cnVlIiBpZD0iZmxvd2NoYXJ0LVNDVC0xIiBjbGFzcz0ibm9kZSBkZWZhdWx0IGRlZmF1bHQgZmxvd2NoYXJ0LWxhYmVsIj48cmVjdCBoZWlnaHQ9IjMxIiB3aWR0aD0iMjIzLjI5Njg3NSIgeT0iLTE1LjUiIHg9Ii0xMTEuNjQ4NDM3NSIgcnk9IjAiIHJ4PSIwIiBzdHlsZT0iIiBjbGFzcz0iYmFzaWMgbGFiZWwtY29udGFpbmVyIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTEwNC4xNDg0Mzc1LCAtOCkiIHN0eWxlPSIiIGNsYXNzPSJsYWJlbCI+PHJlY3QvPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSIyMDguMjk2ODc1Ij48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9Im5vZGVMYWJlbCI+c3RkOjpleGVjdXRpb24gQ29tcGF0aWJpbGl0eSBUZWFtPC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkyNy4wMTE3MTg3NSwgMzA4LjUpIiBkYXRhLWlkPSJCRU0iIGRhdGEtbm9kZT0idHJ1ZSIgaWQ9ImZsb3djaGFydC1CRU0tMjkiIGNsYXNzPSJub2RlIGRlZmF1bHQgZGVmYXVsdCBmbG93Y2hhcnQtbGFiZWwiPjxyZWN0IGhlaWdodD0iMzEiIHdpZHRoPSIxMDYuODI4MTI1IiB5PSItMTUuNSIgeD0iLTUzLjQxNDA2MjUiIHJ5PSIwIiByeD0iMCIgc3R5bGU9IiIgY2xhc3M9ImJhc2ljIGxhYmVsLWNvbnRhaW5lciIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC00NS45MTQwNjI1LCAtOCkiIHN0eWxlPSIiIGNsYXNzPSJsYWJlbCI+PHJlY3QvPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSI5MS44MjgxMjUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0ibm9kZUxhYmVsIj5CZW1hbiBQcm9qZWN0PC9zcGFuPjwvZGl2PjwvZm9yZWlnbk9iamVjdD48L2c+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1NS4wMzUxNTYyNSwgNDIxLjUpIiBkYXRhLWlkPSJTQUciIGRhdGEtbm9kZT0idHJ1ZSIgaWQ9ImZsb3djaGFydC1TQUctMzEiIGNsYXNzPSJub2RlIGRlZmF1bHQgZGVmYXVsdCBmbG93Y2hhcnQtbGFiZWwiPjxyZWN0IGhlaWdodD0iMzEiIHdpZHRoPSIxNjIuODc1IiB5PSItMTUuNSIgeD0iLTgxLjQzNzUiIHJ5PSIwIiByeD0iMCIgc3R5bGU9IiIgY2xhc3M9ImJhc2ljIGxhYmVsLWNvbnRhaW5lciIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03My45Mzc1LCAtOCkiIHN0eWxlPSIiIGNsYXNzPSJsYWJlbCI+PHJlY3QvPjxmb3JlaWduT2JqZWN0IGhlaWdodD0iMTYiIHdpZHRoPSIxNDcuODc1Ij48ZGl2IHN0eWxlPSJkaXNwbGF5OiBpbmxpbmUtYmxvY2s7IHdoaXRlLXNwYWNlOiBub3dyYXA7IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94aHRtbCI+PHNwYW4gY2xhc3M9Im5vZGVMYWJlbCI+U0FHRSBLbm93bGVkZ2UgQmFzZTwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5MzguOTMzNTkzNzUsIDUzNC41KSIgZGF0YS1pZD0iV0QiIGRhdGEtbm9kZT0idHJ1ZSIgaWQ9ImZsb3djaGFydC1XRC0zMyIgY2xhc3M9Im5vZGUgZGVmYXVsdCBkZWZhdWx0IGZsb3djaGFydC1sYWJlbCI+PHJlY3QgaGVpZ2h0PSIzMSIgd2lkdGg9IjEzMC42NzE4NzUiIHk9Ii0xNS41IiB4PSItNjUuMzM1OTM3NSIgcnk9IjAiIHJ4PSIwIiBzdHlsZT0iIiBjbGFzcz0iYmFzaWMgbGFiZWwtY29udGFpbmVyIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTU3LjgzNTkzNzUsIC04KSIgc3R5bGU9IiIgY2xhc3M9ImxhYmVsIj48cmVjdC8+PGZvcmVpZ25PYmplY3QgaGVpZ2h0PSIxNiIgd2lkdGg9IjExNS42NzE4NzUiPjxkaXYgc3R5bGU9ImRpc3BsYXk6IGlubGluZS1ibG9jazsgd2hpdGUtc3BhY2U6IG5vd3JhcDsiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hodG1sIj48c3BhbiBjbGFzcz0ibm9kZUxhYmVsIj5DKysgV29ya2luZyBEcmFmdDwvc3Bhbj48L2Rpdj48L2ZvcmVpZ25PYmplY3Q+PC9nPjwvZz48L2c+PC9nPjwvZz48L3N2Zz4=" alt /></p>
-<h3 id="implementation-team">4.1 Implementation Team</h3>
-<p>Examines Capy and Corosio - the working code. Writes a spec: what the
-libraries do, how they do it, what the interfaces are, what the
-invariants are. The spec is a faithful description of deployed behavior,
-not a design document. The spec is the input to the Design Team.</p>
-<h3 id="design-team">4.2 Design Team</h3>
-<p>Takes the spec and determines the standard shape. What belongs in
-<code>std</code>? What are the concepts, the type requirements, the
-customization points? Where does the design differ from the
-implementation and why? Sender interop, allocator policy, error model,
-and ABI boundaries are decided here.</p>
-<h3 id="wording-team">4.3 Wording Team</h3>
-<p>Takes the standard shape and produces formal wording for the C++
-Working Draft. Clause structure, stable names, cross-references,
-editorial conventions. This is LWG-quality prose.</p>
-<h3 id="testing-team">4.4 Testing Team</h3>
-<p>Takes the wording and debugs it. Writes test cases against the
-wording - not the implementation. Finds ambiguities, contradictions, and
-missing edge cases. This team is open to non-WG21 members. Anyone who
-can read a specification and write a test is welcome.</p>
-<h3 id="vision-integrity-team">4.5 Vision Integrity Team</h3>
-<p>Ensures the result preserves the architectural properties that make
-the design work: type erasure, ABI stability, separate compilation, and
-the three-layer architecture documented in <a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup> Section 6.
-Reviews every output of the pipeline for architectural coherence.</p>
-<p>The Networking TS lost its architectural coherence through successive
-compromises, each individually reasonable (<a href="https://wg21.link/p4094r0">P4094R0</a><sup>[8]</sup>). This team
-exists so that does not happen again. The Capy and Corosio architects
-staff this team.</p>
-<h3 id="stdexecution-compatibility-team">4.6 <code>std::execution</code>
-Compatibility Team</h3>
-<p>Ensures every artifact produced by the pipeline has a clean bridge to
-<code>std::execution</code>. Reviews the spec, the standard shape, and
-the wording at every stage. Guarantees that coroutine-native awaitables
-can be consumed from sender-based code and vice versa. Documents the
-bridge cost at each boundary.</p>
-<p>The reciprocal commitment: the pipeline teams accept that
-interoperability with <code>std::execution</code> is a hard requirement
-and design for it. The Compatibility Team accepts that coroutine-native
-I/O makes different trade-offs and does not require that networking
-adopt sender semantics internally. Both sides acknowledge the cost. Both
-sides get a voice.</p>
-<h3 id="continuous-production">4.7 Continuous Production</h3>
-<p>Each team works paper by paper. The eleven papers flow through the
-pipeline. Multiple papers occupy different stages simultaneously - Paper
-1 in Wording while Paper 2 is in Design while Paper 3 is in
-Implementation. Every handoff produces a visible artifact in the GitHub
-repository.</p>
+<h2 id="three-paths">3. Three Paths</h2>
+<p>Both models require an I/O environment - a bundle of state that every
+I/O operation needs: a type-erased executor (to submit work to the
+reactor), a stop token (for cancellation), and optionally a frame
+allocator. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[16]</sup> defines this
+as <code>io_env</code> and specifies the <code>IoAwaitable</code>
+concept that consumes it. In the coroutine-native model, the promise
+carries <code>io_env</code> directly. In the sender model, the
+<code>Environment</code> template parameter of
+<code>std::execution::task</code> serves this role; this paper uses
+<code>IoEnv</code> to denote an <code>Environment</code> specialized for
+I/O.</p>
+<p>The same I/O operation. The same user code. Three paths: the
+coroutine-native model, <code>task&lt;T, IoEnv&gt;</code> with I/O
+awaitables (Case A), and <code>task&lt;T, IoEnv&gt;</code> with I/O
+senders (Case B).</p>
+<h3 id="coroutine-native-task">3.1 Coroutine-Native Task</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>io<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>One template parameter. The promise carries <code>io_env</code>
+directly - a type-erased executor, a stop token, and an optional frame
+allocator. Constructed once at task start. Every I/O operation receives
+a pointer to it.</p>
+<p>When <code>session</code> does <code>co_await process(buf, n)</code>
+- a child task - the awaiter stores the continuation handle and returns
+the child’s handle. Symmetric transfer. Two pointer stores.</p>
+<h3 id="case-a-stdexecutiontaskt-ioenv-with-io-awaitables">3.2 Case A:
+<code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
+Awaitables</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> IoEnv<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Two template parameters. The
+<code>co_await sock.read_some(...)</code> is an awaitable - two pointer
+stores, same as the coroutine-native model. The gap is in
+<code>co_await process(buf, n)</code> - a child task.</p>
+<h3 id="case-b-stdexecutiontaskt-ioenv-with-io-senders">3.3 Case B:
+<code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O Senders</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> IoEnv<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>async_read_some<span class="op">(</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The user code is identical. The difference is underneath:
+<code>async_read_some</code> returns a sender. The <code>co_await</code>
+of the I/O sender goes through the same sender machinery as the
+<code>co_await</code> of the child task:</p>
+<ol type="1">
+<li><code>await_transform</code> ([task.promise] paragraph 9) intercepts
+the I/O sender.</li>
+<li>Wraps it in <code>affine_on(sender, SCHED(*this))</code> - produces
+a new sender type.</li>
+<li><code>as_awaitable</code> produces a
+<code>sender-awaitable</code>.</li>
+<li><code>sender-awaitable</code> calls
+<code>connect(affine_on_sender, awaitable-receiver)</code> - constructs
+<code>state&lt;awaitable-receiver&gt;</code> on the coroutine
+frame.</li>
+<li><code>await_suspend</code> calls <code>start(state)</code> -
+scheduler extraction, stop token setup, then the actual I/O
+submission.</li>
+<li>I/O completes. The I/O sender calls <code>set_value</code> on
+<code>awaitable-receiver</code>.</li>
+<li><code>awaitable-receiver</code> stores the result in a variant,
+calls <code>continuation.resume()</code> (no symmetric transfer -
+<code>set_value</code> is void-returning).</li>
+<li><code>await_resume</code> extracts the result from the variant.</li>
+</ol>
+<p>In the coroutine-native model, the same I/O operation:</p>
+<ol type="1">
+<li><code>await_transform</code> passes <code>io_env*</code> to the
+awaitable.</li>
+<li><code>await_suspend</code> stores the continuation handle, submits
+I/O to the OS, returns <code>coroutine_handle&lt;&gt;</code> (symmetric
+transfer).</li>
+<li>I/O completes. Reactor resumes the coroutine via the stored
+handle.</li>
+<li><code>await_resume</code> returns
+<code>io_result&lt;size_t&gt;</code> directly.</li>
+</ol>
+<p>Under Case B, both <code>co_await sock.async_read_some(...)</code>
+and <code>co_await process(buf, n)</code> pay the sender protocol cost.
+Under Case A, only <code>co_await process(buf, n)</code> does.</p>
+<h3 id="spec-mandated-costs-per-task-to-task-co_await">3.4 Spec-Mandated
+Costs (per task-to-task <code>co_await</code>)</h3>
+<p>The <code>co_await</code> goes through <code>await_transform</code>
+([task.promise] paragraph 9), which calls <code>as_awaitable</code>. The
+awaiter calls <code>connect</code> ([task.members] paragraph 3-4), which
+creates a <code>state&lt;Rcvr&gt;</code> object. The <code>state</code>
+constructor ([task.state] paragraph 2) must:</p>
+<ol type="1">
+<li>Store the coroutine handle and the receiver.</li>
+<li>Construct <code>own-env</code> from <code>get_env(rcvr)</code>.</li>
+<li>Construct <code>Environment</code> from <code>own-env</code> (or
+from <code>get_env(rcvr)</code>, or default).</li>
+</ol>
+<p>Then <code>state::start</code> ([task.state] paragraph 4) must:</p>
+<ol start="4" type="1">
+<li>Initialize <code>SCHED(prom)</code> with
+<code>scheduler_type(get_scheduler(get_env(rcvr)))</code> - extract the
+scheduler from the receiver’s environment.</li>
+<li>Call <code>handle.resume()</code>.</li>
+</ol>
+<p>These costs are normative. The as-if rule permits an implementation
+to elide observable operations when the program cannot detect the
+difference. For the sender protocol costs identified here, the as-if
+rule does not help: the scheduler extraction calls
+<code>get_scheduler(get_env(rcvr))</code>, which traverses a type-erased
+environment in separately compiled code. The compiler cannot see through
+the type erasure boundary to prove the result is unchanged. The
+<code>state&lt;Rcvr&gt;</code> constructor stores the receiver and
+constructs <code>own-env</code> from it - these are not dead stores
+because the child promise reads them.</p>
+<p>The analysis that follows compares Capy’s <code>task&lt;T&gt;</code>
+against the best possible conforming <code>task&lt;T, IoEnv&gt;</code>.
+All implementation-quality costs beyond the spec - virtual dispatch,
+scheduler comparison on resume, reschedule cycles - are granted as
+concessions (Section 2).</p>
 <hr />
-<h2 id="the-people">5. The People</h2>
-<p>WG21 has enormous talent. The following teams reflect the work areas.
-The Vision Integrity Team is staffed by the Capy and Corosio architects.
-All other teams are open - anyone whose expertise aligns with the work
-is welcome.</p>
-<h3 id="vision-integrity-team-1">5.1 Vision Integrity Team</h3>
+<h2 id="the-gap">4. The Gap</h2>
+<p>The table below shows the spec-mandated costs that exist in
+<code>task&lt;T, IoEnv&gt;</code> but not in the coroutine-native
+<code>task&lt;T&gt;</code>. Case A assumes I/O operations return
+awaitables. Case B assumes I/O operations return senders.</p>
 <table>
 <colgroup>
-<col style="width: 22%" />
-<col style="width: 15%" />
-<col style="width: 61%" />
+<col style="width: 26%" />
+<col style="width: 16%" />
+<col style="width: 28%" />
+<col style="width: 28%" />
 </colgroup>
 <thead>
 <tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
+<th>Property</th>
+<th>Coroutine-native <code>task&lt;T&gt;</code></th>
+<th>Best <code>task&lt;T, IoEnv&gt;</code> Case A</th>
+<th>Best <code>task&lt;T, IoEnv&gt;</code> Case B</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Vinnie Falco</td>
-<td>C++ Alliance</td>
-<td>Capy/Corosio architect; Network Endeavor author</td>
+<td>Template parameters</td>
+<td>1</td>
+<td>2</td>
+<td>2</td>
 </tr>
 <tr>
-<td>Steve Gerbino</td>
-<td>C++ Alliance</td>
-<td>Corosio co-author; constructed comparisons</td>
+<td>Sender concept instantiation per task</td>
+<td>0</td>
+<td>1 per task type in chain</td>
+<td>1 per task type in chain</td>
 </tr>
 <tr>
-<td>Mohammad Nejati</td>
-<td>C++ Alliance</td>
-<td>Corosio co-author; platform backends</td>
+<td>Task-to-task <code>co_await</code> suspend</td>
+<td>2 pointer stores</td>
+<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
+extraction</td>
+<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
+extraction</td>
 </tr>
 <tr>
-<td>Mungo Gill</td>
-<td>C++ Alliance</td>
-<td>Capy co-author; frame allocator propagation</td>
+<td>I/O <code>co_await</code> suspend</td>
+<td>2 pointer stores</td>
+<td>2 pointer stores</td>
+<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
+extraction</td>
 </tr>
 <tr>
-<td>Michael Vandeberg</td>
-<td>C++ Alliance</td>
-<td>Corosio co-author</td>
+<td>I/O <code>co_await</code> <code>affine_on</code> wrapping</td>
+<td>0</td>
+<td>0</td>
+<td>1 per I/O operation</td>
 </tr>
-</tbody>
-</table>
-<h3 id="stdexecution-compatibility-team-1">5.2
-<code>std::execution</code> Compatibility Team</h3>
-<table>
-<thead>
 <tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
+<td>I/O <code>co_await</code> symmetric transfer</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No (void-returning <code>set_value</code>)</td>
 </tr>
-</thead>
-<tbody>
 <tr>
-<td>TBD</td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<h3 id="implementation-team-1">5.3 Implementation Team</h3>
-<table>
-<thead>
-<tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TBD</td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<h3 id="design-team-1">5.4 Design Team</h3>
-<table>
-<thead>
-<tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TBD</td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<h3 id="wording-team-1">5.5 Wording Team</h3>
-<table>
-<thead>
-<tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TBD</td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<h3 id="testing-team-1">5.6 Testing Team</h3>
-<table>
-<thead>
-<tr>
-<th>Person</th>
-<th>Affiliation</th>
-<th>Demonstrated Strengths</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TBD</td>
-<td></td>
-<td></td>
+<td>Type-erased stream I/O allocation</td>
+<td>0</td>
+<td>0</td>
+<td>1 heap allocation per I/O operation</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="corporate-stakeholders">6. Corporate Stakeholders</h2>
-<p>Networking in C++ affects every company that deploys C++ at scale.
-This endeavor explicitly invites corporate stakeholders to put their
-requirements on the table - openly, at every stage.</p>
+<h2 id="the-gap-explained">5. The Gap Explained</h2>
+<h3 id="template-parameters">5.1 Template Parameters</h3>
+<p><code>task&lt;T&gt;</code> vs <code>task&lt;T, IoEnv&gt;</code>. Two
+spellings. A function returning one cannot be assigned to a variable of
+the other. Users must know which to use. Library interfaces must choose.
+Asio has lived with this for <code>awaitable&lt;T, Executor&gt;</code>
+for years. It is friction, not a structural problem.</p>
+<h3 id="sender-concept-instantiation">5.2 Sender Concept
+Instantiation</h3>
+<p>Every <code>task&lt;T, IoEnv&gt;</code> satisfies the
+<code>sender</code> concept ([task.class] paragraph 1). The spec
+mandates <code>completion_signatures</code>, a <code>connect</code>
+member function returning <code>state&lt;Rcvr&gt;</code>, and nested
+type aliases for <code>allocator_type</code>,
+<code>scheduler_type</code>, <code>stop_source_type</code>,
+<code>stop_token_type</code>, and <code>error_types</code>. These are
+present in every task type.</p>
+<p>In a five-coroutine chain, five task types are instantiated, each
+carrying this machinery. None of the intermediate coroutines use it -
+they pass results via <code>co_await</code>, not via
+<code>connect</code>/<code>start</code>.</p>
+<p>In the coroutine-native model, zero sender instantiations occur
+inside the chain. One bridge at the edge (<a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a><sup>[10]</sup>)
+connects the chain to the sender world.</p>
+<h3 id="task-to-task-co_await-cost">5.3 Task-to-Task
+<code>co_await</code> Cost</h3>
+<p>In the coroutine-native model, <code>co_await child_task</code> calls
+<code>await_suspend</code>, which stores the continuation handle and the
+<code>io_env</code> pointer, then returns the child’s handle. Two
+pointer stores. Symmetric transfer.</p>
+<p>In the sender model - even in the best possible conforming
+implementation - <code>co_await child_task</code> must perform the
+following operations mandated by [exec.task]:</p>
+<ol type="1">
+<li><code>await_transform</code> ([task.promise] paragraph 9) routes the
+child through <code>as_awaitable</code>.</li>
+<li>The awaiter calls <code>connect</code> ([task.members] paragraph
+3-4), which creates a <code>state&lt;Rcvr&gt;</code> object.</li>
+<li>The <code>state</code> constructor ([task.state] paragraph 2) stores
+the handle and receiver, constructs <code>own-env</code> from
+<code>get_env(rcvr)</code>, and constructs <code>Environment</code> from
+<code>own-env</code>.</li>
+<li><code>state::start</code> ([task.state] paragraph 4.3) initializes
+<code>SCHED(prom)</code> with
+<code>scheduler_type(get_scheduler(get_env(rcvr)))</code> - the
+scheduler must be extracted from the receiver’s environment.</li>
+<li><code>state::start</code> calls <code>handle.resume()</code>.</li>
+</ol>
+<p>Steps 2-4 are normative requirements. No conforming implementation
+can skip them. The <code>state&lt;Rcvr&gt;</code> object and the
+scheduler extraction exist because the sender protocol requires
+<code>connect</code>/<code>start</code> to establish the execution
+context for the child.</p>
+<p>In the coroutine-native model, the execution context is established
+by passing an <code>io_env</code> pointer - one store. The
+<code>io_env</code> already carries the executor, stop token, and frame
+allocator. No construction, no extraction.</p>
+<p>Per <code>co_await</code> of a child task. Multiplied by N in a chain
+of N coroutines.</p>
+<p>The <code>state&lt;Rcvr&gt;</code> construction and scheduler
+extraction are spec-mandated and remain in any conforming
+implementation.</p>
+<h3 id="completion-cost">5.4 Completion Cost</h3>
+<p>In the coroutine-native model, when a child task completes,
+<code>final_suspend</code> returns the parent’s coroutine handle.
+Symmetric transfer. One pointer load.</p>
+<p>In the sender model, <code>final_suspend</code> ([task.promise]
+paragraph 6) must invoke <code>set_value</code>, <code>set_error</code>,
+or <code>set_stopped</code> on <code>RCVR(*this)</code>. The receiver is
+the parent’s awaiter. In the best case, the awaiter resumes the parent
+via symmetric transfer.</p>
+<p>[task.promise] paragraph 9 specifies that
+<code>await_transform</code> skips <code>affine_on</code> when the
+sender type is the same <code>task</code> type. For the common I/O case
+- a chain of <code>task&lt;T, IoEnv&gt;</code> coroutines all running on
+the same executor - no scheduler comparison is needed on the completion
+path.</p>
+<p>The completion path cost is not analyzed further.</p>
+<h3 id="the-combinator-gap">5.5 The Combinator Gap</h3>
+<p>A purported benefit of the unified sender model is that combinator
+algorithms like <code>when_all</code> need only be written once. One
+<code>when_all</code> serves all domains - GPU tasks, I/O tasks, timers.
+The coroutine-native model needs a second implementation. This is a real
+argument. This section examines whether it holds for I/O.</p>
+<h4 id="the-when_all-completion-handler">5.5.1 The <code>when_all</code>
+Completion Handler</h4>
+<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[14]</sup>
+specifies <code>when_all</code>’s completion logic in
+<code>impls-for&lt;when_all_t&gt;::complete</code>. The handler
+dispatches on the completion channel tag:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">[]&lt;</span><span class="kw">class</span> Index<span class="op">,</span> <span class="kw">class</span> State<span class="op">,</span> <span class="kw">class</span> Rcvr<span class="op">,</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">class</span> Set<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;(</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span> <span class="kw">auto</span><span class="op">&amp;</span> complete<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    Index<span class="op">,</span> State<span class="op">&amp;</span> state<span class="op">,</span> Rcvr<span class="op">&amp;</span> rcvr<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Set<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="kw">noexcept</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="dt">void</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        same_as<span class="op">&lt;</span>Set<span class="op">,</span> <span class="dt">set_error_t</span><span class="op">&gt;)</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>disposition<span class="op">::</span>error <span class="op">!=</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>disp<span class="op">.</span>exchange<span class="op">(</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                disposition<span class="op">::</span>error<span class="op">))</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>stop_src<span class="op">.</span>request_stop<span class="op">();</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            TRY<span class="op">-</span>EMPLACE<span class="op">-</span>ERROR<span class="op">(</span>state<span class="op">.</span>errors<span class="op">,</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        same_as<span class="op">&lt;</span>Set<span class="op">,</span> <span class="dt">set_stopped_t</span><span class="op">&gt;)</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> expected <span class="op">=</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            disposition<span class="op">::</span>started<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>state<span class="op">.</span>disp</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span>compare_exchange_strong<span class="op">(</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                    expected<span class="op">,</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>                    disposition<span class="op">::</span>stopped<span class="op">))</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>stop_src<span class="op">.</span>request_stop<span class="op">();</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="op">!</span>same_as<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span>State<span class="op">::</span>values<span class="op">),</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>                 tuple<span class="op">&lt;&gt;&gt;)</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>state<span class="op">.</span>disp <span class="op">==</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>            disposition<span class="op">::</span>started<span class="op">)</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span><span class="op">&amp;</span> opt <span class="op">=</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>                get<span class="op">&lt;</span>Index<span class="op">::</span>value<span class="op">&gt;(</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>                    state<span class="op">.</span>values<span class="op">);</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>            TRY<span class="op">-</span>EMPLACE<span class="op">-</span>VALUE<span class="op">(</span>complete<span class="op">,</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>                opt<span class="op">,</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>                forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    state<span class="op">.</span>arrive<span class="op">(</span>rcvr<span class="op">);</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Three branches. Three behaviors:</p>
+<ul>
+<li><strong><code>set_error</code></strong>: calls
+<code>stop_src.request_stop()</code>. Siblings are cancelled. The error
+is stored.</li>
+<li><strong><code>set_stopped</code></strong>: calls
+<code>stop_src.request_stop()</code>. Siblings are cancelled.</li>
+<li><strong><code>set_value</code></strong> (the <code>else</code>
+branch): stores the values. No inspection. No stop request. Siblings
+keep running.</li>
+</ul>
+<p>The <code>set_value</code> branch unconditionally stores values and
+calls <code>state.arrive(rcvr)</code>. There is no mechanism in the
+specification to inspect value-channel arguments, apply a predicate, or
+decide to cancel based on the values received.</p>
+<h4 id="routing-options">5.5.2 Routing Options</h4>
+<p>An I/O read returns <code>(error_code, size_t)</code>. Kohlhoff
+identified the routing problem in 2021:</p>
+<blockquote>
+<p>“Due to the limitations of the <code>set_error</code> channel (which
+has a single ‘error’ argument) and <code>set_done</code> channel (which
+takes no arguments), partial results must be communicated down the
+<code>set_value</code> channel.” (<a href="https://wg21.link/p2430r0">P2430R0</a><sup>[15]</sup>)</p>
+</blockquote>
+<p>A fourth routing option resolves this:
+<code>set_error(tuple(ec, T...))</code> on failure,
+<code>set_value(T...)</code> on success. The full compound result -
+including the byte count - goes into the error channel as a tuple. The
+standard <code>when_all</code> sees <code>set_error</code>, cancels
+siblings, and stores the error. Both values are preserved inside the
+tuple.</p>
 <table>
+<colgroup>
+<col style="width: 47%" />
+<col style="width: 15%" />
+<col style="width: 37%" />
+</colgroup>
 <thead>
 <tr>
-<th>Organization</th>
-<th>Stake</th>
+<th>Routing</th>
+<th>Preserves</th>
+<th>Breaks</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>TBD</td>
-<td></td>
+<td><code>set_value(ec, n)</code> - value channel</td>
+<td>Both values</td>
+<td><code>when_all</code> blind to errors</td>
+</tr>
+<tr>
+<td><code>set_error(ec)</code> - error channel</td>
+<td>Composition algebra</td>
+<td>Byte count destroyed</td>
+</tr>
+<tr>
+<td><code>set_value(pair{ec, n})</code> - value channel</td>
+<td>Both values</td>
+<td>Same as row 1</td>
+</tr>
+<tr>
+<td><code>set_error(tuple(ec, n))</code> - error channel</td>
+<td>Both values</td>
+<td>Corrupts downstream error types (Section 5.5.3)</td>
 </tr>
 </tbody>
 </table>
-<p>If a company needs something from the design, they say so. The
-requirement is documented, visible, and addressed. No hidden agendas.
-Every stakeholder’s cards are on the table.</p>
+<p>With the fourth routing, the standard <code>when_all</code> cancels
+siblings on I/O error. Whether the “write it once” argument holds
+depends on what happens downstream - see Section 5.5.3.</p>
+<h4 id="the-remaining-difference">5.5.3 The Remaining Difference</h4>
+<p>The fourth routing makes <code>when_all</code> cancel siblings on I/O
+error. It does not make the composition clean. Downstream algorithms -
+<code>upon_error</code>, <code>let_error</code>, <code>retry</code> -
+now receive <code>tuple&lt;error_code, size_t&gt;</code> instead of
+<code>error_code</code>. Every handler must branch on the error type
+with <code>if constexpr</code>. Partial transfer data (bytes read before
+the error) is semantically misplaced inside the error channel.
+<code>retry</code> sees the tuple and retries the whole operation; the
+byte count is lost. <a href="https://wg21.link/d4124r0">D4124R0</a><sup>[20]</sup> examines
+these problems in detail and shows that the first three routing
+strategies fail to achieve correct I/O error handling, and that the
+fourth corrupts downstream composition, without a domain-aware
+combinator.</p>
+<p>The coroutine-native model’s combinator has direct access to the
+result value after <code>co_await</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> <span class="bu">std::</span>move<span class="op">(</span>inner<span class="op">);</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>get<span class="op">&lt;</span>Index<span class="op">&gt;(</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    state<span class="op">-&gt;</span><span class="va">results_</span><span class="op">).</span>set<span class="op">(</span>result<span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>result<span class="op">.</span>ec<span class="op">)</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    state<span class="op">-&gt;</span><span class="va">core_</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="va">stop_source_</span><span class="op">.</span>request_stop<span class="op">();</span></span></code></pre></div>
+<p>No channel routing. No adapter. No extra allocations. The combinator
+inspects the value, not the channel tag. The sender model can achieve
+the same cancellation through the fourth routing, but at the cost of
+corrupting the error type and requiring per-call-site adaptation. The
+“write it once” argument inverts: one generic <code>when_all</code> plus
+N adapters is more total code than two implementations (one generic, one
+I/O-aware) plus zero adapters.</p>
+<h3 id="io_env-indirection">5.6 <code>io_env</code> Indirection</h3>
+<p>In the coroutine-native model, the promise carries
+<code>io_env</code> directly. The type-erased executor is constructed
+once at task start. Every I/O operation receives a pointer to it. No
+indirection.</p>
+<p>[exec.task] does not mandate virtual dispatch for environment access.
+The <code>state&lt;Rcvr&gt;</code> object stores
+<code>Environment</code> directly ([task.state] paragraph 2). A
+conforming implementation can provide direct access without indirection.
+This paper grants that the best-case implementation does so.</p>
+<h3 id="io-operations-as-senders-case-b">5.7 I/O Operations as Senders
+(Case B)</h3>
+<p>Sections 5.1 through 5.6 analyze the task-to-task path. Under Case A,
+I/O operations are awaitables and the task-to-task path is the only
+source of sender protocol overhead. Under Case B, the overhead extends
+to every I/O operation.</p>
+<p>When <code>co_await sock.async_read_some(buf)</code> appears inside a
+<code>task&lt;T, IoEnv&gt;</code> and the I/O operation returns a
+sender, the <code>co_await</code> traverses the same sender machinery as
+a child task:</p>
+<ol type="1">
+<li><code>await_transform</code> ([task.promise] paragraph 9) intercepts
+the I/O sender.</li>
+<li>Wraps it in <code>affine_on(sender, SCHED(*this))</code>.</li>
+<li><code>as_awaitable</code> produces a
+<code>sender-awaitable</code>.</li>
+<li><code>sender-awaitable</code> calls
+<code>connect(affine_on_sender, awaitable-receiver)</code> - constructs
+<code>state&lt;awaitable-receiver&gt;</code> on the coroutine
+frame.</li>
+<li><code>await_suspend</code> calls <code>start(state)</code> -
+scheduler extraction, stop token setup, then I/O submission to the
+OS.</li>
+<li>I/O completes. The sender calls <code>set_value</code> on
+<code>awaitable-receiver</code>.</li>
+<li><code>awaitable-receiver</code> stores the result in a variant,
+calls <code>continuation.resume()</code>.</li>
+<li><code>await_resume</code> extracts the result from the variant.</li>
+</ol>
+<p>The coroutine-native path for the same I/O operation:</p>
+<ol type="1">
+<li><code>await_transform</code> passes <code>io_env*</code> to the
+awaitable.</li>
+<li><code>await_suspend</code> stores the continuation handle, submits
+I/O, returns <code>coroutine_handle&lt;&gt;</code> (symmetric
+transfer).</li>
+<li>I/O completes. Reactor resumes via stored handle.</li>
+<li><code>await_resume</code> returns
+<code>io_result&lt;size_t&gt;</code> directly.</li>
+</ol>
+<p>Three properties of Case B deserve attention.</p>
+<p><strong>No separate allocation.</strong> The
+<code>state&lt;awaitable-receiver&gt;</code> is a local variable inside
+<code>sender-awaitable</code>, which lives on the coroutine frame. No
+heap allocation occurs. This is the steelman: the “no dynamic memory
+allocation” property of the sender model holds for I/O operations
+co_awaited inside a coroutine. The cost is CPU overhead per I/O
+operation - <code>state&lt;Rcvr&gt;</code> construction, environment
+extraction, <code>affine_on</code> wrapping - not allocation.</p>
+<p>The coroutine frame itself is already allocated. The sender machinery
+adds CPU overhead on top of the same allocation profile. The “no
+allocation” benefit does not materialize for the I/O user because the
+coroutine frame provides the storage regardless of whether the I/O
+operation is a sender or an awaitable.</p>
+<p><strong>No symmetric transfer.</strong> <code>set_value</code> is
+void-returning (<a href="https://wg21.link/p2583r3">P2583R3</a><sup>[19]</sup> documents
+this gap). The <code>awaitable-receiver</code> calls
+<code>continuation.resume()</code> as a function call. In the
+coroutine-native model, <code>await_suspend</code> returns
+<code>coroutine_handle&lt;&gt;</code> and the compiler arranges a tail
+call. The symmetric transfer gap documented in <a href="https://wg21.link/p2583r3">P2583R3</a><sup>[19]</sup> applies to
+every I/O completion under Case B.</p>
+<p><strong>Type-erased streams allocate per operation.</strong> When the
+I/O operation is an awaitable, the awaitable returned by a type-erased
+stream has a fixed, compile-time-known size - a pointer to the vtable
+and a pointer to the buffer. The compiler places it on the coroutine
+frame. No heap allocation.</p>
+<p>When the I/O operation is a sender, type-erasing the stream requires
+<code>any_sender&lt;completion_signatures&lt;...&gt;&gt;</code>. The
+<code>connect</code> call on <code>any_sender</code> must produce an
+operation state whose size depends on the concrete sender type that was
+erased - a size unknown at compile time. The coroutine frame layout is
+fixed before the <code>co_await</code>; it cannot absorb a
+dynamically-sized operation state. The operation state must be
+heap-allocated inside <code>any_sender::connect</code>. This is a
+per-I/O-operation allocation that does not exist in the coroutine-native
+model or under Case A.</p>
+<p>This is the allocator timing problem from <a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[6]</sup>
+Section 6.1 manifesting in a form that cannot be resolved by frame
+allocator fixes. The frame allocator rework in <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
+ensures the allocator reaches <code>promise_type::operator new</code>
+before the frame is allocated. It does not help here because the
+allocation is not the coroutine frame - it is the type-erased operation
+state inside <code>any_sender::connect</code>, which occurs after the
+frame is already allocated.</p>
+<p><strong>The multiplier.</strong> Under Case A, the sender protocol
+overhead is per task-to-task transition. A five-coroutine session chain
+has five transitions. Under Case B, the overhead is per task-to-task
+transition plus per I/O operation. Every <code>co_await</code> of a
+socket read, a socket write, a timer wait, a DNS lookup, a TLS handshake
+step pays <code>state&lt;Rcvr&gt;</code> construction and scheduler
+extraction that the coroutine-native model does not pay. A minimal HTTP
+request-response - accept, TLS handshake (multiple round trips), read
+headers, read body, write headers, write body - is 6-15 I/O operations.
+A WebSocket session with streaming: hundreds. A long-lived connection
+with keep-alive: thousands over its lifetime. Per session. Multiplied by
+the number of concurrent sessions.</p>
 <hr />
-<h2 id="the-pipeline-in-motion">7. The Pipeline in Motion</h2>
-<p><a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup> Section
-11 defines the timeline: all eleven papers through LEWG by end of 2028,
-LWG wording through 2029H1. The pipeline maps onto that timeline.</p>
-<p>Multiple papers occupy different pipeline stages simultaneously.
-While Paper 1 (Coroutines for I/O) is in Wording review, Paper 2 (I/O
-Buffer Ranges) can be in Design, and Paper 3 (Stream Concepts) can be in
-Implementation. The Beman Project receives implementation output
-continuously. Each handoff produces a visible artifact in the GitHub
-repository.</p>
-<p>The eleven papers divide into two stages that mirror the library
-split:</p>
-<p><strong>Stage One</strong> (Papers 1-4) - Pure C++20 abstractions. No
-platform dependency. Coroutine execution protocol, buffer concepts,
-stream concepts, coroutine runtime. These enable sans-I/O protocols in
-the ecosystem.</p>
-<p><strong>Stage Two</strong> (Papers 5-11) - Platform I/O. Timers,
-signals, files, TCP, DNS, UDP, TLS. The first three papers in Stage Two
-have nothing to do with networking. The committee can standardize seven
-papers before anyone says the word “socket.”</p>
-<p>If C++29 proves too aggressive, the Stage One papers deliver
-standalone value for C++32. The committee ships what is ready. Each
-paper that completes the pipeline is a shippable unit - the endeavor
-does not require all eleven papers to succeed for any of them to
-succeed. Partial delivery is still delivery. The ecosystem benefits from
-coroutine execution protocol and buffer concepts whether or not TLS
-makes the same standard.</p>
+<h2 id="the-shipping-schedule-risk">6. The Shipping Schedule Risk</h2>
+<p>The concessions in Section 2 assume several engineering fixes ship.
+<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> is the
+vehicle. The C++26 cycle is closing. The following fixes are not in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> today:</p>
+<ul>
+<li>Symmetric transfer: <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup> identified
+the vulnerability. Trampolines are being explored (<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[11]</sup>). Not
+landed.</li>
+<li>Frame allocator timing: <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
+is in progress. Not landed.</li>
+<li><code>IoEnv</code>: does not exist in any proposal.</li>
+<li>Error delivery: <code>AS-EXCEPT-PTR</code> is still in the
+specification.</li>
+</ul>
+<p>If <code>task</code> ships in C++26 without these fixes, the
+concessions in Section 2 are hypothetical. The gap in Section 4 would be
+larger.</p>
+<p>It has been stated in internal discussions that the plan is for I/O
+primitives to be senders. Case A (I/O as awaitables) is therefore more
+generous than the stated direction. Case B (Section 5.7) documents the
+cost under the stated plan.</p>
+<p><a href="https://wg21.link/p2762r0">P2762R0</a><sup>[12]</sup>
+mentioned <code>io_task</code> in one paragraph:</p>
+<blockquote>
+<p>“It may be useful to have a coroutine task (<code>io_task</code>)
+injecting a scheduler into asynchronous networking operations used
+within a coroutine… The corresponding task class probably needs to be
+templatized on the relevant scheduler type.”</p>
+</blockquote>
+<p><a href="https://wg21.link/p2762r2">P2762</a><sup>[13]</sup> stopped
+at R2 (October 2023). No revision in over two years. No published paper
+defines what <code>IoEnv</code> looks like inside
+<code>std::execution::task</code>.</p>
+<p>The implementation section of <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>
+acknowledges:</p>
+<blockquote>
+<p>“This implementation hasn’t received much use, yet, as it is fairly
+new.”</p>
+</blockquote>
 <hr />
-<h2 id="the-stakes">8. The Stakes</h2>
-<p>This is not just about shipping a feature.</p>
-<p>The committee has been perceived - by its own members, by the broader
-C++ community, and by observers in other language ecosystems - as unable
-to coordinate large efforts. Networking is the longest-running example.
-Twenty-one years from first proposal to the present, and the standard
-has no sockets, no DNS, no TLS.</p>
-<p>The talent exists. The implementations exist. The technical
-foundations are documented. The bridge mechanisms are explored. What has
-been missing is a way of working that lets the committee’s collective
-expertise converge on a shared goal instead of diverging into competing
-visions.</p>
-<p>If this endeavor succeeds, the committee will have delivered
-networking for C++29. That alone justifies the effort. But the committee
-will also have demonstrated something larger: that WG21 can organize a
-multi-year, multi-team, cross-faction effort and ship the result. That
-is a model the committee can use again - for reflection, for pattern
-matching, for whatever comes next.</p>
-<p>The work is defined. The people are here. The question is whether we
-choose to do this together.</p>
+<h2 id="the-zero-overhead-principle">7. The Zero-Overhead Principle</h2>
+<p><a href="https://wg21.link/p3406r0">P3406R0</a><sup>[17]</sup>
+(Stroustrup, 2024) states:</p>
+<blockquote>
+<p>“Does the C++ design follow the zero-overhead principle? Should it? I
+think it should, even if that principle isn’t trivial to define
+precisely. Some of you (for some definition of ‘you’) seem not to. We -
+WG21 as an organization - haven’t taken it seriously enough to make it a
+requirement for acceptance of new features. I think that is a serious
+problem.”</p>
+</blockquote>
+<p>The principle has two parts. <a href="https://wg21.link/p0709r4">P0709R4</a><sup>[18]</sup> (Sutter,
+2019) defines them:</p>
+<blockquote>
+<p>“‘Zero overhead’ is not claiming zero cost - of course using
+something always incurs some cost. Rather, C++‘s zero-overhead principle
+has always meant that (a) ’if you don’t use it you don’t pay for it’ and
+(b) ‘if you do use it you can’t reasonably write it more efficiently by
+hand.’”</p>
+</blockquote>
+<p>Part (b) applies here. The user is using a task abstraction for I/O.
+A coroutine-native task performs the same I/O without
+<code>state&lt;Rcvr&gt;</code> construction and without scheduler
+extraction. The overhead documented in Sections 4 and 5 exists because
+of the sender protocol, not because of the I/O operation.</p>
+<p><a href="https://wg21.link/p3406r0">P3406R0</a><sup>[17]</sup>
+continues:</p>
+<blockquote>
+<p>“Every proposal, language and library, should be accompanied by a
+written discussion, ideally backed by measurements for credibility, to
+demonstrate that in the likely most common usage will not impose
+overheads compared to current and likely alternatives. Also, to
+demonstrate that optimizations and tuning will not be inhibited. If no
+numbers are available or possible, the committee should be extremely
+suspicious and in particular, never just assume that optimizations will
+emerge over time. This should be a formal requirement.”</p>
+</blockquote>
+<p>This paper is that written discussion. The analysis is in Sections 4
+and 5. The current and likely alternative is the coroutine-native task.
+The overheads are spec-mandated and cannot be assumed away by future
+optimizations.</p>
+<hr />
+<h2 id="conclusion">8. Conclusion</h2>
+<p>This paper grants every proposed fix and compares against the best
+possible conforming implementation of
+<code>std::execution::task</code>.</p>
+<p>Per [exec.task], every <code>co_await</code> of a child task must
+construct a <code>state&lt;Rcvr&gt;</code> object and extract the
+scheduler from the receiver’s environment. In the coroutine-native
+model, the same path stores two pointers. The sender protocol requires
+<code>connect</code>/<code>start</code> to establish the execution
+context per-child. The coroutine-native model passes an
+<code>io_env</code> pointer because the execution context is propagated,
+not reconstructed.</p>
+<p>The gap is spec-mandated and cannot be optimized away by a better
+implementation. A typical I/O session - accept, authenticate, read
+request, process, write response - is a chain of roughly 5 coroutines
+performing roughly 10 I/O operations. The per-session cost:</p>
+<p><strong>Case A: I/O operations return awaitables
+(concession)</strong></p>
+<table>
+<colgroup>
+<col style="width: 43%" />
+<col style="width: 24%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr>
+<th>Operation</th>
+<th style="text-align: right;">Coroutine-native</th>
+<th style="text-align: right;">Best
+<code>task&lt;T, IoEnv&gt;</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state&lt;Rcvr&gt;</code> constructions</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5</td>
+</tr>
+<tr>
+<td>Scheduler extractions</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5</td>
+</tr>
+<tr>
+<td><code>affine_on</code> wrappings</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>Pointer stores</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Case B: I/O operations return senders (stated
+direction)</strong></p>
+<table>
+<colgroup>
+<col style="width: 43%" />
+<col style="width: 24%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr>
+<th>Operation</th>
+<th style="text-align: right;">Coroutine-native</th>
+<th style="text-align: right;">Best
+<code>task&lt;T, IoEnv&gt;</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state&lt;Rcvr&gt;</code> constructions</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td>Scheduler extractions</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td><code>affine_on</code> wrappings</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>Symmetric transfer on I/O</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">No</td>
+</tr>
+<tr>
+<td>Type-erased stream allocation</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1 per I/O operation</td>
+</tr>
+<tr>
+<td>Pointer stores</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10</td>
+</tr>
+</tbody>
+</table>
+<p>Under Case A, the coroutine-native model pays 10 pointer stores. The
+sender model pays the same 10 pointer stores plus 10 additional
+operations mandated by [exec.task]. Under Case B, the sender model pays
+10 pointer stores plus 40 additional operations - because every I/O
+read, write, timer, and DNS lookup pays <code>state&lt;Rcvr&gt;</code>
+construction, scheduler extraction, and <code>affine_on</code> wrapping
+that the coroutine-native model does not pay. Symmetric transfer is
+unavailable on the I/O completion path because <code>set_value</code> is
+void-returning. Type-erased streams incur a heap allocation per I/O
+operation because <code>any_sender::connect</code> must allocate a
+dynamically-sized operation state that the coroutine frame cannot absorb
+(Section 5.7).</p>
+<p>The operation counts above are theoretical. This paper does not claim
+to know the wall-clock cost of a <code>state&lt;Rcvr&gt;</code>
+construction or a scheduler extraction. The magnitude of each operation
+depends on the implementation, the optimizer, and the target
+architecture. What this paper does claim is that the cost is not zero.
+The operations are spec-mandated, they execute code that the
+coroutine-native model does not execute, and they scale with the number
+of I/O operations per session. Whether the per-operation cost is 5
+nanoseconds or 50 is an empirical question. That it exists is a
+normative one.</p>
+<p>The committee has the information to evaluate whether the gap
+justifies a separate task type for I/O. This paper provides the
+evidence. The committee decides.</p>
 <hr />
 <h2 id="acknowledgments">Acknowledgments</h2>
-<p>The authors of <code>std::execution</code> - Eric Niebler, Kirk
-Shoop, Lewis Baker, Lee Howes, Michał Dominiak, Michael Garland, Bryce
-Adelstein Lelbach, and their collaborators - invested years in a
-principled async framework for C++. Their work on sender/receiver serves
-domains where compile-time composition and heterogeneous dispatch
-matter. This endeavor builds alongside that work and depends on their
-expertise for interoperability.</p>
-<p>Chris Kohlhoff designed Asio’s stream model, buffer sequences, and
-executor architecture. Twenty years of production deployment is the
-foundation this work builds on.</p>
-<p>The committee designed C++20 coroutines. Gor Nishanov, Lewis Baker,
-and their collaborators gave C++ the language mechanisms that make
-coroutine-native I/O possible.</p>
-<p>Dietmar Kühl’s work on sender-based networking (<a href="https://wg21.link/p2762">P2762</a><sup>[9]</sup>) and the
-coroutine task type (<a href="https://wg21.link/p3552">P3552</a><sup>[10]</sup>) explored the
-design space from the sender side. That exploration informs the bridge
-design.</p>
-<p>Mark Hoemmen’s stewardship of <code>std::execution</code> through
-C++26 demonstrated the sustained effort required to shepherd a large
-proposal through the committee process.</p>
-<p>The Beman Project, led by David Sankel, provides the reference
-implementation infrastructure that makes continuous production
-possible.</p>
-<p>Peter Dimov, Andrzej Krzemieński, John Lakos, Howard Hinnant, Nina
-Ranns, Nicolai Josuttis, Jonathan Müller, Ville Voutilainen, and Inbal
-Levi bring decades of library design, wording, and process expertise
-that this endeavor cannot succeed without.</p>
-<p>Ruben Perez, Marcelo Zimbres Silva, Klemens Morgenstern, and the
-Boost.Postgres team adopted Capy and Corosio independently. Their
-experience is evidence that cannot be manufactured.</p>
-<p>Steve Gerbino, Mohammad Nejati, Mungo Gill, and Michael Vandeberg
-co-authored the libraries that make this proposal concrete rather than
-aspirational.</p>
+<p>The author thanks Bjarne Stroustrup for <a href="https://wg21.link/p3406r0">P3406R0</a> and for articulating the
+standard to which this paper holds itself; Herb Sutter for the two-part
+definition of zero overhead in <a href="https://wg21.link/p0709r4">P0709R4</a>; Dietmar Kühl for <a href="https://wg21.link/p3552r3">P3552R3</a> and <a href="https://wg21.link/p3796r1">P3796R1</a>, for
+<code>beman::execution</code>, and for clarifying the stop token
+bridging resolution on the LEWG reflector; Jens Maurer for clarifying
+the stated direction for I/O primitives; Jonathan Müller for <a href="https://wg21.link/p3801r0">P3801R0</a> and for documenting the
+symmetric transfer gap; Chris Kohlhoff for identifying the
+partial-success problem in <a href="https://wg21.link/p2430r0">P2430R0</a>; Eric Niebler, Lewis Baker,
+and Kirk Shoop for <code>std::execution</code>; Steve Gerbino for
+co-developing the bridge implementations; Peter Dimov for the frame
+allocator propagation analysis and for the
+<code>set_error(tuple(ec, T...))</code> routing that resolves the
+combinator gap; and Mungo Gill, Mohammad Nejati, Michael Vandeberg, and
+Andrzej Krzemieński for feedback.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
-<li><p><a href="https://wg21.link/p4100r0">P4100R0</a> - “The Network
-Endeavor: Coroutine-Native I/O for C++29” (Vinnie Falco, Steve Gerbino,
-Michael Vandeberg, Mungo Gill, Mohammad Nejati, 2026).
-https://wg21.link/p4100r0</p></li>
-<li><p><a href="https://wg21.link/n1925">N1925</a> - “A Proposal to Add
-Networking Utilities to the C++ Standard Library” (Chris Kohlhoff,
-2005). https://wg21.link/n1925</p></li>
-<li><p><a href="https://wg21.link/p2453r0">P2453R0</a> - “2021 October
-Library Evolution Poll Outcomes” (Bryce Adelstein Lelbach, Fabio
-Fracassi, Ben Craig, 2022). https://wg21.link/p2453r0</p></li>
-<li><p><a href="https://wg21.link/p4088r0">P4088R0</a> - “The Case for
-Coroutines” (Vinnie Falco, 2026). https://wg21.link/p4088r0</p></li>
-<li><p><a href="https://wg21.link/p4099r0">P4099R0</a> - “Twenty-One
-Years: The Arc of Networking in C++” (Vinnie Falco, 2026).
-https://wg21.link/p4099r0</p></li>
-<li><p><a href="https://wg21.link/p4092r0">P4092R0</a> - “Consuming
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4092r0</p></li>
-<li><p><a href="https://wg21.link/p4093r0">P4093R0</a> - “Producing
-Senders from Coroutine-Native Code” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4093r0</p></li>
-<li><p><a href="https://wg21.link/p4094r0">P4094R0</a> - “The Cost of
-Unification” (Vinnie Falco, 2026). https://wg21.link/p4094r0</p></li>
-<li><p><a href="https://wg21.link/p2762">P2762</a> -
-“Sender/Receiver-based Networking” (Dietmar Kühl, 2023).
-https://wg21.link/p2762</p></li>
-<li><p><a href="https://wg21.link/p3552">P3552</a> - “Add a Coroutine
-Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
-https://wg21.link/p3552</p></li>
+<li><p><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a
+Coroutine Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
+https://wg21.link/p3552r3</p></li>
+<li><p><a href="https://github.com/bemanproject/task">bemanproject/task</a> -
+P3552R3 reference implementation.
+https://github.com/bemanproject/task</p></li>
+<li><p><a href="https://wg21.link/d4051r0">D4051R0</a> - “Steelmanning
+P3552R3” (Vinnie Falco, 2026). https://wg21.link/d4051r0</p></li>
+<li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
+Coroutine-native networking library.
+https://github.com/cppalliance/corosio</p></li>
+<li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
+Coroutine I/O primitives library.
+https://github.com/cppalliance/capy</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a>
+- “The Case for Coroutines” (Vinnie Falco, 2026).
+https://isocpp.org/files/papers/P4088R0.pdf</p></li>
+<li><p><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
+the design of <code>std::execution::task</code>” (Jonathan Müller,
+2025). https://wg21.link/p3801r0</p></li>
+<li><p><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a> -
+“Task’s Allocator Use” (Dietmar Kühl, 2026).
+https://isocpp.org/files/papers/D3980R0.html</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4092R0.pdf">P4092R0</a>
+- “Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4092R0.pdf</p></li>
+<li><p><a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a>
+- “Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
+Gerbino, 2026). https://isocpp.org/files/papers/P4093R0.pdf</p></li>
+<li><p><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
+Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</p></li>
+<li><p><a href="https://wg21.link/p2762r0">P2762R0</a> -
+“Sender/Receiver Interface For Networking” (Dietmar Kühl, 2023).
+https://wg21.link/p2762r0</p></li>
+<li><p><a href="https://wg21.link/p2762r2">P2762R2</a> -
+“Sender/Receiver Interface For Networking” (Dietmar Kühl, 2023).
+https://wg21.link/p2762r2</p></li>
 <li><p><a href="https://wg21.link/p2300r10">P2300R10</a> -
-“<code>std::execution</code>” (Michał Dominiak, Lewis Baker, Lee Howes,
-Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach,
-2024). https://wg21.link/p2300r10</p></li>
-<li><p><a href="https://wg21.link/p4003r0">P4003R0</a> - “Coroutines for
-I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
+“std::execution” (Michał Dominiak, Lewis Baker, Lee Howes, Kirk Shoop,
+Michael Garland, Eric Niebler, Bryce Adelstein Lelbach, 2024).
+https://wg21.link/p2300r10</p></li>
+<li><p><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial
+success scenarios with P2300” (Chris Kohlhoff, 2021).
+https://wg21.link/p2430r0</p></li>
+<li><p><a href="https://wg21.link/p4003r0">P4003R0</a> -
+“Coroutine-Native I/O” (Vinnie Falco, Steve Gerbino, 2026).
 https://wg21.link/p4003r0</p></li>
+<li><p><a href="https://wg21.link/p3406r0">P3406R0</a> - “We need better
+performance testing” (Bjarne Stroustrup, 2024).
+https://wg21.link/p3406r0</p></li>
+<li><p><a href="https://wg21.link/p0709r4">P0709R4</a> - “Zero-overhead
+deterministic exceptions: Throwing values” (Herb Sutter, 2019).
+https://wg21.link/p0709r4</p></li>
+<li><p><a href="https://wg21.link/p2583r3">P2583R3</a> - “Symmetric
+Transfer and Sender Composition” (Mungo Gill, Vinnie Falco, 2026).
+https://wg21.link/p2583r3</p></li>
+<li><p><a href="https://wg21.link/d4124r0">D4124R0</a> - “Domain-Aware
+Combinators” (Vinnie Falco, 2026). https://wg21.link/d4124r0</p></li>
 </ol>
 
 </body>

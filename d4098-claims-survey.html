@@ -928,7 +928,7 @@ respects.</p>
 <h3 id="methodology-and-limitations">Methodology and Limitations</h3>
 <p><strong>Selection criteria.</strong> Claims were selected from the
 papers in the causal chain documented in the companion papers - <a href="https://wg21.link/p4094r0">P4094R0</a><sup>[3]</sup>, <a href="https://wg21.link/p4095r0">P4095R0</a><sup>[4]</sup>, <a href="https://wg21.link/p4096r0">P4096R0</a><sup>[5]</sup>, and <a href="https://wg21.link/p4097r0">P4097R0</a><sup>[6]</sup> - plus
-additional claims from <a href="https://wg21.link/p2453r0">P2453R0</a><sup>[18]</sup> and <a href="https://wg21.link/p2470r0">P2470R0</a><sup>[19]</sup> that shaped
+additional claims from <a href="https://wg21.link/p2453r0">P2453R0</a><sup>[17]</sup> and <a href="https://wg21.link/p2470r0">P2470R0</a><sup>[18]</sup> that shaped
 the committee’s direction. Claims from both sides of the debate were
 included: the unification proponents (P0443, P0761R2, P1525R0), the
 P2464R0 diagnosis, the P2469R0 response, the P2300 deployment claims,
@@ -1176,10 +1176,10 @@ were designed for or ever deployed in larger-scale compositions… I don’t
 know.”</td>
 <td><a href="https://wg21.link/p2464r0">P2464R0</a><sup>[16]</sup></td>
 <td>2021</td>
-<td><a href="https://wg21.link/n3747">N3747</a><sup>[17]</sup> (2013)
-documented <code>async_result</code>. Boost.Beast (2017) deployed three
-layers of composed async operations. P2464R0 does not mention
-<code>async_result</code> or N3747.</td>
+<td>Boost.Beast (2017) deployed three layers of composed async
+operations using hand-written state machines. P2464R0 was right that the
+Networking TS had no generic algorithmic composition mechanism. <a href="https://wg21.link/p4096r0">P4096R0</a><sup>[5]</sup> Section 6
+concedes this point.</td>
 </tr>
 <tr>
 <td>“C++ programmers will write <em>thousands</em> of these
@@ -1213,7 +1213,7 @@ Deployment (2021-2024)</h3>
 <td>“The sender/receiver model (P2300) is a good basis for most
 asynchronous use cases, including networking, parallelism, and GPUs.”
 (SF:24 / WF:16 / N:3 / WA:6 / SA:3)</td>
-<td><a href="https://wg21.link/p2453r0">P2453R0</a><sup>[18]</sup></td>
+<td><a href="https://wg21.link/p2453r0">P2453R0</a><sup>[17]</sup></td>
 <td>2021</td>
 <td>Consensus in favor. No published prototype of sender-based
 networking at the time of the vote. No published deployment of
@@ -1223,7 +1223,7 @@ sender-based networking as of 2026.</td>
 <td>“We believe we need one grand unified model for asynchronous
 execution in the C++ Standard Library” (SF:4 / WF:9 / N:5 / WA:5 /
 SA:1)</td>
-<td><a href="https://wg21.link/p2453r0">P2453R0</a><sup>[18]</sup></td>
+<td><a href="https://wg21.link/p2453r0">P2453R0</a><sup>[17]</sup></td>
 <td>2021</td>
 <td>No consensus (leaning in favor). The premise was tested by poll and
 did not achieve consensus.</td>
@@ -1231,7 +1231,7 @@ did not achieve consensus.</td>
 <tr>
 <td>“the number of monthly users of sender/receiver-based async APIs
 number in the billions”</td>
-<td><a href="https://wg21.link/p2470r0">P2470R0</a><sup>[19]</sup></td>
+<td><a href="https://wg21.link/p2470r0">P2470R0</a><sup>[18]</sup></td>
 <td>2021</td>
 <td>Facebook deployment documented. The deployment is for
 sender/receiver composition and infrastructure, not for networking.</td>
@@ -1239,7 +1239,7 @@ sender/receiver composition and infrastructure, not for networking.</td>
 <tr>
 <td>“NVIDIA is fully invested in P2300 senders/receivers… we plan to
 ship in production”</td>
-<td><a href="https://wg21.link/p2470r0">P2470R0</a><sup>[19]</sup></td>
+<td><a href="https://wg21.link/p2470r0">P2470R0</a><sup>[18]</sup></td>
 <td>2021</td>
 <td>Published statement. The deployment is for GPU dispatch and
 heterogeneous execution, not for networking.</td>
@@ -1247,10 +1247,10 @@ heterogeneous execution, not for networking.</td>
 <tr>
 <td>“Networking in the C++ Standard Library should be based on the
 sender/receiver model”</td>
-<td><a href="https://wg21.link/p2452r0">P2452R0</a><sup>[20]</sup></td>
+<td><a href="https://wg21.link/p2452r0">P2452R0</a><sup>[19]</sup></td>
 <td>2021</td>
 <td>Poll text. No published prototype of sender-based networking at the
-time. <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[21]</sup>
+time. <a href="https://wg21.link/p2762r2">P2762R2</a><sup>[20]</sup>
 (2023) documents five routing options for compound I/O results, noting
 the single-argument error channel is “somewhat limiting.”</td>
 </tr>
@@ -1293,15 +1293,6 @@ how many Asio users rely on custom executors. No published measurement
 of Asio executor usage beyond networking.</td>
 </tr>
 <tr>
-<td>“A Universal Model for Asynchronous Operations”</td>
-<td><a href="https://wg21.link/n3747">N3747</a><sup>[17]</sup></td>
-<td>2013</td>
-<td><code>async_result</code> deployed in Boost.Asio and Boost.Beast. No
-published deployment of <code>async_result</code> outside the Asio
-ecosystem. No published survey of completion token specializations in
-the wild.</td>
-</tr>
-<tr>
 <td>“some reduction in usability, due to the increased complexity of the
 unified interface, but the Networking TS can be updated to work with the
 new executors”</td>
@@ -1318,9 +1309,9 @@ demonstrating the Networking TS working with P2300 schedulers.</td>
 <p>This paper does not draw conclusions from the table. Four
 observations are offered for the reader’s consideration.</p>
 <p><strong>The deployment evidence for GPU dispatch and infrastructure
-is real.</strong> <a href="https://wg21.link/p2470r0">P2470R0</a><sup>[19]</sup> documents
+is real.</strong> <a href="https://wg21.link/p2470r0">P2470R0</a><sup>[18]</sup> documents
 sender/receiver at scale at Facebook, NVIDIA, and Bloomberg. The
-committee’s decision to move beyond <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[22]</sup> addressed
+committee’s decision to move beyond <a href="https://wg21.link/p0443r14">P0443R14</a><sup>[21]</sup> addressed
 genuine deficiencies in the unified executor model.
 <code>std::execution</code> provides a composition algebra that neither
 the Networking TS nor the coroutine model provides. These are real
@@ -1372,7 +1363,7 @@ published record, not on who assembled them.</p>
 candid retrospective in <a href="https://wg21.link/p1791r0">P1791R0</a><sup>[10]</sup>; Eric
 Niebler, Kirk Shoop, Lewis Baker, and Lee Howes for <a href="https://wg21.link/p1525r0">P1525R0</a><sup>[12]</sup>; Ville
 Voutilainen for <a href="https://wg21.link/p2464r0">P2464R0</a><sup>[16]</sup>; Bryce
-Adelstein Lelbach for the published poll outcomes in <a href="https://wg21.link/p2453r0">P2453R0</a><sup>[18]</sup>; Detlef
+Adelstein Lelbach for the published poll outcomes in <a href="https://wg21.link/p2453r0">P2453R0</a><sup>[17]</sup>; Detlef
 Vollmann for <a href="https://wg21.link/p1256r0">P1256R0</a><sup>[14]</sup>; and Steve
 Gerbino for feedback on this paper.</p>
 <hr />
@@ -1430,9 +1421,6 @@ https://wg21.link/p2130r0</p></li>
 <li><p><a href="https://wg21.link/p2464r0">P2464R0</a> - “Ruminations on
 networking and executors” (Ville Voutilainen, 2021).
 https://wg21.link/p2464r0</p></li>
-<li><p><a href="https://wg21.link/n3747">N3747</a> - “A Universal Model
-for Asynchronous Operations” (Christopher Kohlhoff, 2013).
-https://wg21.link/n3747</p></li>
 <li><p><a href="https://wg21.link/p2453r0">P2453R0</a> - “2021 October
 Library Evolution Poll Outcomes” (Bryce Adelstein Lelbach, Fabio
 Fracassi, Ben Craig, 2022). https://wg21.link/p2453r0</p></li>

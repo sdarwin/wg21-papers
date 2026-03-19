@@ -37,7 +37,7 @@ The chair walks into a session with a paper, a room full of people, and a time s
 
 A decision that sets aside years of work gets the same process as a decision to add `[[nodiscard]]` to a function. The consequence varies by orders of magnitude. The process does not scale. The chair has no tools to scale it.
 
-The executor and networking arc is the case study. Over a decade, four locally reasonable decisions - each made by experienced practitioners under real constraints - produced twenty-one years without networking in the C++ standard. The failure modes extracted from that arc are general. The proposals in this paper are tools for the chair.
+The executor and networking arc is the case study. Over a decade, four locally reasonable decisions - each made by experienced practitioners under real constraints - produced twenty-one years without networking in the C++ standard, counting from [N1925](https://wg21.link/n1925)<sup>[15]</sup> (2005). The failure modes extracted from that arc are general. The proposals in this paper are tools for the chair.
 
 ---
 
@@ -59,7 +59,7 @@ Five retrospective papers ([P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup>, [
 
 **A2. Assertions supported by hypothetical code only.** Six rationale assertions for unification were supported by one hypothetical code snippet as the only code-level evidence in the entire published record. *Source:* [P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup> Section 4.
 
-**A3. Consensus poll on a claim without domain-specific evidence.** The October 2021 poll "including networking" achieved consensus. At the time, the published record contained no sender-based networking deployment, no prototype, and one hypothetical example. Published voter comments included "can't judge its suitability for networking" from voters who voted Weakly Favor. [P2430R0](https://wg21.link/p2430r0)<sup>[11]</sup>, documenting that compound I/O results cannot use `set_error` without information loss, was published two months before the poll. *Source:* [P4097R0](https://wg21.link/p4097r0)<sup>[4]</sup> Sections 2-3.
+**A3. Consensus poll on a claim without domain-specific evidence.** The October 2021 poll "including networking" achieved consensus ([P2453R0](https://wg21.link/p2453r0)<sup>[25]</sup>). At the time, the published record contained no sender-based networking deployment, no prototype, and one hypothetical example. Published voter comments included "can't judge its suitability for networking" from voters who voted Weakly Favor. [P2430R0](https://wg21.link/p2430r0)<sup>[11]</sup>, documenting that compound I/O results cannot use `set_error` without information loss, was published two months before the poll. *Source:* [P4097R0](https://wg21.link/p4097r0)<sup>[4]</sup> Sections 2-3.
 
 **A4. Predictions without follow-up.** [P2464R0](https://wg21.link/p2464r0)<sup>[12]</sup> stated "I don't know" whether Networking TS compositions scale. Five years later, no sender-based networking has shipped either. The constraint applied to one model was not applied symmetrically to the replacement. *Source:* [P4096R0](https://wg21.link/p4096r0)<sup>[3]</sup> Section 9.1.
 
@@ -79,7 +79,7 @@ Five retrospective papers ([P4094R0](https://wg21.link/p4094r0)<sup>[1]</sup>, [
 
 **D1. Pivotal analysis under one framing only.** [P1525R0](https://wg21.link/p1525r0)<sup>[16]</sup> identified four deficiencies in `execute(F&&)`. The analysis was under the work framing only. Under the continuation framing, three deficiencies do not arise and the fourth addresses a different question. *Source:* [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> Section 4.
 
-**D2. Pivoting without evaluating cost to the blocked domain.** The Cologne pivot (July 2019) eliminated all interface-changing properties. No paper at Cologne analyzed the diagnosis under the continuation framing. No paper asked what networking loses. *Source:* [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> Section 5.2.
+**D2. Pivoting without evaluating cost to the blocked domain.** The Cologne pivot (July 2019), driven by [P1658R0](https://wg21.link/p1658r0)<sup>[17]</sup> and [P1660R0](https://wg21.link/p1660r0)<sup>[18]</sup>, eliminated all interface-changing properties. No paper at Cologne analyzed the diagnosis under the continuation framing. No paper asked what networking loses. *Source:* [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> Section 5.2.
 
 **D3. Absence of the blocked domain's use cases from the pivotal analysis.** [P1525R0](https://wg21.link/p1525r0)<sup>[16]</sup>'s examples are thread pools, deadline executors, GPU contexts, and `when_all`. No example involves an I/O reactor or sockets. *Source:* [P4095R0](https://wg21.link/p4095r0)<sup>[2]</sup> Section 3.3.
 
@@ -141,11 +141,13 @@ The documentation requirement must scale with the consequence. Scaling requires 
 | Reversibility               | Can the decision be undone in a future standard?                      | Irreversible decisions need more scrutiny     |
 | Domain breadth              | Number of distinct domains affected                                   | More domains = more stakeholders to consult   |
 
+These criteria combine into four tiers, each with its own documentation requirement.
+
 | Tier | Name        | Criteria                                                                                    | Required artifacts                                                                                                                 | Example                                              |
 | ---- | ----------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 1    | Routine     | One paper, no deployed code, reversible, single domain                                      | The paper itself                                                                                                                   | Adding `[[nodiscard]]` to a function                 |
 | 2    | Significant | Multiple papers or one deployed codebase, single domain                                     | Stakeholder brief + evidence summary + reflector discussion                                                                        | Adopting a new library feature with deployment history |
-| 3    | Major       | Years of prior work, multiple deployed codebases, or multiple domains; partially reversible | Full artifact set (5.3); domain coverage report (Section 6)                                                                        | Adopting `std::execution` for C++26                  |
+| 3    | Major       | Years of prior work, multiple deployed codebases, or multiple domains; partially reversible | Full artifact set (5.3); domain coverage report (Section 6)                                                                        | Adopting `std::execution` for C++26 ([N4985](https://wg21.link/n4985)<sup>[27]</sup>) |
 | 4    | Structural  | Sets aside or replaces years of prior work; multiple domains; effectively irreversible      | Full artifact set + mandatory stakeholder presence or written position + decision rationale + follow-up criteria with revisit date | Setting aside the Networking TS; the Cologne pivot   |
 
 Four design choices keep the sizing system from becoming a political instrument.
@@ -166,6 +168,8 @@ The chair's brief is produced from the stakeholder registry (Section 6) and the 
 By the time the meeting starts, the chair already knows the decision's size, the stakeholder coverage, and the artifact gaps. The session is the closing argument. The deliberation happened before.
 
 ### 5.3 The Missing Artifacts
+
+**F1. Missing artifacts disproportionate to the decision.** A Tier 4 decision proceeds with the same documentation as a Tier 1 decision. The artifacts that would have surfaced objections, alternatives, or gaps in evidence do not exist because nobody was required to produce them.
 
 Eight artifacts WG21 does not systematically produce. The table maps each artifact to the tier at which it becomes required.
 
@@ -197,7 +201,7 @@ Decision sizing: 13 years of prior work (Tier 4). 100+ papers in the chain (Tier
 
 ### 5.5 Hypothetical: Sofia Task Adoption (P3552R3)
 
-Decision sizing: P3552R3 is new (Tier 1-2 on prior work). But it affects `std::execution` (years of prior work, Tier 3). Multiple domains (Tier 3). Partially reversible via NB comments (Tier 2-3). **Tier 3 by highest criterion.**
+Decision sizing: [P3552R3](https://wg21.link/p3552r3)<sup>[28]</sup> is new (Tier 1-2 on prior work). But it affects `std::execution` (years of prior work, Tier 3). Multiple domains (Tier 3). Partially reversible via NB comments (Tier 2-3). **Tier 3 by highest criterion.**
 
 Jonathan M&uuml;ller's [P3801R0](https://wg21.link/p3801r0)<sup>[24]</sup> arrived after the Sofia vote. Under Tier 3 requirements, his concerns would have been a stakeholder brief before the vote. The 29 abstentions might have been fewer - people who abstained because they did not understand the issues would have had written briefs to read. The plenary vote passed 77-11. The record does not document why 29 members abstained.
 
@@ -419,3 +423,5 @@ The author thanks Christopher Kohlhoff for the executor model, [N3747](https://w
 26. [P4100R0](https://wg21.link/p4100r0) - "The Network Endeavor: Coroutine-Native I/O for C++29" (Vinnie Falco, Steve Gerbino, Michael Vandeberg, Mungo Gill, Mohammad Nejati, 2026). https://wg21.link/p4100r0
 
 27. [N4985](https://wg21.link/n4985) - "WG21 2024-06 St Louis Minutes of Meeting" (Nina Ranns, 2024). https://wg21.link/n4985
+
+28. [P3552R3](https://wg21.link/p3552r3) - "task - An Asynchronous Coroutine Task Type" (Lewis Baker, 2025). https://wg21.link/p3552r3
