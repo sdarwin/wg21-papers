@@ -223,6 +223,12 @@ When the reactor completes an I/O operation and calls `executor.dispatch(h)`, th
 A sender pipeline would use a callback handle like this:
 
 ```cpp
+struct callback_frame {
+    void (*resume)(callback_frame*);
+    void (*destroy)(callback_frame*);
+    void* data;
+};
+
 template<class Receiver>
 struct read_op_state {
     stream& s_;
@@ -230,6 +236,19 @@ struct read_op_state {
     Receiver rcvr_;
     read_some_awaitable aw_;
     io_env env_;
+    callback_frame cb_;
+
+    static void on_resume(
+        callback_frame* p) noexcept
+    {
+        auto* self = static_cast<
+            read_op_state*>(p->data);
+        auto result =
+            self->aw_.await_resume();
+        set_value(
+            std::move(self->rcvr_),
+            result);
+    }
 
     void start() noexcept
     {
@@ -240,23 +259,20 @@ struct read_op_state {
             return;
         }
 
-        auto h = make_callback_handle(
-            +[](void* p) {
-                auto* self =
-                    static_cast<
-                        read_op_state*>(p);
-                auto result = self->aw_
-                    .await_resume();
-                set_value(
-                    std::move(self->rcvr_),
-                    result);
-            },
-            this);
+        cb_.resume = &on_resume;
+        cb_.destroy =
+            +[](callback_frame*) {};
+        cb_.data = this;
 
+        auto h =
+            coroutine_handle<>::from_address(
+                &cb_);
         aw_.await_suspend(h, &env_);
     }
 };
 ```
+
+The `callback_frame` struct has `resume` and `destroy` function pointers at offsets 0 and 1 - matching the coroutine frame layout that all three major compilers use. `coroutine_handle<>::from_address(&cb_)` produces a handle whose `.resume()` calls the function pointer at offset 0. The awaitable cannot tell the difference between this handle and one from a real coroutine.
 
 The `await_ready` check is a no-op for `read_some_awaitable` (which always returns `false`), but a general sender-to-awaitable bridge must respect the full awaitable protocol.
 
@@ -282,76 +298,49 @@ The `.resume()` member function of `coroutine_handle<>` calls the function point
 
 [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> identifies the same use case this paper describes: allowing non-coroutine code to provide a `coroutine_handle` that participates in the awaitable protocol. Morgenstern demonstrates this in Boost.Cobalt for Python bindings and stackful coroutine integration.
 
-The wording change in [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> is the legal prerequisite for Option A below.
+The wording change in [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> is the legal prerequisite for the callback handle approach described in Section 9.
 
 ---
 
-## 9. Design Options
+## 9. The Design
 
-This section presents three options at the API surface level. The implementation details - compiler internals, ABI layout beyond what [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> documents, code generation strategies - are open questions. This paper invites compiler implementers and language designers to evaluate feasibility.
+The approach requires no `coroutine_handle` specialization, no factory function, and no compiler-generated frame. The user defines a struct whose first two members match the coroutine frame prefix, and `coroutine_handle<>::from_address` does the rest.
 
-### 9.1 Option A: Specialize `coroutine_handle`
+### 9.1 The Callback Frame
 
-A user-defined specialization of `coroutine_handle` where the template parameter is a tag type. The specialization stores a function pointer and a data pointer. It is convertible to `coroutine_handle<>`.
+The user defines a struct with `resume` and `destroy` function pointers at offsets 0 and 1:
 
 ```cpp
-struct callback_tag {};
-
-template<>
-struct coroutine_handle<callback_tag> {
-    void (*fn_)(void*);
-    void* data_;
-
-    void resume() const { fn_(data_); }
-    void destroy() const noexcept { }
-    operator coroutine_handle<>() const;
+struct callback_frame {
+    void (*resume)(callback_frame*);
+    void (*destroy)(callback_frame*);
+    void* data;
 };
 ```
 
-This option requires the wording change proposed in [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> or an equivalent. Specializing `coroutine_handle` is currently undefined behavior. The conversion to `coroutine_handle<>` requires that the resulting handle's `.resume()` calls the function pointer. [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> documents that this works on all three major compilers today because they share the same two-pointer-prefix frame layout.
+The struct's first two members match the coroutine frame layout documented by [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup>. `coroutine_handle<>::from_address(&cb)` produces a `coroutine_handle<>` that, when `.resume()` is called, calls the function pointer at offset 0. The awaitable receives this handle. It cannot tell the difference between this handle and one from a real coroutine.
 
-The author does not know whether this layout is a stable ABI commitment or an implementation accident. If it is stable, Option A works today and [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> legalizes it. If it is not stable, Options B or C provide a forward-compatible path that does not depend on frame layout. The author invites compiler implementers to clarify.
+The `destroy` pointer is a no-op - the sender owns its own lifetime. The `data` pointer points back to the operation state. Three pointers. Twenty-four bytes on a 64-bit platform. No heap allocation.
 
-### 9.2 Option B: Factory function
+### 9.2 The Type-Erasure Constraint
 
-A new standard library function that produces a `coroutine_handle<>` from a function pointer and a data pointer.
+Any callback handle must be convertible to `coroutine_handle<void>`. This is non-negotiable. Awaitables accept `coroutine_handle<>`. Executors traffic in `coroutine_handle<>`. The handle is the type-erased boundary between the awaitable and its consumer.
 
-```cpp
-auto h = coroutine_handle<>::from_callback(
-    +[](void* p) {
-        auto* self =
-            static_cast<my_op_state*>(p);
-        self->complete();
-    },
-    this);
-```
+A `coroutine_handle<>` is a pointer to a frame. The storage for that frame must come from somewhere. A factory function cannot conjure storage without allocating - and allocation is the cost this paper eliminates. The compiler cannot rewrite the user's struct into something else. The only zero-allocation path is: the user provides the storage, and `coroutine_handle<>` points directly at it.
 
-This option does not require [P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup>. It requires compiler or standard library support to produce a handle whose `.resume()` calls the function. The mechanism is an open question.
+This means the standard must mandate the two-pointer prefix layout - `resume` and `destroy` function pointers at offsets 0 and 1 - so that `from_address` on a user-provided struct produces a valid handle. There is no alternative design that avoids allocation.
 
-### 9.3 Option C: Compiler-generated synthetic frame
+### 9.3 What the Standard Must Do
 
-The compiler generates a minimal frame-like object in user-provided storage. The object has the layout the runtime expects for `.resume()` but contains only the function pointer and data pointer. Size: two pointers. No heap allocation.
+[P3203R0](https://wg21.link/p3203r0)<sup>[19]</sup> formalizes what all three major compilers already do. The coroutine frame layout with two function pointers at the front is not an implementation accident - it is the layout every compiler chose independently, and it is the layout that makes `coroutine_handle<>::from_address` work. The question is whether the committee will mandate it.
 
-This option requires compiler support. The user-facing API and the mechanism are open questions.
+The standard could also provide convenience wrappers on top of the mandated layout - a standard `callback_frame` type, a factory function that fills in the pointers, or a named concept that constrains the prefix. These are API sugar. The layout mandate is the prerequisite. Without it, none of them can produce a zero-allocation `coroutine_handle<>` from user-owned storage.
 
 ---
 
-## 10. Comparison
+## 10. What This Enables
 
-| Property                        | Option A: Specialization       | Option B: Factory              | Option C: Synthetic frame      |
-| ------------------------------- | ------------------------------ | ------------------------------ | ------------------------------ |
-| Heap allocation                 | None                           | None                           | None                           |
-| Standard wording change         | P3203R0 or equivalent          | New library function           | New language feature            |
-| Compiler changes                | Possibly none (see P3203R0)    | Open question                  | Required                       |
-| Convertible to `coroutine_handle<>` | Yes (requires ABI compat.) | Yes (by construction)          | Yes (by construction)          |
-| Works on existing compilers     | Yes (currently UB)             | No                             | No                             |
-| User-visible API complexity     | Low                            | Low                            | Open question                  |
-
----
-
-## 11. What This Enables
-
-A callback handle - by any of the three mechanisms - gives senders a zero-allocation entry into the awaitable protocol. The consequences go beyond I/O.
+A callback handle gives senders a zero-allocation entry into the awaitable protocol. The consequences go beyond I/O.
 
 - **The entire awaitable ecosystem opens to senders.** Every IoAwaitable anyone has written - timers, mutexes, channels, semaphores, file I/O, database queries, HTTP clients - becomes consumable by sender pipelines at zero allocation cost. Awaitable authors change nothing. Sender authors gain a new universe of composable operations. The sender ecosystem and the awaitable ecosystem merge.
 
@@ -369,7 +358,7 @@ The I/O library does not need two APIs - one for coroutines and one for senders.
 
 ---
 
-## 12. Anticipated Objections
+## 11. Anticipated Objections
 
 **Q: This breaks the coroutine abstraction.**
 
