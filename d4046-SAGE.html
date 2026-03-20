@@ -574,20 +574,43 @@ background-color: var(--text-secondary);
 
 .wording {
 background-color: var(--bg-secondary);
+border-left: 3px solid var(--text-muted);
 border-radius: 4px;
 padding: var(--spacing-lg);
 margin: var(--spacing-lg) 0;
 }
 .wording-add {
 background-color: #eef6ee;
-border-color: #66aa66;
+border-left: 3px solid #66aa66;
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #006e28;
 }
 .wording-remove {
 background-color: #fdf2f2;
-border-color: var(--cpp-alliance-red);
-}
-.wording-remove > p:not(:first-child) {
+border-left: 3px solid var(--cpp-alliance-red);
+border-radius: 4px;
+padding: var(--spacing-lg);
+margin: var(--spacing-lg) 0;
+color: #bf0303;
 text-decoration: line-through;
+}
+
+.wording code,
+.wording-add code,
+.wording-remove code {
+color: inherit;
+}
+
+.wording pre,
+.wording-add pre,
+.wording-remove pre {
+border-left: none;
+padding: 0;
+margin: 0;
+background: none;
+box-shadow: none;
 }
 
 .pnum {
@@ -826,7 +849,8 @@ outline: none;
   <p><strong>Document Number:</strong> P4046R0</p>
   <p><strong>Date:</strong> 2026-02-25</p>
   <p><strong>Audience:</strong> WG21</p>
-  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a></p>
+  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> C++
+Alliance Proposal Team</p>
 </div>
 
 <!-- Table of Contents -->

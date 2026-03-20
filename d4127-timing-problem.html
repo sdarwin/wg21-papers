@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4123R0: The Cost of Senders for Coroutine I/O</title>
+  <title>D4127R0: The Coroutine Frame Allocator Timing Problem</title>
   <style type="text/css">
 
 @font-face {
@@ -842,13 +842,13 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>The Cost of Senders for Coroutine I/O</h1>
+<h1>The Coroutine Frame Allocator Timing Problem</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4123R0</p>
-  <p><strong>Date:</strong> 2026-03-17</p>
-  <p><strong>Audience:</strong> LEWG, SG1</p>
+  <p><strong>Document Number:</strong> D4127R0</p>
+  <p><strong>Date:</strong> 2026-03-18</p>
+  <p><strong>Audience:</strong> SG1, LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> C++
 Alliance Proposal Team</p>
 </div>
@@ -865,1005 +865,748 @@ Alliance Proposal Team</p>
   (post-Croydon mailing)</a></li>
   </ul></li>
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#the-concessions" id="toc-the-concessions">2. The
-  Concessions</a></li>
-  <li><a href="#three-paths" id="toc-three-paths">3. Three Paths</a>
+  <li><a href="#the-constraint" id="toc-the-constraint">2. The
+  Constraint</a></li>
+  <li><a href="#the-enumeration" id="toc-the-enumeration">3. The
+  Enumeration</a></li>
+  <li><a href="#the-two-paths" id="toc-the-two-paths">4. The Two
+  Paths</a>
   <ul>
-  <li><a href="#coroutine-native-task" id="toc-coroutine-native-task">3.1 Coroutine-Native Task</a></li>
-  <li><a href="#case-a-stdexecutiontaskt-ioenv-with-io-awaitables" id="toc-case-a-stdexecutiontaskt-ioenv-with-io-awaitables">3.2 Case A:
-  <code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
-  Awaitables</a></li>
-  <li><a href="#case-b-stdexecutiontaskt-ioenv-with-io-senders" id="toc-case-b-stdexecutiontaskt-ioenv-with-io-senders">3.3 Case B:
-  <code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
-  Senders</a></li>
-  <li><a href="#spec-mandated-costs-per-task-to-task-co_await" id="toc-spec-mandated-costs-per-task-to-task-co_await">3.4
-  Spec-Mandated Costs (per task-to-task <code>co_await</code>)</a></li>
+  <li><a href="#path-a-the-parameter-list" id="toc-path-a-the-parameter-list">4.1 Path A: The Parameter
+  List</a></li>
+  <li><a href="#path-b-ambient-state" id="toc-path-b-ambient-state">4.2
+  Path B: Ambient State</a></li>
   </ul></li>
-  <li><a href="#the-gap" id="toc-the-gap">4. The Gap</a></li>
-  <li><a href="#the-gap-explained" id="toc-the-gap-explained">5. The Gap
-  Explained</a>
+  <li><a href="#the-rejected-alternatives" id="toc-the-rejected-alternatives">5. The Rejected Alternatives</a>
   <ul>
-  <li><a href="#template-parameters" id="toc-template-parameters">5.1
-  Template Parameters</a></li>
-  <li><a href="#sender-concept-instantiation" id="toc-sender-concept-instantiation">5.2 Sender Concept
-  Instantiation</a></li>
-  <li><a href="#task-to-task-co_await-cost" id="toc-task-to-task-co_await-cost">5.3 Task-to-Task
-  <code>co_await</code> Cost</a></li>
-  <li><a href="#completion-cost" id="toc-completion-cost">5.4 Completion
-  Cost</a></li>
-  <li><a href="#the-combinator-gap" id="toc-the-combinator-gap">5.5 The
-  Combinator Gap</a></li>
-  <li><a href="#io_env-indirection" id="toc-io_env-indirection">5.6
-  <code>io_env</code> Indirection</a></li>
-  <li><a href="#io-operations-as-senders-case-b" id="toc-io-operations-as-senders-case-b">5.7 I/O Operations as Senders
-  (Case B)</a></li>
+  <li><a href="#stdcoroutine_traits" id="toc-stdcoroutine_traits">5.1
+  <code>std::coroutine_traits</code></a></li>
+  <li><a href="#await_transform" id="toc-await_transform">5.2
+  <code>await_transform</code></a></li>
+  <li><a href="#operator-co_await" id="toc-operator-co_await">5.3
+  <code>operator co_await</code></a></li>
+  <li><a href="#initial_suspend" id="toc-initial_suspend">5.4
+  <code>initial_suspend</code></a></li>
+  <li><a href="#deferred-invocation" id="toc-deferred-invocation">5.5
+  Deferred Invocation</a></li>
+  <li><a href="#promise-based-injection" id="toc-promise-based-injection">5.6 Promise-Based Injection</a></li>
+  <li><a href="#global-pmrget_default_resource" id="toc-global-pmrget_default_resource">5.7 Global
+  <code>pmr::get_default_resource()</code></a></li>
   </ul></li>
-  <li><a href="#the-shipping-schedule-risk" id="toc-the-shipping-schedule-risk">6. The Shipping Schedule
-  Risk</a></li>
-  <li><a href="#the-zero-overhead-principle" id="toc-the-zero-overhead-principle">7. The Zero-Overhead
-  Principle</a></li>
-  <li><a href="#conclusion" id="toc-conclusion">8. Conclusion</a></li>
+  <li><a href="#the-design-space" id="toc-the-design-space">6. The
+  Design Space</a></li>
+  <li><a href="#the-tradeoff" id="toc-the-tradeoff">7. The
+  Tradeoff</a></li>
+  <li><a href="#the-hybrid" id="toc-the-hybrid">8. The Hybrid</a></li>
+  <li><a href="#addressing-tls-concerns" id="toc-addressing-tls-concerns">9. Addressing TLS Concerns</a>
+  <ul>
+  <li><a href="#platforms-without-thread-local-storage" id="toc-platforms-without-thread-local-storage">9.1 Platforms Without
+  Thread-Local Storage</a></li>
+  <li><a href="#performance" id="toc-performance">9.2
+  Performance</a></li>
+  <li><a href="#invisible-action-at-a-distance" id="toc-invisible-action-at-a-distance">9.3 Invisible Action at a
+  Distance</a></li>
+  <li><a href="#silent-failure-on-protocol-violation" id="toc-silent-failure-on-protocol-violation">9.4 Silent Failure on
+  Protocol Violation</a></li>
+  <li><a href="#precedent" id="toc-precedent">9.5 Precedent</a></li>
+  <li><a href="#categorical-rejection" id="toc-categorical-rejection">9.6 Categorical Rejection</a></li>
+  </ul></li>
+  <li><a href="#anticipated-objections" id="toc-anticipated-objections">10. Anticipated Objections</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>Every concession granted. The gap remains. I/O users pay for what
-they do not need.</p>
-<p>This paper grants <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> every
-engineering fix that has been proposed or discussed, assumes they all
-ship, and compares against the best possible conforming implementation
-of <code>std::execution::task</code> - one that eliminates every cost
-not mandated by [exec.task]. Two cases are examined. Case A: I/O
-operations return awaitables. The gap is in the task-to-task suspend
-path - <code>state&lt;Rcvr&gt;</code> construction and scheduler
-extraction per child task, spec-mandated. Case B: I/O operations return
-senders, the stated direction for networking. The gap extends to every
-I/O operation - every read, every write, every timer, every DNS lookup
-pays
-<code>connect</code>/<code>start</code>/<code>state&lt;Rcvr&gt;</code>
-overhead that does not exist in the coroutine-native model.</p>
+<p>The coroutine frame allocator must arrive before the coroutine frame
+exists. Exactly two mechanisms can deliver it.</p>
+<p>C++20 coroutines allocate their frame in
+<code>promise_type::operator new</code>, which the compiler calls before
+the coroutine body executes. Any mechanism that delivers the frame
+allocator after the coroutine is invoked arrives too late. This paper
+enumerates every customization point the language provides at or before
+<code>operator new</code> and shows that each one either reduces to
+passing the allocator in the coroutine’s parameter list, reduces to
+ambient state, or fires after the frame already exists. The design space
+is closed. The two solutions are <code>allocator_arg_t</code> (parameter
+passing) and thread-local propagation (ambient state). A conforming
+promise type can provide both as <code>operator new</code> overloads,
+letting the user choose per call site.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
 mailing)</h3>
 <ul>
-<li>Initial version</li>
+<li>Initial version.</li>
+<li>Clarified scope: the timing problem applies to child coroutines, not
+to leaf I/O awaitables (Section 2). Thanks to Michael Hava for
+identifying the gap.</li>
+<li>Added hybrid option: both paths coexist in a single promise type via
+<code>operator new</code> overload resolution (Section 8).</li>
+<li>Added structured analysis of TLS concerns: platforms, performance,
+action at a distance, silent failure, precedent, and categorical
+rejection (Section 9).</li>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[4]</sup>
-and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[5]</sup>
+<p>This paper is part of the Network Endeavor (<a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup>). The author
+developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[2]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[3]</sup>
 and believes coroutine-native I/O is the correct foundation for
-networking in C++. The author provides information, asks nothing, and
-serves at the pleasure of the chair.</p>
-<p>The author regards <code>std::execution</code> as an important
-contribution to C++ and supports its standardization for the domains it
-serves well - GPU dispatch, heterogeneous execution, and compile-time
-work-graph composition among them. Nothing in this paper argues for
-removing, delaying, or diminishing <code>std::execution</code>.</p>
+networking in C++. Coroutine-native I/O cannot express compile-time work
+graphs. The author provides information, asks nothing, and serves at the
+pleasure of the chair.</p>
+<p><a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup>,
+“Coroutines for I/O,” uses thread-local propagation for the frame
+allocator. This paper documents why that choice is one of exactly two
+possibilities, not a preference among many. The analysis stands
+independent of the author’s library work.</p>
 <hr />
-<h2 id="the-concessions">2. The Concessions</h2>
-<p>This paper grants <code>std::execution::task</code> every engineering
-fix that has been proposed, discussed, or implied. The following are
-assumed to ship:</p>
-<ul>
-<li><strong>Case A (concession):</strong> I/O operations return
-awaitables, not senders. The template operation state problem (<a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[6]</sup>
-Section 6.1) does not arise. This is the generous case.</li>
-<li><strong>Case B (stated direction):</strong> I/O operations return
-senders. It has been stated in internal discussions that the plan is for
-I/O primitives to be senders. Under Case B, every <code>co_await</code>
-of an I/O sender inside a <code>task&lt;T, IoEnv&gt;</code> goes through
-<code>connect</code>/<code>start</code>/<code>state&lt;Rcvr&gt;</code>.
-The <code>state&lt;Rcvr&gt;</code> lives on the coroutine frame (no
-separate allocation), but the CPU cost of construction and environment
-extraction is per I/O operation. The narrow task-to-task fix (LWG4348)
-does not apply because the I/O operation is not a task.</li>
-<li>Symmetric transfer works task-to-task. The stack overflow
-vulnerability (<a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup>) is
-resolved.</li>
-<li>Frame allocator timing is fixed. The rework in <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
-ships. The allocator reaches <code>promise_type::operator new</code>
-before the frame is allocated.</li>
-<li><code>AS-EXCEPT-PTR</code> does not convert routine
-<code>error_code</code> to <code>exception_ptr</code>. Routine I/O
-errors do not become exceptions.</li>
-<li>Compound results are handled inside the coroutine body via
-structured bindings.
-<code>auto [ec, n] = co_await sock.read_some(buf)</code> works.</li>
-<li><code>co_yield with_error</code> is unnecessary. Compound results
-stay in the coroutine body. The mechanism that <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup> identified as
-blocking symmetric transfer is not needed.</li>
-<li><code>IoEnv</code> is standardized as the networking environment,
-carrying a type-erased executor and a stop token.</li>
-<li>The promise delivers <code>IoEnv</code> to I/O awaitables through
-<code>await_transform</code>.</li>
-<li>Type-erased streams work under both models under Case A. Zero
-per-operation allocation. Under Case B, type-erased streams returning
-senders require <code>any_sender</code>, which allocates per operation -
-see Section 5.7.</li>
-<li>Separate compilation works under both models. I/O functions go in
-<code>.cpp</code> files.</li>
-<li>ABI stability works under both models. The vtable layout does not
-change.</li>
-<li><code>when_all</code> and <code>when_any</code> provide structured
-concurrency under both models. Children complete before the parent
-resumes. Stop tokens propagate.</li>
-<li>Predicate-based combinators are achievable under both models. A
-custom <code>when_all</code> that inspects <code>set_value</code>
-arguments through a predicate can cancel siblings on I/O errors. Both
-models can build this.</li>
-<li>No performance gap on the I/O hot path. The awaitable, the syscall,
-the resumption, and the frame allocation are identical.</li>
-<li>Cross-domain bridges work. <a href="https://isocpp.org/files/papers/P4092R0.pdf">P4092R0</a><sup>[9]</sup>
-and <a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a><sup>[10]</sup>
-demonstrate sender-to-coroutine and coroutine-to-sender
-interoperation.</li>
-<li>Compound I/O results are routed through
-<code>set_error(tuple(ec, T...))</code> on failure and
-<code>set_value(T...)</code> on success. The standard
-<code>when_all</code> cancels siblings on I/O error under this routing.
-Both values are preserved in the error payload. Downstream composition
-costs are examined in Section 5.5.3.</li>
-<li>The reference implementation of <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> is a work in
-progress. It introduces costs beyond what [exec.task] mandates. This
-paper does not compare against any existing implementation. It compares
-against the best possible conforming implementation - one that
-eliminates every cost not mandated by the normative text of [exec.task].
-This paper analyzes the normative text and identifies operations that no
-conforming implementation can skip. Implementers who believe a
-conforming implementation can eliminate any of these operations are
-invited to demonstrate which normative requirement is not binding.</li>
-</ul>
-<p>Everything above is granted without reservation.</p>
-<hr />
-<h2 id="three-paths">3. Three Paths</h2>
-<p>Both models require an I/O environment - a bundle of state that every
-I/O operation needs: a type-erased executor (to submit work to the
-reactor), a stop token (for cancellation), and optionally a frame
-allocator. <a href="https://wg21.link/p4003r0">P4003R0</a><sup>[16]</sup> defines this
-as <code>io_env</code> and specifies the <code>IoAwaitable</code>
-concept that consumes it. In the coroutine-native model, the promise
-carries <code>io_env</code> directly. In the sender model, the
-<code>Environment</code> template parameter of
-<code>std::execution::task</code> serves this role; this paper uses
-<code>IoEnv</code> to denote an <code>Environment</code> specialized for
-I/O.</p>
-<p>The same I/O operation. The same user code. Three paths: the
-coroutine-native model, <code>task&lt;T, IoEnv&gt;</code> with I/O
-awaitables (Case A), and <code>task&lt;T, IoEnv&gt;</code> with I/O
-senders (Case B).</p>
-<h3 id="coroutine-native-task">3.1 Coroutine-Native Task</h3>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>io<span class="op">::</span>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
+<h2 id="the-constraint">2. The Constraint</h2>
+<p>Not every awaitable has a frame. Leaf I/O operations -
+<code>sock.read_some(buf)</code>, timer waits, DNS lookups - return
+plain awaitable structs. No coroutine, no frame, no
+<code>operator new</code>. The parent’s <code>await_transform</code>
+receives them, injects the execution environment, and no frame
+allocation is involved. The timing problem does not apply to these
+operations.</p>
+<p>The timing problem applies to <strong>child coroutines</strong> -
+functions that contain <code>co_await</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> handle_request<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">)</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>One template parameter. The promise carries <code>io_env</code>
-directly - a type-erased executor, a stop token, and an optional frame
-allocator. Constructed once at task start. Every I/O operation receives
-a pointer to it.</p>
-<p>When <code>session</code> does <code>co_await process(buf, n)</code>
-- a child task - the awaiter stores the continuation handle and returns
-the child’s handle. Symmetric transfer. Two pointer stores.</p>
-<h3 id="case-a-stdexecutiontaskt-ioenv-with-io-awaitables">3.2 Case A:
-<code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O
-Awaitables</h3>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> IoEnv<span class="op">&gt;</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>read_some<span class="op">(</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Two template parameters. The
-<code>co_await sock.read_some(...)</code> is an awaitable - two pointer
-stores, same as the coroutine-native model. The gap is in
-<code>co_await process(buf, n)</code> - a child task.</p>
-<h3 id="case-b-stdexecutiontaskt-ioenv-with-io-senders">3.3 Case B:
-<code>std::execution::task&lt;T, IoEnv&gt;</code> with I/O Senders</h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>execution::task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> IoEnv<span class="op">&gt;</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>session<span class="op">(</span>tcp_socket<span class="op">&amp;</span> sock<span class="op">)</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buf<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="op">[</span>ec<span class="op">,</span> n<span class="op">]</span> <span class="op">=</span> <span class="cf">co_await</span> sock<span class="op">.</span>async_read_some<span class="op">(</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        mutable_buffer<span class="op">(</span>buf<span class="op">,</span> <span class="kw">sizeof</span> buf<span class="op">));</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_return</span><span class="op">;</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> process<span class="op">(</span>buf<span class="op">,</span> n<span class="op">);</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The user code is identical. The difference is underneath:
-<code>async_read_some</code> returns a sender. The <code>co_await</code>
-of the I/O sender goes through the same sender machinery as the
-<code>co_await</code> of the child task:</p>
-<ol type="1">
-<li><code>await_transform</code> ([task.promise] paragraph 9) intercepts
-the I/O sender.</li>
-<li>Wraps it in <code>affine_on(sender, SCHED(*this))</code> - produces
-a new sender type.</li>
-<li><code>as_awaitable</code> produces a
-<code>sender-awaitable</code>.</li>
-<li><code>sender-awaitable</code> calls
-<code>connect(affine_on_sender, awaitable-receiver)</code> - constructs
-<code>state&lt;awaitable-receiver&gt;</code> on the coroutine
-frame.</li>
-<li><code>await_suspend</code> calls <code>start(state)</code> -
-scheduler extraction, stop token setup, then the actual I/O
-submission.</li>
-<li>I/O completes. The I/O sender calls <code>set_value</code> on
-<code>awaitable-receiver</code>.</li>
-<li><code>awaitable-receiver</code> stores the result in a variant,
-calls <code>continuation.resume()</code> (no symmetric transfer -
-<code>set_value</code> is void-returning).</li>
-<li><code>await_resume</code> extracts the result from the variant.</li>
-</ol>
-<p>In the coroutine-native model, the same I/O operation:</p>
-<ol type="1">
-<li><code>await_transform</code> passes <code>io_env*</code> to the
-awaitable.</li>
-<li><code>await_suspend</code> stores the continuation handle, submits
-I/O to the OS, returns <code>coroutine_handle&lt;&gt;</code> (symmetric
-transfer).</li>
-<li>I/O completes. Reactor resumes the coroutine via the stored
-handle.</li>
-<li><code>await_resume</code> returns
-<code>io_result&lt;size_t&gt;</code> directly.</li>
-</ol>
-<p>Under Case B, both <code>co_await sock.async_read_some(...)</code>
-and <code>co_await process(buf, n)</code> pay the sender protocol cost.
-Under Case A, only <code>co_await process(buf, n)</code> does.</p>
-<h3 id="spec-mandated-costs-per-task-to-task-co_await">3.4 Spec-Mandated
-Costs (per task-to-task <code>co_await</code>)</h3>
-<p>The <code>co_await</code> goes through <code>await_transform</code>
-([task.promise] paragraph 9), which calls <code>as_awaitable</code>. The
-awaiter calls <code>connect</code> ([task.members] paragraph 3-4), which
-creates a <code>state&lt;Rcvr&gt;</code> object. The <code>state</code>
-constructor ([task.state] paragraph 2) must:</p>
-<ol type="1">
-<li>Store the coroutine handle and the receiver.</li>
-<li>Construct <code>own-env</code> from <code>get_env(rcvr)</code>.</li>
-<li>Construct <code>Environment</code> from <code>own-env</code> (or
-from <code>get_env(rcvr)</code>, or default).</li>
-</ol>
-<p>Then <code>state::start</code> ([task.state] paragraph 4) must:</p>
-<ol start="4" type="1">
-<li>Initialize <code>SCHED(prom)</code> with
-<code>scheduler_type(get_scheduler(get_env(rcvr)))</code> - extract the
-scheduler from the receiver’s environment.</li>
-<li>Call <code>handle.resume()</code>.</li>
-</ol>
-<p>These costs are normative. The as-if rule permits an implementation
-to elide observable operations when the program cannot detect the
-difference. For the sender protocol costs identified here, the as-if
-rule does not help: the scheduler extraction calls
-<code>get_scheduler(get_env(rcvr))</code>, which traverses a type-erased
-environment in separately compiled code. The compiler cannot see through
-the type erasure boundary to prove the result is unchanged. The
-<code>state&lt;Rcvr&gt;</code> constructor stores the receiver and
-constructs <code>own-env</code> from it - these are not dead stores
-because the child promise reads them.</p>
-<p>The analysis that follows compares Capy’s <code>task&lt;T&gt;</code>
-against the best possible conforming <code>task&lt;T, IoEnv&gt;</code>.
-All implementation-quality costs beyond the spec - virtual dispatch,
-scheduler comparison on resume, reschedule cycles - are granted as
-concessions (Section 2).</p>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span>s<span class="op">);</span>  <span class="co">// coroutine - has a frame</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> send_response<span class="op">(</span>s<span class="op">,</span> hdr<span class="op">);</span>        <span class="co">// coroutine - has a frame</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>parse_header</code> contains <code>co_await</code>. It has
+local variables that persist across suspension points. It is a
+coroutine. It has a frame. The call expression
+<code>parse_header(s)</code> allocates that frame before the parent’s
+<code>await_transform</code> runs. There is nothing for
+<code>await_transform</code> to wrap - the task already exists.</p>
+<p>To make <code>parse_header</code> a plain awaitable instead of a
+coroutine, one would have to hand-write the state machine the compiler
+generates. That is what coroutines exist to avoid.</p>
+<p>When a coroutine is called, the compiler allocates the frame first,
+then begins execution:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> fetch<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> b<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> t <span class="op">=</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span>    <span class="co">// operator new HERE</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> t<span class="op">;</span>                   <span class="co">// too late</span></span></code></pre></div>
+<p><code>promise_type::operator new</code> receives the frame size and
+the coroutine’s own parameters. It executes before the coroutine body,
+before <code>initial_suspend</code>, before any user code inside the
+coroutine runs. The frame allocator must be available at this point. Any
+mechanism that delivers context later - after the call expression
+returns, after <code>co_await</code> begins, after the coroutine body
+starts - cannot influence frame allocation.</p>
+<p>The question is: what mechanisms can deliver a runtime value to
+<code>promise_type::operator new</code>?</p>
 <hr />
-<h2 id="the-gap">4. The Gap</h2>
-<p>The table below shows the spec-mandated costs that exist in
-<code>task&lt;T, IoEnv&gt;</code> but not in the coroutine-native
-<code>task&lt;T&gt;</code>. Case A assumes I/O operations return
-awaitables. Case B assumes I/O operations return senders.</p>
+<h2 id="the-enumeration">3. The Enumeration</h2>
+<p>C++20 provides a finite set of customization points for coroutines.
+Each one fires at a specific point in the coroutine lifecycle. The
+following table places every customization point in time relative to
+<code>operator new</code>:</p>
 <table>
 <colgroup>
-<col style="width: 26%" />
-<col style="width: 16%" />
-<col style="width: 28%" />
-<col style="width: 28%" />
+<col style="width: 40%" />
+<col style="width: 42%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr>
+<th>Customization point</th>
+<th>When it fires</th>
+<th>Before <code>operator new</code>?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>promise_type::operator new</code></td>
+<td>Frame allocation</td>
+<td>Is <code>operator new</code></td>
+</tr>
+<tr>
+<td><code>std::coroutine_traits</code></td>
+<td>Compile time (selects <code>promise_type</code>)</td>
+<td>Compile time only</td>
+</tr>
+<tr>
+<td><code>initial_suspend</code></td>
+<td>After frame creation, before coroutine body</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>await_transform</code></td>
+<td>When parent <code>co_await</code>s the child’s return value</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>operator co_await</code></td>
+<td>Same as <code>await_transform</code> (operand already
+evaluated)</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>await_ready</code> / <code>await_suspend</code> /
+<code>await_resume</code></td>
+<td>After <code>await_transform</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>final_suspend</code></td>
+<td>After coroutine body completes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>return_value</code> / <code>return_void</code></td>
+<td>At <code>co_return</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>yield_value</code></td>
+<td>At <code>co_yield</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>unhandled_exception</code></td>
+<td>On exception</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>Every customization point except <code>operator new</code> itself
+fires after the frame exists. <code>coroutine_traits</code> operates at
+compile time - it selects which <code>promise_type</code> to use, but
+cannot inject a runtime value.</p>
+<p>The compiler passes exactly one set of runtime values to
+<code>operator new</code>: the frame size and the coroutine’s parameter
+list. No other runtime information is available at that point.</p>
+<hr />
+<h2 id="the-two-paths">4. The Two Paths</h2>
+<h3 id="path-a-the-parameter-list">4.1 Path A: The Parameter List</h3>
+<p>The coroutine’s parameters are forwarded to
+<code>promise_type::operator new</code>. If the allocator appears in the
+parameter list, <code>operator new</code> can use it. This is the
+<code>allocator_arg_t</code> pattern:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> fetch<span class="op">(</span><span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                MyAllocator alloc<span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> b<span class="op">);</span></span></code></pre></div>
+<p>The promise provides overloads that detect the tag:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">promise_type</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Alloc<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a<span class="op">.</span>allocate<span class="op">(</span>sz<span class="op">);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> Alloc<span class="op">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>             <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        T<span class="op">&amp;,</span> <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a<span class="op">.</span>allocate<span class="op">(</span>sz<span class="op">);</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This works. The allocator reaches <code>operator new</code> at the
+right time. The cost is that every coroutine in a call chain must carry
+the allocator in its parameter list. <a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup> Section 5.2
+documents the ergonomic consequences.</p>
+<h3 id="path-b-ambient-state">4.2 Path B: Ambient State</h3>
+<p>If the allocator is not in the parameter list,
+<code>operator new</code> must read it from somewhere else. The only
+“somewhere else” available to a function at call time is ambient state:
+global, thread-local, or fiber-local storage.</p>
+<p>Global state is too coarse - a single allocator for every coroutine
+chain in the process. Thread-local state scoped per-chain is the minimum
+viable mechanism. <a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup> Section 5.3
+documents the thread-local write-through cache that delivers the
+allocator to <code>operator new</code> and restores it on every
+resume.</p>
+<hr />
+<h2 id="the-rejected-alternatives">5. The Rejected Alternatives</h2>
+<p>Each alternative that appears to offer a third path reduces to Path
+A, Path B, or arrives too late.</p>
+<h3 id="stdcoroutine_traits">5.1 <code>std::coroutine_traits</code></h3>
+<p><code>coroutine_traits&lt;R, Args...&gt;</code> selects the
+<code>promise_type</code> based on the coroutine’s return type and
+parameter types. It operates at compile time. It can change
+<em>which</em> <code>operator new</code> runs. It cannot inject a
+runtime value that is not already in the parameter list.</p>
+<p>A <code>coroutine_traits</code> specialization that detects an
+allocator parameter type and selects an allocator-aware promise is a
+compile-time optimization of Path A. The allocator must still appear in
+the parameter list. The signature pollution remains.</p>
+<h3 id="await_transform">5.2 <code>await_transform</code></h3>
+<p>The parent coroutine’s <code>await_transform</code> fires when the
+parent evaluates <code>co_await child_expr</code>. The child expression
+is the operand. The operand is fully evaluated - including the child’s
+<code>operator new</code> - before <code>await_transform</code>
+runs.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">//      ^^^^^^^^^^^^^^^^^</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">//      evaluated first: operator new fires here</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// then await_transform runs on the returned task</span></span></code></pre></div>
+<p><code>await_transform</code> can inject context into the child’s
+<code>await_suspend</code>. It cannot influence the child’s
+<code>operator new</code>. Too late.</p>
+<h3 id="operator-co_await">5.3 <code>operator co_await</code></h3>
+<p><code>operator co_await</code> converts the operand into an awaiter.
+It runs after the operand is evaluated, at the same point as
+<code>await_transform</code>. The child’s frame already exists. Too
+late.</p>
+<h3 id="initial_suspend">5.4 <code>initial_suspend</code></h3>
+<p><code>initial_suspend</code> runs inside the child coroutine, after
+the frame is allocated. It can <em>capture</em> a value from TLS (as the
+IoAwaitable protocol does), but it cannot <em>deliver</em> a value to
+<code>operator new</code>. It is useful for Path B’s capture step, not
+as an independent delivery mechanism.</p>
+<h3 id="deferred-invocation">5.5 Deferred Invocation</h3>
+<p>One could defer the child’s construction so that the parent’s
+<code>await_transform</code> invokes it:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> deferred<span class="op">([&amp;]{</span> <span class="cf">return</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span> <span class="op">});</span></span></code></pre></div>
+<p>The parent’s <code>await_transform</code> would set the allocator,
+invoke the lambda, and forward to the child’s
+<code>await_suspend</code>. This eliminates TLS in principle. In
+practice:</p>
+<ul>
+<li>Every call site requires a lambda wrapper. The ergonomic cost
+exceeds <code>allocator_arg_t</code>.</li>
+<li>The lambda captures references to the parent’s locals. The child
+coroutine outlives the lambda. Use-after-free at every call site.</li>
+<li>The child’s <code>operator new</code> still needs to read the
+allocator from somewhere. If not from the parameter list, then from
+ambient state. The lambda approach defers the invocation but does not
+eliminate the delivery problem - it moves it inside
+<code>await_transform</code>, where the same two paths apply.</li>
+</ul>
+<p>Deferred invocation is Path A with worse ergonomics, or Path B with
+an extra indirection. It is not a third path.</p>
+<h3 id="promise-based-injection">5.6 Promise-Based Injection</h3>
+<p>The parent’s promise could store the allocator and the child’s
+<code>operator new</code> could read it from the parent’s promise. But
+<code>operator new</code> does not receive the parent’s promise. It
+receives the child’s own parameters. The parent’s promise is not
+accessible to the child’s <code>operator new</code> through any standard
+mechanism.</p>
+<p>One could pass the parent’s promise as a parameter to the child
+coroutine. This is Path A again - the parameter list carries the
+context.</p>
+<h3 id="global-pmrget_default_resource">5.7 Global
+<code>pmr::get_default_resource()</code></h3>
+<p><code>std::pmr::get_default_resource()</code> is a process-wide
+ambient allocator. It is Path B with process scope instead of per-chain
+scope. A single allocator for every coroutine chain in the process is
+insufficient for deployments that need per-tenant budgets, bounded
+pools, or allocation tracking scoped to individual request chains.</p>
+<hr />
+<h2 id="the-design-space">6. The Design Space</h2>
+<table>
+<colgroup>
+<col style="width: 39%" />
+<col style="width: 42%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Delivers to <code>operator new</code>?</th>
+<th>Reduces to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parameter list</td>
+<td>Yes</td>
+<td>Path A</td>
+</tr>
+<tr>
+<td><code>coroutine_traits</code></td>
+<td>Compile time only</td>
+<td>Path A</td>
+</tr>
+<tr>
+<td><code>await_transform</code></td>
+<td>No (too late)</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>operator co_await</code></td>
+<td>No (too late)</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>initial_suspend</code></td>
+<td>No (too late)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Deferred invocation</td>
+<td>Indirectly</td>
+<td>Path A or B</td>
+</tr>
+<tr>
+<td>Promise-based injection</td>
+<td>No (parent inaccessible)</td>
+<td>Path A</td>
+</tr>
+<tr>
+<td>Thread-local storage</td>
+<td>Yes</td>
+<td>Path B</td>
+</tr>
+<tr>
+<td>Global <code>pmr</code> resource</td>
+<td>Yes</td>
+<td>Path B</td>
+</tr>
+<tr>
+<td>Fiber-local storage</td>
+<td>Yes</td>
+<td>Path B</td>
+</tr>
+</tbody>
+</table>
+<p>Every row that delivers to <code>operator new</code> is either Path A
+(the allocator is in the parameter list) or Path B (the allocator is in
+ambient state). Every row that is neither Path A nor Path B does not
+deliver to <code>operator new</code>.</p>
+<hr />
+<h2 id="the-tradeoff">7. The Tradeoff</h2>
+<p>The choice between Path A and Path B is a choice between two
+costs:</p>
+<table>
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 36%" />
+<col style="width: 34%" />
 </colgroup>
 <thead>
 <tr>
 <th>Property</th>
-<th>Coroutine-native <code>task&lt;T&gt;</code></th>
-<th>Best <code>task&lt;T, IoEnv&gt;</code> Case A</th>
-<th>Best <code>task&lt;T, IoEnv&gt;</code> Case B</th>
+<th>Path A (<code>allocator_arg_t</code>)</th>
+<th>Path B (thread-local)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Template parameters</td>
-<td>1</td>
-<td>2</td>
-<td>2</td>
-</tr>
-<tr>
-<td>Sender concept instantiation per task</td>
-<td>0</td>
-<td>1 per task type in chain</td>
-<td>1 per task type in chain</td>
-</tr>
-<tr>
-<td>Task-to-task <code>co_await</code> suspend</td>
-<td>2 pointer stores</td>
-<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
-extraction</td>
-<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
-extraction</td>
-</tr>
-<tr>
-<td>I/O <code>co_await</code> suspend</td>
-<td>2 pointer stores</td>
-<td>2 pointer stores</td>
-<td><code>state&lt;Rcvr&gt;</code> construction + scheduler
-extraction</td>
-</tr>
-<tr>
-<td>I/O <code>co_await</code> <code>affine_on</code> wrapping</td>
-<td>0</td>
-<td>0</td>
-<td>1 per I/O operation</td>
-</tr>
-<tr>
-<td>I/O <code>co_await</code> symmetric transfer</td>
+<td>Allocator reaches <code>operator new</code></td>
 <td>Yes</td>
 <td>Yes</td>
-<td>No (void-returning <code>set_value</code>)</td>
 </tr>
 <tr>
-<td>Type-erased stream I/O allocation</td>
-<td>0</td>
-<td>0</td>
-<td>1 heap allocation per I/O operation</td>
+<td>Signature pollution</td>
+<td>Every coroutine in the chain</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Call-site pollution</td>
+<td>Every <code>co_await</code> forwards the allocator</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Hidden state</td>
+<td>None</td>
+<td>Thread-local write-through cache</td>
+</tr>
+<tr>
+<td>Thread migration</td>
+<td>No concern</td>
+<td>Requires restore on resume</td>
+</tr>
+<tr>
+<td>Per-chain scoping</td>
+<td>Explicit in parameters</td>
+<td>Requires protocol discipline</td>
+</tr>
+<tr>
+<td>Ergonomic cost</td>
+<td>High (viral parameter threading)</td>
+<td>Low (transparent to coroutine authors)</td>
 </tr>
 </tbody>
 </table>
+<p>Path A makes the allocator visible in every signature. Path B makes
+it invisible. Path A requires every coroutine author to thread the
+allocator through every call site. Path B requires the protocol
+machinery to maintain the thread-local invariant. Both are correct. The
+tradeoff is signature pollution versus ambient state.</p>
 <hr />
-<h2 id="the-gap-explained">5. The Gap Explained</h2>
-<h3 id="template-parameters">5.1 Template Parameters</h3>
-<p><code>task&lt;T&gt;</code> vs <code>task&lt;T, IoEnv&gt;</code>. Two
-spellings. A function returning one cannot be assigned to a variable of
-the other. Users must know which to use. Library interfaces must choose.
-Asio has lived with this for <code>awaitable&lt;T, Executor&gt;</code>
-for years. It is friction, not a structural problem.</p>
-<h3 id="sender-concept-instantiation">5.2 Sender Concept
-Instantiation</h3>
-<p>Every <code>task&lt;T, IoEnv&gt;</code> satisfies the
-<code>sender</code> concept ([task.class] paragraph 1). The spec
-mandates <code>completion_signatures</code>, a <code>connect</code>
-member function returning <code>state&lt;Rcvr&gt;</code>, and nested
-type aliases for <code>allocator_type</code>,
-<code>scheduler_type</code>, <code>stop_source_type</code>,
-<code>stop_token_type</code>, and <code>error_types</code>. These are
-present in every task type.</p>
-<p>In a five-coroutine chain, five task types are instantiated, each
-carrying this machinery. None of the intermediate coroutines use it -
-they pass results via <code>co_await</code>, not via
-<code>connect</code>/<code>start</code>.</p>
-<p>In the coroutine-native model, zero sender instantiations occur
-inside the chain. One bridge at the edge (<a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a><sup>[10]</sup>)
-connects the chain to the sender world.</p>
-<h3 id="task-to-task-co_await-cost">5.3 Task-to-Task
-<code>co_await</code> Cost</h3>
-<p>In the coroutine-native model, <code>co_await child_task</code> calls
-<code>await_suspend</code>, which stores the continuation handle and the
-<code>io_env</code> pointer, then returns the child’s handle. Two
-pointer stores. Symmetric transfer.</p>
-<p>In the sender model - even in the best possible conforming
-implementation - <code>co_await child_task</code> must perform the
-following operations mandated by [exec.task]:</p>
-<ol type="1">
-<li><code>await_transform</code> ([task.promise] paragraph 9) routes the
-child through <code>as_awaitable</code>.</li>
-<li>The awaiter calls <code>connect</code> ([task.members] paragraph
-3-4), which creates a <code>state&lt;Rcvr&gt;</code> object.</li>
-<li>The <code>state</code> constructor ([task.state] paragraph 2) stores
-the handle and receiver, constructs <code>own-env</code> from
-<code>get_env(rcvr)</code>, and constructs <code>Environment</code> from
-<code>own-env</code>.</li>
-<li><code>state::start</code> ([task.state] paragraph 4.3) initializes
-<code>SCHED(prom)</code> with
-<code>scheduler_type(get_scheduler(get_env(rcvr)))</code> - the
-scheduler must be extracted from the receiver’s environment.</li>
-<li><code>state::start</code> calls <code>handle.resume()</code>.</li>
-</ol>
-<p>Steps 2-4 are normative requirements. No conforming implementation
-can skip them. The <code>state&lt;Rcvr&gt;</code> object and the
-scheduler extraction exist because the sender protocol requires
-<code>connect</code>/<code>start</code> to establish the execution
-context for the child.</p>
-<p>In the coroutine-native model, the execution context is established
-by passing an <code>io_env</code> pointer - one store. The
-<code>io_env</code> already carries the executor, stop token, and frame
-allocator. No construction, no extraction.</p>
-<p>Per <code>co_await</code> of a child task. Multiplied by N in a chain
-of N coroutines.</p>
-<p>The <code>state&lt;Rcvr&gt;</code> construction and scheduler
-extraction are spec-mandated and remain in any conforming
-implementation.</p>
-<h3 id="completion-cost">5.4 Completion Cost</h3>
-<p>In the coroutine-native model, when a child task completes,
-<code>final_suspend</code> returns the parent’s coroutine handle.
-Symmetric transfer. One pointer load.</p>
-<p>In the sender model, <code>final_suspend</code> ([task.promise]
-paragraph 6) must invoke <code>set_value</code>, <code>set_error</code>,
-or <code>set_stopped</code> on <code>RCVR(*this)</code>. The receiver is
-the parent’s awaiter. In the best case, the awaiter resumes the parent
-via symmetric transfer.</p>
-<p>[task.promise] paragraph 9 specifies that
-<code>await_transform</code> skips <code>affine_on</code> when the
-sender type is the same <code>task</code> type. For the common I/O case
-- a chain of <code>task&lt;T, IoEnv&gt;</code> coroutines all running on
-the same executor - no scheduler comparison is needed on the completion
-path.</p>
-<p>The completion path cost is not analyzed further.</p>
-<h3 id="the-combinator-gap">5.5 The Combinator Gap</h3>
-<p>A purported benefit of the unified sender model is that combinator
-algorithms like <code>when_all</code> need only be written once. One
-<code>when_all</code> serves all domains - GPU tasks, I/O tasks, timers.
-The coroutine-native model needs a second implementation. This is a real
-argument. This section examines whether it holds for I/O.</p>
-<h4 id="the-when_all-completion-handler">5.5.1 The <code>when_all</code>
-Completion Handler</h4>
-<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[14]</sup>
-specifies <code>when_all</code>’s completion logic in
-<code>impls-for&lt;when_all_t&gt;::complete</code>. The handler
-dispatches on the completion channel tag:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">[]&lt;</span><span class="kw">class</span> Index<span class="op">,</span> <span class="kw">class</span> State<span class="op">,</span> <span class="kw">class</span> Rcvr<span class="op">,</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">class</span> Set<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;(</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span> <span class="kw">auto</span><span class="op">&amp;</span> complete<span class="op">,</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    Index<span class="op">,</span> State<span class="op">&amp;</span> state<span class="op">,</span> Rcvr<span class="op">&amp;</span> rcvr<span class="op">,</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Set<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="kw">noexcept</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">-&gt;</span> <span class="dt">void</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        same_as<span class="op">&lt;</span>Set<span class="op">,</span> <span class="dt">set_error_t</span><span class="op">&gt;)</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>disposition<span class="op">::</span>error <span class="op">!=</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>disp<span class="op">.</span>exchange<span class="op">(</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                disposition<span class="op">::</span>error<span class="op">))</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>stop_src<span class="op">.</span>request_stop<span class="op">();</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            TRY<span class="op">-</span>EMPLACE<span class="op">-</span>ERROR<span class="op">(</span>state<span class="op">.</span>errors<span class="op">,</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        same_as<span class="op">&lt;</span>Set<span class="op">,</span> <span class="dt">set_stopped_t</span><span class="op">&gt;)</span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> expected <span class="op">=</span></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            disposition<span class="op">::</span>started<span class="op">;</span></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>state<span class="op">.</span>disp</span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span>compare_exchange_strong<span class="op">(</span></span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                    expected<span class="op">,</span></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>                    disposition<span class="op">::</span>stopped<span class="op">))</span></span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>            state<span class="op">.</span>stop_src<span class="op">.</span>request_stop<span class="op">();</span></span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span></span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="op">!</span>same_as<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span>State<span class="op">::</span>values<span class="op">),</span></span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>                 tuple<span class="op">&lt;&gt;&gt;)</span></span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>state<span class="op">.</span>disp <span class="op">==</span></span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>            disposition<span class="op">::</span>started<span class="op">)</span></span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span></span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>            <span class="kw">auto</span><span class="op">&amp;</span> opt <span class="op">=</span></span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>                get<span class="op">&lt;</span>Index<span class="op">::</span>value<span class="op">&gt;(</span></span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>                    state<span class="op">.</span>values<span class="op">);</span></span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>            TRY<span class="op">-</span>EMPLACE<span class="op">-</span>VALUE<span class="op">(</span>complete<span class="op">,</span></span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>                opt<span class="op">,</span></span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>                forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    state<span class="op">.</span>arrive<span class="op">(</span>rcvr<span class="op">);</span></span>
-<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Three branches. Three behaviors:</p>
+<h2 id="the-hybrid">8. The Hybrid</h2>
+<p>The two paths are not mutually exclusive. A conforming promise type
+can provide both, and the compiler’s overload resolution dispatches
+automatically:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">promise_type</span> <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path A: allocator_arg_t in parameter list</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Alloc<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> a<span class="op">);</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path A: member function variant</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> Alloc<span class="op">,</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>             <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        T<span class="op">&amp;,</span> <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> a<span class="op">);</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path B: ambient state fallback</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">)</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> mr <span class="op">=</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            get_current_frame_allocator<span class="op">();</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>mr<span class="op">)</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            mr <span class="op">=</span> <span class="bu">std::</span>pmr::new_delete_resource<span class="op">();</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> mr<span class="op">);</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If the coroutine’s parameter list begins with
+<code>allocator_arg_t</code>, the first overload wins. Otherwise the
+parameterless overload wins and reads the current frame allocator from
+ambient state. The dispatch is entirely mechanical - no user
+intervention, no protocol change, no new types.</p>
+<p>The consequences:</p>
 <ul>
-<li><strong><code>set_error</code></strong>: calls
-<code>stop_src.request_stop()</code>. Siblings are cancelled. The error
-is stored.</li>
-<li><strong><code>set_stopped</code></strong>: calls
-<code>stop_src.request_stop()</code>. Siblings are cancelled.</li>
-<li><strong><code>set_value</code></strong> (the <code>else</code>
-branch): stores the values. No inspection. No stop request. Siblings
-keep running.</li>
+<li><strong>Users who reject ambient state</strong> pass
+<code>allocator_arg_t</code> at every call site. The thread-local is
+never read. They pay the signature pollution documented in Section 7,
+but they get fully explicit control.</li>
+<li><strong>Users who want clean signatures</strong> use the IoAwaitable
+protocol as-is. The ambient state propagates the allocator
+transparently. They never touch <code>allocator_arg_t</code>.</li>
+<li><strong>Users who want both</strong> can pass
+<code>allocator_arg_t</code> at specific boundaries and let ambient
+state handle the rest of the chain.</li>
 </ul>
-<p>The <code>set_value</code> branch unconditionally stores values and
-calls <code>state.arrive(rcvr)</code>. There is no mechanism in the
-specification to inspect value-channel arguments, apply a predicate, or
-decide to cancel based on the values received.</p>
-<h4 id="routing-options">5.5.2 Routing Options</h4>
-<p>An I/O read returns <code>(error_code, size_t)</code>. Kohlhoff
-identified the routing problem in 2021:</p>
-<blockquote>
-<p>“Due to the limitations of the <code>set_error</code> channel (which
-has a single ‘error’ argument) and <code>set_done</code> channel (which
-takes no arguments), partial results must be communicated down the
-<code>set_value</code> channel.” (<a href="https://wg21.link/p2430r0">P2430R0</a><sup>[15]</sup>)</p>
-</blockquote>
-<p>A fourth routing option resolves this:
-<code>set_error(tuple(ec, T...))</code> on failure,
-<code>set_value(T...)</code> on success. The full compound result -
-including the byte count - goes into the error channel as a tuple. The
-standard <code>when_all</code> sees <code>set_error</code>, cancels
-siblings, and stores the error. Both values are preserved inside the
-tuple.</p>
+<p>Both overloads live in the same promise type. A conforming promise
+mixin (<a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup>
+Section 7) provides both paths. Task types that inherit from the mixin
+support both paths automatically. No ecosystem fragmentation occurs
+because the choice is per-call-site, not per-task-type.</p>
+<hr />
+<h2 id="addressing-tls-concerns">9. Addressing TLS Concerns</h2>
+<p>Thread-local storage has a well-deserved reputation for creating
+hidden coupling and brittle behavior. The concerns are familiar. This
+section examines each one as it applies to the specific case of frame
+allocator propagation.</p>
+<h3 id="platforms-without-thread-local-storage">9.1 Platforms Without
+Thread-Local Storage</h3>
+<p>Embedded systems, bare-metal targets, GPUs, and some RTOS
+environments do not provide thread-local storage. A mechanism that
+requires TLS excludes these platforms.</p>
+<p>The hybrid (Section 8) addresses this directly: the
+<code>allocator_arg_t</code> overload is always available. On platforms
+without TLS, the Path B overload falls back to
+<code>std::pmr::new_delete_resource()</code> - the same behavior as not
+customizing the frame allocator at all.</p>
+<p>This limitation is not specific to the IoAwaitable protocol. On any
+platform without TLS, no coroutine library can propagate a frame
+allocator to <code>operator new</code> without putting it in the
+parameter list. The constraint is the language’s, not the
+protocol’s.</p>
+<h3 id="performance">9.2 Performance</h3>
+<p>TLS has earned a reputation for overhead in two cases: variables with
+dynamic initializers (which require a guard check on every access) and
+variables in dynamically loaded shared libraries (which may require a
+slow <code>__tls_get_addr</code> call).</p>
+<p>The frame allocator thread-local is neither. It is a zero-initialized
+pointer with no dynamic initializer and no destructor. The loader zeros
+it as part of the static TLS block at thread creation. On Linux, reading
+it is a single <code>fs:</code>-relative load - one instruction. On
+Windows, even the DLL case is a few pointer chases - single-digit
+nanoseconds. For I/O coroutines where the operation itself takes
+microseconds, the TLS access is not measurable.</p>
+<h3 id="invisible-action-at-a-distance">9.3 Invisible Action at a
+Distance</h3>
+<p>The standard objection to ambient state is that a function’s behavior
+depends on state not in its signature. This concern is valid for state
+that affects correctness. The frame allocator does not affect
+correctness.</p>
+<p>The frame allocator is a performance policy, not a correctness
+invariant. A coroutine that receives the wrong frame allocator - or no
+frame allocator at all - produces the correct result. Its frame is
+allocated from a different memory pool. The program runs. The output is
+identical. The difference is where the bytes came from.</p>
+<p>This distinguishes the frame allocator from the other two values in
+<code>io_env</code>:</p>
 <table>
 <colgroup>
-<col style="width: 47%" />
-<col style="width: 15%" />
-<col style="width: 37%" />
+<col style="width: 18%" />
+<col style="width: 59%" />
+<col style="width: 22%" />
 </colgroup>
 <thead>
 <tr>
-<th>Routing</th>
-<th>Preserves</th>
-<th>Breaks</th>
+<th>Context</th>
+<th>Wrong value</th>
+<th>Consequence</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>set_value(ec, n)</code> - value channel</td>
-<td>Both values</td>
-<td><code>when_all</code> blind to errors</td>
+<td>Executor</td>
+<td>Coroutine runs on the wrong thread</td>
+<td>Data races, UB</td>
 </tr>
 <tr>
-<td><code>set_error(ec)</code> - error channel</td>
-<td>Composition algebra</td>
-<td>Byte count destroyed</td>
+<td>Stop token</td>
+<td>Cancellation does not propagate</td>
+<td>Hangs, deadlocks</td>
 </tr>
 <tr>
-<td><code>set_value(pair{ec, n})</code> - value channel</td>
-<td>Both values</td>
-<td>Same as row 1</td>
-</tr>
-<tr>
-<td><code>set_error(tuple(ec, n))</code> - error channel</td>
-<td>Both values</td>
-<td>Corrupts downstream error types (Section 5.5.3)</td>
+<td>Frame allocator</td>
+<td>Frame allocated from a different memory pool</td>
+<td>Suboptimal allocation strategy</td>
 </tr>
 </tbody>
 </table>
-<p>With the fourth routing, the standard <code>when_all</code> cancels
-siblings on I/O error. Whether the “write it once” argument holds
-depends on what happens downstream - see Section 5.5.3.</p>
-<h4 id="the-remaining-difference">5.5.3 The Remaining Difference</h4>
-<p>The fourth routing makes <code>when_all</code> cancel siblings on I/O
-error. It does not make the composition clean. Downstream algorithms -
-<code>upon_error</code>, <code>let_error</code>, <code>retry</code> -
-now receive <code>tuple&lt;error_code, size_t&gt;</code> instead of
-<code>error_code</code>. Every handler must branch on the error type
-with <code>if constexpr</code>. Partial transfer data (bytes read before
-the error) is semantically misplaced inside the error channel.
-<code>retry</code> sees the tuple and retries the whole operation; the
-byte count is lost. <a href="https://wg21.link/d4124r0">D4124R0</a><sup>[20]</sup> examines
-these problems in detail and shows that the first three routing
-strategies fail to achieve correct I/O error handling, and that the
-fourth corrupts downstream composition, without a domain-aware
-combinator.</p>
-<p>The coroutine-native model’s combinator has direct access to the
-result value after <code>co_await</code>:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> <span class="bu">std::</span>move<span class="op">(</span>inner<span class="op">);</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>get<span class="op">&lt;</span>Index<span class="op">&gt;(</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    state<span class="op">-&gt;</span><span class="va">results_</span><span class="op">).</span>set<span class="op">(</span>result<span class="op">);</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>result<span class="op">.</span>ec<span class="op">)</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    state<span class="op">-&gt;</span><span class="va">core_</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="va">stop_source_</span><span class="op">.</span>request_stop<span class="op">();</span></span></code></pre></div>
-<p>No channel routing. No adapter. No extra allocations. The combinator
-inspects the value, not the channel tag. The sender model can achieve
-the same cancellation through the fourth routing, but at the cost of
-corrupting the error type and requiring per-call-site adaptation. The
-“write it once” argument inverts: one generic <code>when_all</code> plus
-N adapters is more total code than two implementations (one generic, one
-I/O-aware) plus zero adapters.</p>
-<h3 id="io_env-indirection">5.6 <code>io_env</code> Indirection</h3>
-<p>In the coroutine-native model, the promise carries
-<code>io_env</code> directly. The type-erased executor is constructed
-once at task start. Every I/O operation receives a pointer to it. No
-indirection.</p>
-<p>[exec.task] does not mandate virtual dispatch for environment access.
-The <code>state&lt;Rcvr&gt;</code> object stores
-<code>Environment</code> directly ([task.state] paragraph 2). A
-conforming implementation can provide direct access without indirection.
-This paper grants that the best-case implementation does so.</p>
-<h3 id="io-operations-as-senders-case-b">5.7 I/O Operations as Senders
-(Case B)</h3>
-<p>Sections 5.1 through 5.6 analyze the task-to-task path. Under Case A,
-I/O operations are awaitables and the task-to-task path is the only
-source of sender protocol overhead. Under Case B, the overhead extends
-to every I/O operation.</p>
-<p>When <code>co_await sock.async_read_some(buf)</code> appears inside a
-<code>task&lt;T, IoEnv&gt;</code> and the I/O operation returns a
-sender, the <code>co_await</code> traverses the same sender machinery as
-a child task:</p>
-<ol type="1">
-<li><code>await_transform</code> ([task.promise] paragraph 9) intercepts
-the I/O sender.</li>
-<li>Wraps it in <code>affine_on(sender, SCHED(*this))</code>.</li>
-<li><code>as_awaitable</code> produces a
-<code>sender-awaitable</code>.</li>
-<li><code>sender-awaitable</code> calls
-<code>connect(affine_on_sender, awaitable-receiver)</code> - constructs
-<code>state&lt;awaitable-receiver&gt;</code> on the coroutine
-frame.</li>
-<li><code>await_suspend</code> calls <code>start(state)</code> -
-scheduler extraction, stop token setup, then I/O submission to the
-OS.</li>
-<li>I/O completes. The sender calls <code>set_value</code> on
-<code>awaitable-receiver</code>.</li>
-<li><code>awaitable-receiver</code> stores the result in a variant,
-calls <code>continuation.resume()</code>.</li>
-<li><code>await_resume</code> extracts the result from the variant.</li>
-</ol>
-<p>The coroutine-native path for the same I/O operation:</p>
-<ol type="1">
-<li><code>await_transform</code> passes <code>io_env*</code> to the
-awaitable.</li>
-<li><code>await_suspend</code> stores the continuation handle, submits
-I/O, returns <code>coroutine_handle&lt;&gt;</code> (symmetric
-transfer).</li>
-<li>I/O completes. Reactor resumes via stored handle.</li>
-<li><code>await_resume</code> returns
-<code>io_result&lt;size_t&gt;</code> directly.</li>
-</ol>
-<p>Three properties of Case B deserve attention.</p>
-<p><strong>No separate allocation.</strong> The
-<code>state&lt;awaitable-receiver&gt;</code> is a local variable inside
-<code>sender-awaitable</code>, which lives on the coroutine frame. No
-heap allocation occurs. This is the steelman: the “no dynamic memory
-allocation” property of the sender model holds for I/O operations
-co_awaited inside a coroutine. The cost is CPU overhead per I/O
-operation - <code>state&lt;Rcvr&gt;</code> construction, environment
-extraction, <code>affine_on</code> wrapping - not allocation.</p>
-<p>The coroutine frame itself is already allocated. The sender machinery
-adds CPU overhead on top of the same allocation profile. The “no
-allocation” benefit does not materialize for the I/O user because the
-coroutine frame provides the storage regardless of whether the I/O
-operation is a sender or an awaitable.</p>
-<p><strong>No symmetric transfer.</strong> <code>set_value</code> is
-void-returning (<a href="https://wg21.link/p2583r3">P2583R3</a><sup>[19]</sup> documents
-this gap). The <code>awaitable-receiver</code> calls
-<code>continuation.resume()</code> as a function call. In the
-coroutine-native model, <code>await_suspend</code> returns
-<code>coroutine_handle&lt;&gt;</code> and the compiler arranges a tail
-call. The symmetric transfer gap documented in <a href="https://wg21.link/p2583r3">P2583R3</a><sup>[19]</sup> applies to
-every I/O completion under Case B.</p>
-<p><strong>Type-erased streams allocate per operation.</strong> When the
-I/O operation is an awaitable, the awaitable returned by a type-erased
-stream has a fixed, compile-time-known size - a pointer to the vtable
-and a pointer to the buffer. The compiler places it on the coroutine
-frame. No heap allocation.</p>
-<p>When the I/O operation is a sender, type-erasing the stream requires
-<code>any_sender&lt;completion_signatures&lt;...&gt;&gt;</code>. The
-<code>connect</code> call on <code>any_sender</code> must produce an
-operation state whose size depends on the concrete sender type that was
-erased - a size unknown at compile time. The coroutine frame layout is
-fixed before the <code>co_await</code>; it cannot absorb a
-dynamically-sized operation state. The operation state must be
-heap-allocated inside <code>any_sender::connect</code>. This is a
-per-I/O-operation allocation that does not exist in the coroutine-native
-model or under Case A.</p>
-<p>This is the allocator timing problem from <a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[6]</sup>
-Section 6.1 manifesting in a form that cannot be resolved by frame
-allocator fixes. The frame allocator rework in <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
-ensures the allocator reaches <code>promise_type::operator new</code>
-before the frame is allocated. It does not help here because the
-allocation is not the coroutine frame - it is the type-erased operation
-state inside <code>any_sender::connect</code>, which occurs after the
-frame is already allocated.</p>
-<p><strong>The multiplier.</strong> Under Case A, the sender protocol
-overhead is per task-to-task transition. A five-coroutine session chain
-has five transitions. Under Case B, the overhead is per task-to-task
-transition plus per I/O operation. Every <code>co_await</code> of a
-socket read, a socket write, a timer wait, a DNS lookup, a TLS handshake
-step pays <code>state&lt;Rcvr&gt;</code> construction and scheduler
-extraction that the coroutine-native model does not pay. A minimal HTTP
-request-response - accept, TLS handshake (multiple round trips), read
-headers, read body, write headers, write body - is 6-15 I/O operations.
-A WebSocket session with streaming: hundreds. A long-lived connection
-with keep-alive: thousands over its lifetime. Per session. Multiplied by
-the number of concurrent sessions.</p>
-<hr />
-<h2 id="the-shipping-schedule-risk">6. The Shipping Schedule Risk</h2>
-<p>The concessions in Section 2 assume several engineering fixes ship.
-<a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> is the
-vehicle. The C++26 cycle is closing. The following fixes are not in <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup> today:</p>
-<ul>
-<li>Symmetric transfer: <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[7]</sup> identified
-the vulnerability. Trampolines are being explored (<a href="https://wg21.link/p3796r1">P3796R1</a><sup>[11]</sup>). Not
-landed.</li>
-<li>Frame allocator timing: <a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a><sup>[8]</sup>
-is in progress. Not landed.</li>
-<li><code>IoEnv</code>: does not exist in any proposal.</li>
-<li>Error delivery: <code>AS-EXCEPT-PTR</code> is still in the
-specification.</li>
-</ul>
-<p>If <code>task</code> ships in C++26 without these fixes, the
-concessions in Section 2 are hypothetical. The gap in Section 4 would be
-larger.</p>
-<p>It has been stated in internal discussions that the plan is for I/O
-primitives to be senders. Case A (I/O as awaitables) is therefore more
-generous than the stated direction. Case B (Section 5.7) documents the
-cost under the stated plan.</p>
-<p><a href="https://wg21.link/p2762r0">P2762R0</a><sup>[12]</sup>
-mentioned <code>io_task</code> in one paragraph:</p>
-<blockquote>
-<p>“It may be useful to have a coroutine task (<code>io_task</code>)
-injecting a scheduler into asynchronous networking operations used
-within a coroutine… The corresponding task class probably needs to be
-templatized on the relevant scheduler type.”</p>
-</blockquote>
-<p><a href="https://wg21.link/p2762r2">P2762</a><sup>[13]</sup> stopped
-at R2 (October 2023). No revision in over two years. No published paper
-defines what <code>IoEnv</code> looks like inside
-<code>std::execution::task</code>.</p>
-<p>The implementation section of <a href="https://wg21.link/p3552r3">P3552R3</a><sup>[1]</sup>
-acknowledges:</p>
-<blockquote>
-<p>“This implementation hasn’t received much use, yet, as it is fairly
-new.”</p>
-</blockquote>
-<hr />
-<h2 id="the-zero-overhead-principle">7. The Zero-Overhead Principle</h2>
-<p><a href="https://wg21.link/p3406r0">P3406R0</a><sup>[17]</sup>
-(Stroustrup, 2024) states:</p>
-<blockquote>
-<p>“Does the C++ design follow the zero-overhead principle? Should it? I
-think it should, even if that principle isn’t trivial to define
-precisely. Some of you (for some definition of ‘you’) seem not to. We -
-WG21 as an organization - haven’t taken it seriously enough to make it a
-requirement for acceptance of new features. I think that is a serious
-problem.”</p>
-</blockquote>
-<p>The principle has two parts. <a href="https://wg21.link/p0709r4">P0709R4</a><sup>[18]</sup> (Sutter,
-2019) defines them:</p>
-<blockquote>
-<p>“‘Zero overhead’ is not claiming zero cost - of course using
-something always incurs some cost. Rather, C++‘s zero-overhead principle
-has always meant that (a) ’if you don’t use it you don’t pay for it’ and
-(b) ‘if you do use it you can’t reasonably write it more efficiently by
-hand.’”</p>
-</blockquote>
-<p>Part (b) applies here. The user is using a task abstraction for I/O.
-A coroutine-native task performs the same I/O without
-<code>state&lt;Rcvr&gt;</code> construction and without scheduler
-extraction. The overhead documented in Sections 4 and 5 exists because
-of the sender protocol, not because of the I/O operation.</p>
-<p><a href="https://wg21.link/p3406r0">P3406R0</a><sup>[17]</sup>
-continues:</p>
-<blockquote>
-<p>“Every proposal, language and library, should be accompanied by a
-written discussion, ideally backed by measurements for credibility, to
-demonstrate that in the likely most common usage will not impose
-overheads compared to current and likely alternatives. Also, to
-demonstrate that optimizations and tuning will not be inhibited. If no
-numbers are available or possible, the committee should be extremely
-suspicious and in particular, never just assume that optimizations will
-emerge over time. This should be a formal requirement.”</p>
-</blockquote>
-<p>This paper is that written discussion. The analysis is in Sections 4
-and 5. The current and likely alternative is the coroutine-native task.
-The overheads are spec-mandated and cannot be assumed away by future
-optimizations.</p>
-<hr />
-<h2 id="conclusion">8. Conclusion</h2>
-<p>This paper grants every proposed fix and compares against the best
-possible conforming implementation of
-<code>std::execution::task</code>.</p>
-<p>Per [exec.task], every <code>co_await</code> of a child task must
-construct a <code>state&lt;Rcvr&gt;</code> object and extract the
-scheduler from the receiver’s environment. In the coroutine-native
-model, the same path stores two pointers. The sender protocol requires
-<code>connect</code>/<code>start</code> to establish the execution
-context per-child. The coroutine-native model passes an
-<code>io_env</code> pointer because the execution context is propagated,
-not reconstructed.</p>
-<p>The gap is spec-mandated and cannot be optimized away by a better
-implementation. A typical I/O session - accept, authenticate, read
-request, process, write response - is a chain of roughly 5 coroutines
-performing roughly 10 I/O operations. The per-session cost:</p>
-<p><strong>Case A: I/O operations return awaitables
-(concession)</strong></p>
+<p>A protocol violation for the frame allocator degrades to the default
+allocation strategy - the same behavior every coroutine has when no
+frame allocator is customized at all.</p>
+<h3 id="silent-failure-on-protocol-violation">9.4 Silent Failure on
+Protocol Violation</h3>
+<p>The concern is that a broken TLS chain silently delivers the wrong
+allocator. This is true. It is equally true of
+<code>allocator_arg_t</code>.</p>
+<p>With <code>allocator_arg_t</code>, the protocol violation is
+forgetting to pass the allocator at a call site:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> handle_request<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// forgot allocator_arg here</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span>s<span class="op">);</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// remembered here</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> send_response<span class="op">(</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">,</span> hdr<span class="op">);</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The code compiles. It runs. <code>parse_header</code>’s frame is
+allocated from <code>new_delete_resource()</code>. No error. Silent
+fallback.</p>
 <table>
 <colgroup>
-<col style="width: 43%" />
-<col style="width: 24%" />
-<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 42%" />
+<col style="width: 36%" />
 </colgroup>
 <thead>
 <tr>
-<th>Operation</th>
-<th style="text-align: right;">Coroutine-native</th>
-<th style="text-align: right;">Best
-<code>task&lt;T, IoEnv&gt;</code></th>
+<th>Property</th>
+<th><code>allocator_arg_t</code></th>
+<th>Thread-local</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>state&lt;Rcvr&gt;</code> constructions</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
+<td>Failure mode</td>
+<td>Wrong allocator, program correct</td>
+<td>Wrong allocator, program correct</td>
 </tr>
 <tr>
-<td>Scheduler extractions</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
+<td>Who can cause the failure</td>
+<td>Every application developer at every call site</td>
+<td>Library author writing a custom promise type</td>
 </tr>
 <tr>
-<td><code>affine_on</code> wrappings</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
+<td>Frequency of opportunity</td>
+<td>Every <code>co_await</code> in every coroutine</td>
+<td>Once per promise type implementation</td>
 </tr>
 <tr>
-<td>Pointer stores</td>
-<td style="text-align: right;">10</td>
-<td style="text-align: right;">10</td>
+<td>Prevention</td>
+<td>Programmer discipline at every call site</td>
+<td>Use the standard promise mixin</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Case B: I/O operations return senders (stated
-direction)</strong></p>
-<table>
-<colgroup>
-<col style="width: 43%" />
-<col style="width: 24%" />
-<col style="width: 31%" />
-</colgroup>
-<thead>
-<tr>
-<th>Operation</th>
-<th style="text-align: right;">Coroutine-native</th>
-<th style="text-align: right;">Best
-<code>task&lt;T, IoEnv&gt;</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>state&lt;Rcvr&gt;</code> constructions</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">15</td>
-</tr>
-<tr>
-<td>Scheduler extractions</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">15</td>
-</tr>
-<tr>
-<td><code>affine_on</code> wrappings</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">10</td>
-</tr>
-<tr>
-<td>Symmetric transfer on I/O</td>
-<td style="text-align: right;">Yes</td>
-<td style="text-align: right;">No</td>
-</tr>
-<tr>
-<td>Type-erased stream allocation</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">1 per I/O operation</td>
-</tr>
-<tr>
-<td>Pointer stores</td>
-<td style="text-align: right;">10</td>
-<td style="text-align: right;">10</td>
-</tr>
-</tbody>
-</table>
-<p>Under Case A, the coroutine-native model pays 10 pointer stores. The
-sender model pays the same 10 pointer stores plus 10 additional
-operations mandated by [exec.task]. Under Case B, the sender model pays
-10 pointer stores plus 40 additional operations - because every I/O
-read, write, timer, and DNS lookup pays <code>state&lt;Rcvr&gt;</code>
-construction, scheduler extraction, and <code>affine_on</code> wrapping
-that the coroutine-native model does not pay. Symmetric transfer is
-unavailable on the I/O completion path because <code>set_value</code> is
-void-returning. Type-erased streams incur a heap allocation per I/O
-operation because <code>any_sender::connect</code> must allocate a
-dynamically-sized operation state that the coroutine frame cannot absorb
-(Section 5.7).</p>
-<p>The operation counts above are theoretical. This paper does not claim
-to know the wall-clock cost of a <code>state&lt;Rcvr&gt;</code>
-construction or a scheduler extraction. The magnitude of each operation
-depends on the implementation, the optimizer, and the target
-architecture. What this paper does claim is that the cost is not zero.
-The operations are spec-mandated, they execute code that the
-coroutine-native model does not execute, and they scale with the number
-of I/O operations per session. Whether the per-operation cost is 5
-nanoseconds or 50 is an empirical question. That it exists is a
-normative one.</p>
-<p>The committee has the information to evaluate whether the gap
-justifies a separate task type for I/O. This paper provides the
-evidence. The committee decides.</p>
+<p>The failure surface with <code>allocator_arg_t</code> is every call
+site in every coroutine written by every application developer. The
+failure surface with TLS is the promise type implementation - written
+once by a library author, typically by inheriting from the standard
+mixin. The silent failure objection applies to both paths. The failure
+is more likely with Path A.</p>
+<h3 id="precedent">9.5 Precedent</h3>
+<p>The concern is that standardizing TLS for frame allocators normalizes
+TLS as a general propagation mechanism, inviting TLS for executors,
+logging contexts, error handlers, and other cross-cutting concerns.</p>
+<p>The <code>operator new</code> timing gap is unique to the frame
+allocator. The executor arrives through <code>await_suspend</code>,
+after the frame exists. The stop token arrives through
+<code>await_suspend</code>. Logging contexts, error handlers, and
+container allocators can be passed as parameters or stored in
+<code>io_env</code> - none face the constraint that
+<code>operator new</code>’s fixed signature imposes on the frame
+allocator.</p>
+<p>TLS for the frame allocator does not generalize because the
+constraint does not generalize. A proposal to use TLS for executors
+would be answered: <code>await_suspend</code> delivers the executor, no
+TLS needed. The precedent is narrow and structurally bounded.</p>
+<h3 id="categorical-rejection">9.6 Categorical Rejection</h3>
+<p>Some hold that thread-local storage is categorically inappropriate
+for standard library mechanisms, regardless of the specific use case.
+This is a legitimate position. The hybrid (Section 8) provides the
+answer: users who hold this position use <code>allocator_arg_t</code>
+exclusively. The thread-local is never read.
+<code>std::pmr::get_default_resource()</code> provides a process-wide
+allocator channel through similar ambient state, adopted in C++17.</p>
+<hr />
+<h2 id="anticipated-objections">10. Anticipated Objections</h2>
+<p><strong>Q: Return an awaitable instead of a task, and let
+<code>await_transform</code> create the frame.</strong></p>
+<p>A: This works for leaf I/O operations, which are already plain
+awaitables (Section 2). It does not work for child coroutines. A
+function that contains <code>co_await</code> is a coroutine - it has a
+frame, allocated by the call expression, before
+<code>await_transform</code> runs. The only way to avoid the frame is to
+not use a coroutine, which means hand-writing the state machine the
+compiler generates.</p>
+<p><strong>Q: A future language change could add a new delivery
+mechanism.</strong></p>
+<p>A: A language change that provides a new way to pass runtime state to
+<code>operator new</code> without putting it in the parameter list would
+be a new form of ambient state - a new instance of Path B. The two-path
+structure is a consequence of <code>operator new</code>’s fixed
+interface, not of the current set of customization points. A language
+change that alters <code>operator new</code>’s interface would be a
+different analysis.</p>
+<p><strong>Q: HALO (Heap Allocation eLision Optimization) eliminates the
+frame allocation entirely.</strong></p>
+<p>A: When HALO applies, the frame is stack-allocated and the allocator
+is irrelevant. This paper addresses the case where HALO does not apply -
+the general case for I/O coroutines, where the frame outlives the
+caller.</p>
 <hr />
 <h2 id="acknowledgments">Acknowledgments</h2>
-<p>The author thanks Bjarne Stroustrup for <a href="https://wg21.link/p3406r0">P3406R0</a> and for articulating the
-standard to which this paper holds itself; Herb Sutter for the two-part
-definition of zero overhead in <a href="https://wg21.link/p0709r4">P0709R4</a>; Dietmar Kühl for <a href="https://wg21.link/p3552r3">P3552R3</a> and <a href="https://wg21.link/p3796r1">P3796R1</a>, for
-<code>beman::execution</code>, and for clarifying the stop token
-bridging resolution on the LEWG reflector; Jens Maurer for clarifying
-the stated direction for I/O primitives; Jonathan Müller for <a href="https://wg21.link/p3801r0">P3801R0</a> and for documenting the
-symmetric transfer gap; Chris Kohlhoff for identifying the
-partial-success problem in <a href="https://wg21.link/p2430r0">P2430R0</a>; Eric Niebler, Lewis Baker,
-and Kirk Shoop for <code>std::execution</code>; Steve Gerbino for
-co-developing the bridge implementations; Peter Dimov for the frame
-allocator propagation analysis and for the
-<code>set_error(tuple(ec, T...))</code> routing that resolves the
-combinator gap; and Mungo Gill, Mohammad Nejati, Michael Vandeberg, and
-Andrzej Krzemieński for feedback.</p>
+<p>The author thanks Michael Hava for identifying that R0 failed to
+distinguish leaf I/O awaitables from child coroutines, prompting the
+scoping clarification in Section 2; Steve Gerbino and Mungo Gill for <a href="https://github.com/cppalliance/capy">Capy</a> and <a href="https://github.com/cppalliance/corosio">Corosio</a> implementation
+work, where the frame allocator timing constraint was first encountered
+in practice; and Klemens Morgenstern for discussions on coroutine frame
+allocation and thread-local propagation.</p>
 <hr />
 <h2 id="references">References</h2>
 <ol type="1">
-<li><p><a href="https://wg21.link/p3552r3">P3552R3</a> - “Add a
-Coroutine Task Type” (Dietmar Kühl, Maikel Nadolski, 2025).
-https://wg21.link/p3552r3</p></li>
-<li><p><a href="https://github.com/bemanproject/task">bemanproject/task</a> -
-P3552R3 reference implementation.
-https://github.com/bemanproject/task</p></li>
-<li><p><a href="https://wg21.link/d4051r0">D4051R0</a> - “Steelmanning
-P3552R3” (Vinnie Falco, 2026). https://wg21.link/d4051r0</p></li>
+<li><p><a href="https://wg21.link/p4100r0">P4100R0</a> - “The Network
+Endeavor: Coroutine-Native I/O for C++29” (Vinnie Falco, Steve Gerbino,
+Michael Vandeberg, Mungo Gill, Mohammad Nejati, 2026).
+https://wg21.link/p4100r0</p></li>
 <li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
 Coroutine-native networking library.
 https://github.com/cppalliance/corosio</p></li>
 <li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
 Coroutine I/O primitives library.
 https://github.com/cppalliance/capy</p></li>
-<li><p><a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a>
-- “The Case for Coroutines” (Vinnie Falco, 2026).
-https://isocpp.org/files/papers/P4088R0.pdf</p></li>
-<li><p><a href="https://wg21.link/p3801r0">P3801R0</a> - “Concerns about
-the design of <code>std::execution::task</code>” (Jonathan Müller,
-2025). https://wg21.link/p3801r0</p></li>
-<li><p><a href="https://isocpp.org/files/papers/D3980R0.html">D3980R0</a> -
-“Task’s Allocator Use” (Dietmar Kühl, 2026).
-https://isocpp.org/files/papers/D3980R0.html</p></li>
-<li><p><a href="https://isocpp.org/files/papers/P4092R0.pdf">P4092R0</a>
-- “Consuming Senders from Coroutine-Native Code” (Vinnie Falco, Steve
-Gerbino, 2026). https://isocpp.org/files/papers/P4092R0.pdf</p></li>
-<li><p><a href="https://isocpp.org/files/papers/P4093R0.pdf">P4093R0</a>
-- “Producing Senders from Coroutine-Native Code” (Vinnie Falco, Steve
-Gerbino, 2026). https://isocpp.org/files/papers/P4093R0.pdf</p></li>
-<li><p><a href="https://wg21.link/p3796r1">P3796R1</a> - “Coroutine Task
-Issues” (Dietmar Kühl, 2025). https://wg21.link/p3796r1</p></li>
-<li><p><a href="https://wg21.link/p2762r0">P2762R0</a> -
-“Sender/Receiver Interface For Networking” (Dietmar Kühl, 2023).
-https://wg21.link/p2762r0</p></li>
-<li><p><a href="https://wg21.link/p2762r2">P2762R2</a> -
-“Sender/Receiver Interface For Networking” (Dietmar Kühl, 2023).
-https://wg21.link/p2762r2</p></li>
-<li><p><a href="https://wg21.link/p2300r10">P2300R10</a> -
-“std::execution” (Michał Dominiak, Lewis Baker, Lee Howes, Kirk Shoop,
-Michael Garland, Eric Niebler, Bryce Adelstein Lelbach, 2024).
-https://wg21.link/p2300r10</p></li>
-<li><p><a href="https://wg21.link/p2430r0">P2430R0</a> - “Partial
-success scenarios with P2300” (Chris Kohlhoff, 2021).
-https://wg21.link/p2430r0</p></li>
-<li><p><a href="https://wg21.link/p4003r0">P4003R0</a> -
-“Coroutine-Native I/O” (Vinnie Falco, Steve Gerbino, 2026).
-https://wg21.link/p4003r0</p></li>
-<li><p><a href="https://wg21.link/p3406r0">P3406R0</a> - “We need better
-performance testing” (Bjarne Stroustrup, 2024).
-https://wg21.link/p3406r0</p></li>
-<li><p><a href="https://wg21.link/p0709r4">P0709R4</a> - “Zero-overhead
-deterministic exceptions: Throwing values” (Herb Sutter, 2019).
-https://wg21.link/p0709r4</p></li>
-<li><p><a href="https://wg21.link/p2583r3">P2583R3</a> - “Symmetric
-Transfer and Sender Composition” (Mungo Gill, Vinnie Falco, 2026).
-https://wg21.link/p2583r3</p></li>
-<li><p><a href="https://wg21.link/d4124r0">D4124R0</a> - “Domain-Aware
-Combinators” (Vinnie Falco, 2026). https://wg21.link/d4124r0</p></li>
+<li><p><a href="https://wg21.link/p4003r1">P4003R1</a> - “Coroutines for
+I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
+https://wg21.link/p4003r1</p></li>
 </ol>
 
 </body>
