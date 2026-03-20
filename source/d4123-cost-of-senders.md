@@ -37,10 +37,10 @@ The author regards `std::execution` as an important contribution to C++ and supp
 This paper grants `std::execution::task` every engineering fix that has been proposed, discussed, or implied. The following are assumed to ship:
 
 - **Case A (concession):** I/O operations return awaitables, not senders. The template operation state problem ([P4088R0](https://isocpp.org/files/papers/P4088R0.pdf)<sup>[6]</sup> Section 6.1) does not arise. This is the generous case.
-- **Case B (stated direction):** I/O operations return senders. It has been stated in internal discussions that the plan is for I/O primitives to be senders. Under Case B, every `co_await` of an I/O sender inside a `task<T, IoEnv>` goes through `connect`/`start`/`state<Rcvr>`. The `state<Rcvr>` lives on the coroutine frame (no separate allocation), but the CPU cost of construction and environment extraction is per I/O operation. The narrow task-to-task fix (LWG4348) does not apply because the I/O operation is not a task.
+- **Case B (stated direction):** I/O operations return senders. LEWG polled in October 2021 that "the sender/receiver model (P2300) is a good basis for most asynchronous use cases, including networking" ([P2453R0](https://wg21.link/p2453r0)<sup>[21]</sup>); SG4 polled at Kona (November 2023) that networking must use the sender model. Under Case B, every `co_await` of an I/O sender inside a `task<T, IoEnv>` goes through `connect`/`start`/`state<Rcvr>`. The `state<Rcvr>` lives on the coroutine frame (no separate allocation), but the CPU cost of construction and environment extraction is per I/O operation. The narrow task-to-task fix (LWG4348) does not apply because the I/O operation is not a task.
 - Symmetric transfer works task-to-task. The stack overflow vulnerability ([P3801R0](https://wg21.link/p3801r0)<sup>[7]</sup>) is resolved.
-- Frame allocator timing is fixed. The rework in [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> ships. The allocator reaches `promise_type::operator new` before the frame is allocated.
-- `AS-EXCEPT-PTR` does not convert routine `error_code` to `exception_ptr`. Routine I/O errors do not become exceptions.
+- Frame allocator timing is fixed. The rework in [P3980R0](https://wg21.link/p3980r0)<sup>[8]</sup> ships. The allocator reaches `promise_type::operator new` before the frame is allocated.
+- `AS-EXCEPT-PTR` does not convert an `error_code` to `exception_ptr`. I/O errors do not become exceptions.
 - Compound results are handled inside the coroutine body via structured bindings. `auto [ec, n] = co_await sock.read_some(buf)` works.
 - `co_yield with_error` is unnecessary. Compound results stay in the coroutine body. The mechanism that [P3801R0](https://wg21.link/p3801r0)<sup>[7]</sup> identified as blocking symmetric transfer is not needed.
 - `IoEnv` is standardized as the networking environment, carrying a type-erased executor and a stop token.
@@ -180,7 +180,7 @@ The table below shows the spec-mandated costs that exist in `task<T, IoEnv>` but
 
 Every `task<T, IoEnv>` satisfies the `sender` concept ([task.class] paragraph 1). The spec mandates `completion_signatures`, a `connect` member function returning `state<Rcvr>`, and nested type aliases for `allocator_type`, `scheduler_type`, `stop_source_type`, `stop_token_type`, and `error_types`. These are present in every task type.
 
-In a five-coroutine chain, five task types are instantiated, each carrying this machinery. None of the intermediate coroutines use it - they pass results via `co_await`, not via `connect`/`start`.
+In a five-coroutine chain, five task types are instantiated, each carrying this machinery. None of the intermediate coroutines use this machinery - they pass results via `co_await`, not via `connect`/`start`.
 
 In the coroutine-native model, zero sender instantiations occur inside the chain. One bridge at the edge ([P4093R0](https://isocpp.org/files/papers/P4093R0.pdf)<sup>[10]</sup>) connects the chain to the sender world.
 
@@ -289,7 +289,7 @@ An I/O read returns `(error_code, size_t)`. Kohlhoff identified the routing prob
 
 > "Due to the limitations of the `set_error` channel (which has a single 'error' argument) and `set_done` channel (which takes no arguments), partial results must be communicated down the `set_value` channel." ([P2430R0](https://wg21.link/p2430r0)<sup>[15]</sup>)
 
-A fourth routing option resolves this: `set_error(tuple(ec, T...))` on failure, `set_value(T...)` on success. The full compound result - including the byte count - goes into the error channel as a tuple. The standard `when_all` sees `set_error`, cancels siblings, and stores the error. Both values are preserved inside the tuple.
+A fourth routing option addresses the `when_all` problem: `set_error(tuple(ec, T...))` on failure, `set_value(T...)` on success. The full compound result - including the byte count - goes into the error channel as a tuple. The standard `when_all` sees `set_error`, cancels siblings, and stores the error. Both values are preserved inside the tuple.
 
 | Routing                                                     | Preserves           | Breaks                                         |
 | ----------------------------------------------------------- | ------------------- | ---------------------------------------------- |
@@ -302,7 +302,7 @@ With the fourth routing, the standard `when_all` cancels siblings on I/O error. 
 
 #### 5.5.3 The Remaining Difference
 
-The fourth routing makes `when_all` cancel siblings on I/O error. It does not make the composition clean. Downstream algorithms - `upon_error`, `let_error`, `retry` - now receive `tuple<error_code, size_t>` instead of `error_code`. Every handler must branch on the error type with `if constexpr`. Partial transfer data (bytes read before the error) is semantically misplaced inside the error channel. `retry` sees the tuple and retries the whole operation; the byte count is lost. [D4124R0](https://wg21.link/d4124r0)<sup>[20]</sup> examines these problems in detail and shows that the first three routing strategies fail to achieve correct I/O error handling, and that the fourth corrupts downstream composition, without a domain-aware combinator.
+The fourth routing makes `when_all` cancel siblings on I/O error. It does not make the composition clean. Downstream algorithms - `upon_error`, `let_error`, `retry` - now receive `tuple<error_code, size_t>` instead of `error_code`. Every handler must branch on the error type with `if constexpr`. Partial transfer data (bytes read before the error) is semantically misplaced inside the error channel. `retry` sees the tuple and retries the whole operation; the byte count is lost. [D4124R0](https://isocpp.org/files/papers/D4124R0.pdf)<sup>[20]</sup> examines these problems in detail and shows that the first three routing strategies fail to achieve correct I/O error handling, and that the fourth corrupts downstream composition, without a domain-aware combinator.
 
 The coroutine-native model's combinator has direct access to the result value after `co_await`:
 
@@ -354,13 +354,13 @@ Three properties of Case B deserve attention.
 
 The coroutine frame itself is already allocated. The sender machinery adds CPU overhead on top of the same allocation profile. The "no allocation" benefit does not materialize for the I/O user because the coroutine frame provides the storage regardless of whether the I/O operation is a sender or an awaitable.
 
-**No symmetric transfer.** `set_value` is void-returning ([P2583R3](https://wg21.link/p2583r3)<sup>[19]</sup> documents this gap). The `awaitable-receiver` calls `continuation.resume()` as a function call. In the coroutine-native model, `await_suspend` returns `coroutine_handle<>` and the compiler arranges a tail call. The symmetric transfer gap documented in [P2583R3](https://wg21.link/p2583r3)<sup>[19]</sup> applies to every I/O completion under Case B.
+**No symmetric transfer.** `set_value` is void-returning ([D2583R3](https://isocpp.org/files/papers/D2583R3.pdf)<sup>[19]</sup> documents this gap). The `awaitable-receiver` calls `continuation.resume()` as a function call. In the coroutine-native model, `await_suspend` returns `coroutine_handle<>` and the compiler arranges a tail call. The symmetric transfer gap documented in [D2583R3](https://isocpp.org/files/papers/D2583R3.pdf)<sup>[19]</sup> applies to every I/O completion under Case B.
 
 **Type-erased streams allocate per operation.** When the I/O operation is an awaitable, the awaitable returned by a type-erased stream has a fixed, compile-time-known size - a pointer to the vtable and a pointer to the buffer. The compiler places it on the coroutine frame. No heap allocation.
 
 When the I/O operation is a sender, type-erasing the stream requires `any_sender<completion_signatures<...>>`. The `connect` call on `any_sender` must produce an operation state whose size depends on the concrete sender type that was erased - a size unknown at compile time. The coroutine frame layout is fixed before the `co_await`; it cannot absorb a dynamically-sized operation state. The operation state must be heap-allocated inside `any_sender::connect`. This is a per-I/O-operation allocation that does not exist in the coroutine-native model or under Case A.
 
-This is the allocator timing problem from [P4088R0](https://isocpp.org/files/papers/P4088R0.pdf)<sup>[6]</sup> Section 6.1 manifesting in a form that cannot be resolved by frame allocator fixes. The frame allocator rework in [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> ensures the allocator reaches `promise_type::operator new` before the frame is allocated. It does not help here because the allocation is not the coroutine frame - it is the type-erased operation state inside `any_sender::connect`, which occurs after the frame is already allocated.
+This is the allocator timing problem from [P4088R0](https://isocpp.org/files/papers/P4088R0.pdf)<sup>[6]</sup> Section 6.1 manifesting in a form that cannot be resolved by frame allocator fixes. The frame allocator rework in [P3980R0](https://wg21.link/p3980r0)<sup>[8]</sup> ensures the allocator reaches `promise_type::operator new` before the frame is allocated. It does not help here because the allocation is not the coroutine frame - it is the type-erased operation state inside `any_sender::connect`, which occurs after the frame is already allocated. Note that, although a small-buffer optimisation in `any_sender` can avoid the heap allocation when the concrete operation state fits within the buffer, the buffer size is a compile-time guess about a runtime-determined type - too small and the allocation returns, too large and every coroutine frame pays for unused storage.
 
 **The multiplier.** Under Case A, the sender protocol overhead is per task-to-task transition. A five-coroutine session chain has five transitions. Under Case B, the overhead is per task-to-task transition plus per I/O operation. Every `co_await` of a socket read, a socket write, a timer wait, a DNS lookup, a TLS handshake step pays `state<Rcvr>` construction and scheduler extraction that the coroutine-native model does not pay. A minimal HTTP request-response - accept, TLS handshake (multiple round trips), read headers, read body, write headers, write body - is 6-15 I/O operations. A WebSocket session with streaming: hundreds. A long-lived connection with keep-alive: thousands over its lifetime. Per session. Multiplied by the number of concurrent sessions.
 
@@ -371,13 +371,13 @@ This is the allocator timing problem from [P4088R0](https://isocpp.org/files/pap
 The concessions in Section 2 assume several engineering fixes ship. [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> is the vehicle. The C++26 cycle is closing. The following fixes are not in [P3552R3](https://wg21.link/p3552r3)<sup>[1]</sup> today:
 
 - Symmetric transfer: [P3801R0](https://wg21.link/p3801r0)<sup>[7]</sup> identified the vulnerability. Trampolines are being explored ([P3796R1](https://wg21.link/p3796r1)<sup>[11]</sup>). Not landed.
-- Frame allocator timing: [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> is in progress. Not landed.
+- Frame allocator timing: [P3980R0](https://wg21.link/p3980r0)<sup>[8]</sup> is in progress. Not landed.
 - `IoEnv`: does not exist in any proposal.
 - Error delivery: `AS-EXCEPT-PTR` is still in the specification.
 
 If `task` ships in C++26 without these fixes, the concessions in Section 2 are hypothetical. The gap in Section 4 would be larger.
 
-It has been stated in internal discussions that the plan is for I/O primitives to be senders. Case A (I/O as awaitables) is therefore more generous than the stated direction. Case B (Section 5.7) documents the cost under the stated plan.
+LEWG and SG4 have polled that networking should use the sender model ([P2453R0](https://wg21.link/p2453r0)<sup>[21]</sup>). Case A (I/O as awaitables) is therefore more generous than the stated direction. Case B (Section 5.7) documents the cost under the stated plan.
 
 [P2762R0](https://wg21.link/p2762r0)<sup>[12]</sup> mentioned `io_task` in one paragraph:
 
@@ -459,7 +459,7 @@ The author thanks Bjarne Stroustrup for [P3406R0](https://wg21.link/p3406r0) and
 
 2. [bemanproject/task](https://github.com/bemanproject/task) - P3552R3 reference implementation. https://github.com/bemanproject/task
 
-3. [D4051R0](https://wg21.link/d4051r0) - "Steelmanning P3552R3" (Vinnie Falco, 2026). https://wg21.link/d4051r0
+3. [D4051R0](https://isocpp.org/files/papers/D4051R0.pdf) - "Steelmanning P3552R3" (Vinnie Falco, 2026). https://isocpp.org/files/papers/D4051R0.pdf
 
 4. [cppalliance/corosio](https://github.com/cppalliance/corosio) - Coroutine-native networking library. https://github.com/cppalliance/corosio
 
@@ -469,7 +469,7 @@ The author thanks Bjarne Stroustrup for [P3406R0](https://wg21.link/p3406r0) and
 
 7. [P3801R0](https://wg21.link/p3801r0) - "Concerns about the design of `std::execution::task`" (Jonathan M&uuml;ller, 2025). https://wg21.link/p3801r0
 
-8. [D3980R0](https://isocpp.org/files/papers/D3980R0.html) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://isocpp.org/files/papers/D3980R0.html
+8. [P3980R0](https://wg21.link/p3980r0) - "Task's Allocator Use" (Dietmar K&uuml;hl, 2026). https://wg21.link/p3980r0
 
 9. [P4092R0](https://isocpp.org/files/papers/P4092R0.pdf) - "Consuming Senders from Coroutine-Native Code" (Vinnie Falco, Steve Gerbino, 2026). https://isocpp.org/files/papers/P4092R0.pdf
 
@@ -491,6 +491,8 @@ The author thanks Bjarne Stroustrup for [P3406R0](https://wg21.link/p3406r0) and
 
 18. [P0709R4](https://wg21.link/p0709r4) - "Zero-overhead deterministic exceptions: Throwing values" (Herb Sutter, 2019). https://wg21.link/p0709r4
 
-19. [P2583R3](https://wg21.link/p2583r3) - "Symmetric Transfer and Sender Composition" (Mungo Gill, Vinnie Falco, 2026). https://wg21.link/p2583r3
+19. [D2583R3](https://isocpp.org/files/papers/D2583R3.pdf) - "Symmetric Transfer and Sender Composition" (Mungo Gill, Vinnie Falco, 2026). https://isocpp.org/files/papers/D2583R3.pdf
 
-20. [D4124R0](https://wg21.link/d4124r0) - "Domain-Aware Combinators" (Vinnie Falco, 2026). https://wg21.link/d4124r0
+20. [D4124R0](https://isocpp.org/files/papers/D4124R0.pdf) - "Domain-Aware Combinators" (Vinnie Falco, 2026). https://isocpp.org/files/papers/D4124R0.pdf
+
+21. [P2453R0](https://wg21.link/p2453r0) - "Outcomes from the LEWG 2021-09-28 telecon" (Ben Craig, 2021). https://wg21.link/p2453r0
