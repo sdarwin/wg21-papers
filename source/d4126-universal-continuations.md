@@ -1,6 +1,6 @@
 ---
 title: "A Universal Continuation Model"
-document: D4126R0
+document: P4126R0
 date: 2026-03-18
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"

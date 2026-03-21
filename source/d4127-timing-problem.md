@@ -1,6 +1,6 @@
 ---
 title: "The Coroutine Frame Allocator Timing Problem"
-document: D4127R0
+document: P4127R0
 date: 2026-03-18
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
