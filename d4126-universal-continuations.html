@@ -897,20 +897,18 @@ Alliance Proposal Team</p>
   </ul></li>
   <li><a href="#prior-art-p3203r0" id="toc-prior-art-p3203r0">8. Prior
   Art: P3203R0</a></li>
-  <li><a href="#design-options" id="toc-design-options">9. Design
-  Options</a>
+  <li><a href="#the-design" id="toc-the-design">9. The Design</a>
   <ul>
-  <li><a href="#option-a-specialize-coroutine_handle" id="toc-option-a-specialize-coroutine_handle">9.1 Option A: Specialize
-  <code>coroutine_handle</code></a></li>
-  <li><a href="#option-b-factory-function" id="toc-option-b-factory-function">9.2 Option B: Factory
-  function</a></li>
-  <li><a href="#option-c-compiler-generated-synthetic-frame" id="toc-option-c-compiler-generated-synthetic-frame">9.3 Option C:
-  Compiler-generated synthetic frame</a></li>
+  <li><a href="#the-callback-frame" id="toc-the-callback-frame">9.1 The
+  Callback Frame</a></li>
+  <li><a href="#the-type-erasure-constraint" id="toc-the-type-erasure-constraint">9.2 The Type-Erasure
+  Constraint</a></li>
+  <li><a href="#what-the-standard-must-do" id="toc-what-the-standard-must-do">9.3 What the Standard Must
+  Do</a></li>
   </ul></li>
-  <li><a href="#comparison" id="toc-comparison">10. Comparison</a></li>
-  <li><a href="#what-this-enables" id="toc-what-this-enables">11. What
+  <li><a href="#what-this-enables" id="toc-what-this-enables">10. What
   This Enables</a></li>
-  <li><a href="#anticipated-objections" id="toc-anticipated-objections">12. Anticipated Objections</a></li>
+  <li><a href="#anticipated-objections" id="toc-anticipated-objections">11. Anticipated Objections</a></li>
   <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
@@ -1308,39 +1306,60 @@ sender-provided executor that collapses <code>dispatch</code> to
 <code>post</code> is a policy choice, not a limitation.</p>
 <h3 id="the-sender-path">7.2 The Sender Path</h3>
 <p>A sender pipeline would use a callback handle like this:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Receiver<span class="op">&gt;</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> read_op_state <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    stream<span class="op">&amp;</span> <span class="va">s_</span><span class="op">;</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    mutable_buffer <span class="va">buf_</span><span class="op">;</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    Receiver <span class="va">rcvr_</span><span class="op">;</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    read_some_awaitable <span class="va">aw_</span><span class="op">;</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    io_env <span class="va">env_</span><span class="op">;</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="kw">noexcept</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">aw_</span><span class="op">.</span>await_ready<span class="op">())</span> <span class="op">{</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            set_value<span class="op">(</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>                <span class="va">aw_</span><span class="op">.</span>await_resume<span class="op">());</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> h <span class="op">=</span> make_callback_handle<span class="op">(</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>            <span class="op">+[](</span><span class="dt">void</span><span class="op">*</span> p<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span><span class="op">*</span> self <span class="op">=</span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">static_cast</span><span class="op">&lt;</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>                        read_op_state<span class="op">*&gt;(</span>p<span class="op">);</span></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>                <span class="kw">auto</span> result <span class="op">=</span> self<span class="op">-&gt;</span><span class="va">aw_</span></span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>                    <span class="op">.</span>await_resume<span class="op">();</span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>                set_value<span class="op">(</span></span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>                    <span class="bu">std::</span>move<span class="op">(</span>self<span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">),</span></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>                    result<span class="op">);</span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>            <span class="op">},</span></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>            <span class="kw">this</span><span class="op">);</span></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        <span class="va">aw_</span><span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span><span class="va">env_</span><span class="op">);</span></span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> callback_frame <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span>resume<span class="op">)(</span>callback_frame<span class="op">*);</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span>destroy<span class="op">)(</span>callback_frame<span class="op">*);</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span><span class="op">*</span> data<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Receiver<span class="op">&gt;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> read_op_state <span class="op">{</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    stream<span class="op">&amp;</span> <span class="va">s_</span><span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    mutable_buffer <span class="va">buf_</span><span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    Receiver <span class="va">rcvr_</span><span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    read_some_awaitable <span class="va">aw_</span><span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    io_env <span class="va">env_</span><span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    callback_frame <span class="va">cb_</span><span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> on_resume<span class="op">(</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        callback_frame<span class="op">*</span> p<span class="op">)</span> <span class="kw">noexcept</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> self <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>            read_op_state<span class="op">*&gt;(</span>p<span class="op">-&gt;</span>data<span class="op">);</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> result <span class="op">=</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>            self<span class="op">-&gt;</span><span class="va">aw_</span><span class="op">.</span>await_resume<span class="op">();</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        set_value<span class="op">(</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>move<span class="op">(</span>self<span class="op">-&gt;</span><span class="va">rcvr_</span><span class="op">),</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>            result<span class="op">);</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">()</span> <span class="kw">noexcept</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span><span class="va">aw_</span><span class="op">.</span>await_ready<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>            set_value<span class="op">(</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>                <span class="bu">std::</span>move<span class="op">(</span><span class="va">rcvr_</span><span class="op">),</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>                <span class="va">aw_</span><span class="op">.</span>await_resume<span class="op">());</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>        <span class="va">cb_</span><span class="op">.</span>resume <span class="op">=</span> <span class="op">&amp;</span>on_resume<span class="op">;</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>        <span class="va">cb_</span><span class="op">.</span>destroy <span class="op">=</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>            <span class="op">+[](</span>callback_frame<span class="op">*)</span> <span class="op">{};</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>        <span class="va">cb_</span><span class="op">.</span>data <span class="op">=</span> <span class="kw">this</span><span class="op">;</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> h <span class="op">=</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>            coroutine_handle<span class="op">&lt;&gt;::</span>from_address<span class="op">(</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>                <span class="op">&amp;</span><span class="va">cb_</span><span class="op">);</span></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>        <span class="va">aw_</span><span class="op">.</span>await_suspend<span class="op">(</span>h<span class="op">,</span> <span class="op">&amp;</span><span class="va">env_</span><span class="op">);</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>The <code>callback_frame</code> struct has <code>resume</code> and
+<code>destroy</code> function pointers at offsets 0 and 1 - matching the
+coroutine frame layout that all three major compilers use.
+<code>coroutine_handle&lt;&gt;::from_address(&amp;cb_)</code> produces a
+handle whose <code>.resume()</code> calls the function pointer at offset
+0. The awaitable cannot tell the difference between this handle and one
+from a real coroutine.</p>
 <p>The <code>await_ready</code> check is a no-op for
 <code>read_some_awaitable</code> (which always returns
 <code>false</code>), but a general sender-to-awaitable bridge must
@@ -1375,128 +1394,71 @@ non-coroutine code to provide a <code>coroutine_handle</code> that
 participates in the awaitable protocol. Morgenstern demonstrates this in
 Boost.Cobalt for Python bindings and stackful coroutine integration.</p>
 <p>The wording change in <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup> is the legal
-prerequisite for Option A below.</p>
+prerequisite for the callback handle approach described in Section
+9.</p>
 <hr />
-<h2 id="design-options">9. Design Options</h2>
-<p>This section presents three options at the API surface level. The
-implementation details - compiler internals, ABI layout beyond what <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup> documents,
-code generation strategies - are open questions. This paper invites
-compiler implementers and language designers to evaluate
-feasibility.</p>
-<h3 id="option-a-specialize-coroutine_handle">9.1 Option A: Specialize
-<code>coroutine_handle</code></h3>
-<p>A user-defined specialization of <code>coroutine_handle</code> where
-the template parameter is a tag type. The specialization stores a
-function pointer and a data pointer. It is convertible to
-<code>coroutine_handle&lt;&gt;</code>.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> callback_tag <span class="op">{};</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;&gt;</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> coroutine_handle<span class="op">&lt;</span>callback_tag<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span><span class="va">fn_</span><span class="op">)(</span><span class="dt">void</span><span class="op">*);</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span><span class="op">*</span> <span class="va">data_</span><span class="op">;</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> resume<span class="op">()</span> <span class="at">const</span> <span class="op">{</span> <span class="va">fn_</span><span class="op">(</span><span class="va">data_</span><span class="op">);</span> <span class="op">}</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> destroy<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span> <span class="op">}</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">operator</span> coroutine_handle<span class="op">&lt;&gt;()</span> <span class="at">const</span><span class="op">;</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
-<p>This option requires the wording change proposed in <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup> or an
-equivalent. Specializing <code>coroutine_handle</code> is currently
-undefined behavior. The conversion to
-<code>coroutine_handle&lt;&gt;</code> requires that the resulting
-handle’s <code>.resume()</code> calls the function pointer. <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup> documents
-that this works on all three major compilers today because they share
-the same two-pointer-prefix frame layout.</p>
-<p>The author does not know whether this layout is a stable ABI
-commitment or an implementation accident. If it is stable, Option A
-works today and <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup> legalizes
-it. If it is not stable, Options B or C provide a forward-compatible
-path that does not depend on frame layout. The author invites compiler
-implementers to clarify.</p>
-<h3 id="option-b-factory-function">9.2 Option B: Factory function</h3>
-<p>A new standard library function that produces a
-<code>coroutine_handle&lt;&gt;</code> from a function pointer and a data
-pointer.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> h <span class="op">=</span> coroutine_handle<span class="op">&lt;&gt;::</span>from_callback<span class="op">(</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">+[](</span><span class="dt">void</span><span class="op">*</span> p<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> self <span class="op">=</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">static_cast</span><span class="op">&lt;</span>my_op_state<span class="op">*&gt;(</span>p<span class="op">);</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        self<span class="op">-&gt;</span>complete<span class="op">();</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">},</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">);</span></span></code></pre></div>
-<p>This option does not require <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup>. It requires
-compiler or standard library support to produce a handle whose
-<code>.resume()</code> calls the function. The mechanism is an open
-question.</p>
-<h3 id="option-c-compiler-generated-synthetic-frame">9.3 Option C:
-Compiler-generated synthetic frame</h3>
-<p>The compiler generates a minimal frame-like object in user-provided
-storage. The object has the layout the runtime expects for
-<code>.resume()</code> but contains only the function pointer and data
-pointer. Size: two pointers. No heap allocation.</p>
-<p>This option requires compiler support. The user-facing API and the
-mechanism are open questions.</p>
+<h2 id="the-design">9. The Design</h2>
+<p>The approach requires no <code>coroutine_handle</code>
+specialization, no factory function, and no compiler-generated frame.
+The user defines a struct whose first two members match the coroutine
+frame prefix, and <code>coroutine_handle&lt;&gt;::from_address</code>
+does the rest.</p>
+<h3 id="the-callback-frame">9.1 The Callback Frame</h3>
+<p>The user defines a struct with <code>resume</code> and
+<code>destroy</code> function pointers at offsets 0 and 1:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> callback_frame <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span>resume<span class="op">)(</span>callback_frame<span class="op">*);</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span>destroy<span class="op">)(</span>callback_frame<span class="op">*);</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span><span class="op">*</span> data<span class="op">;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>The struct’s first two members match the coroutine frame layout
+documented by <a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup>.
+<code>coroutine_handle&lt;&gt;::from_address(&amp;cb)</code> produces a
+<code>coroutine_handle&lt;&gt;</code> that, when <code>.resume()</code>
+is called, calls the function pointer at offset 0. The awaitable
+receives this handle. It cannot tell the difference between this handle
+and one from a real coroutine.</p>
+<p>The <code>destroy</code> pointer is a no-op - the sender owns its own
+lifetime. The <code>data</code> pointer points back to the operation
+state. Three pointers. Twenty-four bytes on a 64-bit platform. No heap
+allocation.</p>
+<h3 id="the-type-erasure-constraint">9.2 The Type-Erasure
+Constraint</h3>
+<p>Any callback handle must be convertible to
+<code>coroutine_handle&lt;void&gt;</code>. This is non-negotiable.
+Awaitables accept <code>coroutine_handle&lt;&gt;</code>. Executors
+traffic in <code>coroutine_handle&lt;&gt;</code>. The handle is the
+type-erased boundary between the awaitable and its consumer.</p>
+<p>A <code>coroutine_handle&lt;&gt;</code> is a pointer to a frame. The
+storage for that frame must come from somewhere. A factory function
+cannot conjure storage without allocating - and allocation is the cost
+this paper eliminates. The compiler cannot rewrite the user’s struct
+into something else. The only zero-allocation path is: the user provides
+the storage, and <code>coroutine_handle&lt;&gt;</code> points directly
+at it.</p>
+<p>This means the standard must mandate the two-pointer prefix layout -
+<code>resume</code> and <code>destroy</code> function pointers at
+offsets 0 and 1 - so that <code>from_address</code> on a user-provided
+struct produces a valid handle. There is no alternative design that
+avoids allocation.</p>
+<h3 id="what-the-standard-must-do">9.3 What the Standard Must Do</h3>
+<p><a href="https://wg21.link/p3203r0">P3203R0</a><sup>[19]</sup>
+formalizes what all three major compilers already do. The coroutine
+frame layout with two function pointers at the front is not an
+implementation accident - it is the layout every compiler chose
+independently, and it is the layout that makes
+<code>coroutine_handle&lt;&gt;::from_address</code> work. The question
+is whether the committee will mandate it.</p>
+<p>The standard could also provide convenience wrappers on top of the
+mandated layout - a standard <code>callback_frame</code> type, a factory
+function that fills in the pointers, or a named concept that constrains
+the prefix. These are API sugar. The layout mandate is the prerequisite.
+Without it, none of them can produce a zero-allocation
+<code>coroutine_handle&lt;&gt;</code> from user-owned storage.</p>
 <hr />
-<h2 id="comparison">10. Comparison</h2>
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 24%" />
-<col style="width: 24%" />
-<col style="width: 24%" />
-</colgroup>
-<thead>
-<tr>
-<th>Property</th>
-<th>Option A: Specialization</th>
-<th>Option B: Factory</th>
-<th>Option C: Synthetic frame</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Heap allocation</td>
-<td>None</td>
-<td>None</td>
-<td>None</td>
-</tr>
-<tr>
-<td>Standard wording change</td>
-<td>P3203R0 or equivalent</td>
-<td>New library function</td>
-<td>New language feature</td>
-</tr>
-<tr>
-<td>Compiler changes</td>
-<td>Possibly none (see P3203R0)</td>
-<td>Open question</td>
-<td>Required</td>
-</tr>
-<tr>
-<td>Convertible to <code>coroutine_handle&lt;&gt;</code></td>
-<td>Yes (requires ABI compat.)</td>
-<td>Yes (by construction)</td>
-<td>Yes (by construction)</td>
-</tr>
-<tr>
-<td>Works on existing compilers</td>
-<td>Yes (currently UB)</td>
-<td>No</td>
-<td>No</td>
-</tr>
-<tr>
-<td>User-visible API complexity</td>
-<td>Low</td>
-<td>Low</td>
-<td>Open question</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="what-this-enables">11. What This Enables</h2>
-<p>A callback handle - by any of the three mechanisms - gives senders a
-zero-allocation entry into the awaitable protocol. The consequences go
-beyond I/O.</p>
+<h2 id="what-this-enables">10. What This Enables</h2>
+<p>A callback handle gives senders a zero-allocation entry into the
+awaitable protocol. The consequences go beyond I/O.</p>
 <ul>
 <li><p><strong>The entire awaitable ecosystem opens to senders.</strong>
 Every IoAwaitable anyone has written - timers, mutexes, channels,
@@ -1526,7 +1488,7 @@ the ABI. The handle is the boundary.</p></li>
 <p>The I/O library does not need two APIs - one for coroutines and one
 for senders. It needs one API and two ways to produce a handle.</p>
 <hr />
-<h2 id="anticipated-objections">12. Anticipated Objections</h2>
+<h2 id="anticipated-objections">11. Anticipated Objections</h2>
 <p><strong>Q: This breaks the coroutine abstraction.</strong></p>
 <p>A: The reactor already treats the handle as opaque. It calls
 <code>.resume()</code>. It does not inspect the frame, access the
