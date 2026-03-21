@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>P4127R0: The Coroutine Frame Allocator Timing Problem</title>
+  <title>P4131R0: Retrospective: Effects of the WG21 Train Model</title>
   <style type="text/css">
 
 @font-face {
@@ -842,13 +842,13 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>The Coroutine Frame Allocator Timing Problem</h1>
+<h1>Retrospective: Effects of the WG21 Train Model</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> P4127R0</p>
-  <p><strong>Date:</strong> 2026-03-18</p>
-  <p><strong>Audience:</strong> SG1, LEWG</p>
+  <p><strong>Document Number:</strong> P4131R0</p>
+  <p><strong>Date:</strong> 2026-03-21</p>
+  <p><strong>Audience:</strong> WG21</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> C++
 Alliance Proposal Team</p>
 </div>
@@ -865,1038 +865,859 @@ Alliance Proposal Team</p>
   (post-Croydon mailing)</a></li>
   </ul></li>
   <li><a href="#disclosure" id="toc-disclosure">1. Disclosure</a></li>
-  <li><a href="#the-constraint" id="toc-the-constraint">2. The
-  Constraint</a></li>
-  <li><a href="#the-enumeration" id="toc-the-enumeration">3. The
-  Enumeration</a></li>
-  <li><a href="#the-two-paths" id="toc-the-two-paths">4. The Two
-  Paths</a>
+  <li><a href="#the-model" id="toc-the-model">2. The Model</a></li>
+  <li><a href="#c20---the-first-stress-test" id="toc-c20---the-first-stress-test">3. C++20 - The First Stress
+  Test</a>
   <ul>
-  <li><a href="#path-a-the-parameter-list" id="toc-path-a-the-parameter-list">4.1 Path A: The Parameter
-  List</a></li>
-  <li><a href="#path-b-ambient-state" id="toc-path-b-ambient-state">4.2
-  Path B: Ambient State</a></li>
+  <li><a href="#contracts-pulled" id="toc-contracts-pulled">3.1
+  Contracts Pulled</a></li>
+  <li><a href="#ranges-shipped-knowingly-incomplete" id="toc-ranges-shipped-knowingly-incomplete">3.2 Ranges Shipped
+  Knowingly Incomplete</a></li>
+  <li><a href="#coroutines-without-library-support" id="toc-coroutines-without-library-support">3.3 Coroutines Without
+  Library Support</a></li>
+  <li><a href="#the-defect-load" id="toc-the-defect-load">3.4 The Defect
+  Load</a></li>
   </ul></li>
-  <li><a href="#the-rejected-alternatives" id="toc-the-rejected-alternatives">5. The Rejected Alternatives</a>
+  <li><a href="#c23---the-pandemic-cycle" id="toc-c23---the-pandemic-cycle">4. C++23 - The Pandemic Cycle</a>
   <ul>
-  <li><a href="#stdcoroutine_traits" id="toc-stdcoroutine_traits">5.1
-  <code>std::coroutine_traits</code></a></li>
-  <li><a href="#await_transform" id="toc-await_transform">5.2
-  <code>await_transform</code></a></li>
-  <li><a href="#operator-co_await" id="toc-operator-co_await">5.3
-  <code>operator co_await</code></a></li>
-  <li><a href="#initial_suspend" id="toc-initial_suspend">5.4
-  <code>initial_suspend</code></a></li>
-  <li><a href="#deferred-invocation" id="toc-deferred-invocation">5.5
-  Deferred Invocation</a></li>
-  <li><a href="#promise-based-injection" id="toc-promise-based-injection">5.6 Promise-Based Injection</a></li>
-  <li><a href="#global-pmrget_default_resource" id="toc-global-pmrget_default_resource">5.7 Global
-  <code>pmr::get_default_resource()</code></a></li>
-  <li><a href="#sender-environment-bridge-wrappers" id="toc-sender-environment-bridge-wrappers">5.8 Sender-Environment
-  Bridge Wrappers</a></li>
+  <li><a href="#p2300-deferred" id="toc-p2300-deferred">4.1 P2300
+  Deferred</a></li>
+  <li><a href="#contracts-missed-again" id="toc-contracts-missed-again">4.2 Contracts Missed Again</a></li>
+  <li><a href="#what-c23-delivered" id="toc-what-c23-delivered">4.3 What
+  C++23 Delivered</a></li>
   </ul></li>
-  <li><a href="#the-design-space" id="toc-the-design-space">6. The
-  Design Space</a></li>
-  <li><a href="#the-tradeoff" id="toc-the-tradeoff">7. The Tradeoff</a>
+  <li><a href="#c26---maximum-stress" id="toc-c26---maximum-stress">5.
+  C++26 - Maximum Stress</a>
   <ul>
-  <li><a href="#the-ergonomic-cost-of-path-a" id="toc-the-ergonomic-cost-of-path-a">7.1 The Ergonomic Cost of Path
-  A</a></li>
-  <li><a href="#compilation-model-consequences" id="toc-compilation-model-consequences">7.2 Compilation Model
-  Consequences</a></li>
+  <li><a href="#contracts-p2900" id="toc-contracts-p2900">5.1 Contracts
+  (P2900)</a></li>
+  <li><a href="#stdexecutiontask-p3552" id="toc-stdexecutiontask-p3552">5.2 <code>std::execution::task</code>
+  (P3552)</a></li>
+  <li><a href="#stdexecution-p2300" id="toc-stdexecution-p2300">5.3
+  <code>std::execution</code> (P2300)</a></li>
   </ul></li>
-  <li><a href="#the-hybrid" id="toc-the-hybrid">8. The Hybrid</a></li>
-  <li><a href="#addressing-tls-concerns" id="toc-addressing-tls-concerns">9. Addressing TLS Concerns</a>
+  <li><a href="#the-implementers-speak" id="toc-the-implementers-speak">6. The Implementers Speak</a>
   <ul>
-  <li><a href="#platforms-without-thread-local-storage" id="toc-platforms-without-thread-local-storage">9.1 Platforms Without
-  Thread-Local Storage</a></li>
-  <li><a href="#performance" id="toc-performance">9.2
-  Performance</a></li>
-  <li><a href="#invisible-action-at-a-distance" id="toc-invisible-action-at-a-distance">9.3 Invisible Action at a
-  Distance</a></li>
-  <li><a href="#silent-failure-on-protocol-violation" id="toc-silent-failure-on-protocol-violation">9.4 Silent Failure on
-  Protocol Violation</a></li>
-  <li><a href="#precedent" id="toc-precedent">9.5 Precedent</a></li>
-  <li><a href="#categorical-rejection" id="toc-categorical-rejection">9.6 Categorical Rejection</a></li>
+  <li><a href="#the-assessment" id="toc-the-assessment">6.1 The
+  Assessment</a></li>
+  <li><a href="#the-suggested-actions" id="toc-the-suggested-actions">6.2 The Suggested Actions</a></li>
+  <li><a href="#selective-non-compliance" id="toc-selective-non-compliance">6.3 Selective
+  Non-Compliance</a></li>
   </ul></li>
-  <li><a href="#anticipated-objections" id="toc-anticipated-objections">10. Anticipated Objections</a></li>
-  <li><a href="#acknowledgments" id="toc-acknowledgments">Acknowledgments</a></li>
+  <li><a href="#social-dynamics" id="toc-social-dynamics">7. Social
+  Dynamics</a>
+  <ul>
+  <li><a href="#the-persistence-of-deadline-pressure" id="toc-the-persistence-of-deadline-pressure">7.1 The Persistence of
+  Deadline Pressure</a></li>
+  <li><a href="#the-cost-of-pulling" id="toc-the-cost-of-pulling">7.2
+  The Cost of Pulling</a></li>
+  <li><a href="#the-vasa-warning" id="toc-the-vasa-warning">7.3 The Vasa
+  Warning</a></li>
+  <li><a href="#committee-scale" id="toc-committee-scale">7.4 Committee
+  Scale</a></li>
+  <li><a href="#the-ship-it-and-fix-it-culture" id="toc-the-ship-it-and-fix-it-culture">7.5 The “Ship It and Fix It”
+  Culture</a></li>
+  </ul></li>
+  <li><a href="#what-the-model-delivers" id="toc-what-the-model-delivers">8. What the Model Delivers</a></li>
+  <li><a href="#what-the-model-does-not-deliver" id="toc-what-the-model-does-not-deliver">9. What the Model Does Not
+  Deliver</a></li>
+  <li><a href="#summary" id="toc-summary">10. Summary</a></li>
+  <li><a href="#limitations" id="toc-limitations">11.
+  Limitations</a></li>
+  <li><a href="#acknowledgements" id="toc-acknowledgements">Acknowledgements</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>The coroutine frame allocator must arrive before the coroutine frame
-exists. Exactly two mechanisms can deliver it.</p>
-<p>C++20 coroutines allocate their frame in
-<code>promise_type::operator new</code>, which the compiler calls before
-the coroutine body executes. Any mechanism that delivers the frame
-allocator after the coroutine is invoked arrives too late. This paper
-enumerates every customization point the language provides at or before
-<code>operator new</code> and shows that each one either reduces to
-passing the allocator in the coroutine’s parameter list, reduces to
-ambient state, or fires after the frame already exists. The design space
-is closed. The two solutions are <code>allocator_arg_t</code> (parameter
-passing) and thread-local propagation (ambient state). A conforming
-promise type can provide both as <code>operator new</code> overloads,
-letting the user choose per call site.</p>
+<p>The train model promised that features would be pulled when not
+ready. The record shows they are pushed when almost ready.</p>
+<p>This paper surveys the published record of the three-year release
+cadence from C++14 through C++26. It documents the model’s claims
+against outcomes for each release, examines three contested C++26
+features (contracts, <code>std::execution::task</code>,
+<code>std::execution</code>), and presents the implementers’ own
+assessment that features accumulate faster than they can be implemented.
+Every exhibit is drawn from published papers, meeting minutes, blog
+posts, or public testimony. The conclusions are the reader’s.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
 <h3 id="r0-march-2026-post-croydon-mailing">R0: March 2026 (post-Croydon
 mailing)</h3>
 <ul>
 <li>Initial version.</li>
-<li>Clarified scope: the timing problem applies to child coroutines, not
-to leaf I/O awaitables (Section 2). Thanks to Michael Hava for
-identifying the gap.</li>
-<li>Added hybrid option: both paths coexist in a single promise type via
-<code>operator new</code> overload resolution (Section 8).</li>
-<li>Added structured analysis of TLS concerns: platforms, performance,
-action at a distance, silent failure, precedent, and categorical
-rejection (Section 9).</li>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>This paper is part of the Network Endeavor (<a href="https://wg21.link/p4100r0">P4100R0</a><sup>[1]</sup>). The author
-developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[2]</sup>
-and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[3]</sup>
-and believes coroutine-native I/O is the correct foundation for
-networking in C++. Coroutine-native I/O cannot express compile-time work
-graphs. The author provides information, asks nothing, and serves at the
+<p>The author has papers in the WG21 mailing and participates in the
+committee process. The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[1]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[2]</sup>
+and is a co-author of <a href="https://wg21.link/p2469r0">P2469R0</a><sup>[3]</sup>. The author’s
+preferred asynchronous model competes with <a href="https://wg21.link/p2300r10">P2300R10</a><sup>[4]</sup>
+(<code>std::execution</code>). The analysis in this paper is structural,
+not personal. Every decision examined was made by experienced
+practitioners under real constraints. The intent is to document the
+published record, not to assign blame.</p>
+<p>This paper is a companion to <a href="https://wg21.link/p4129r1">P4129R1</a><sup>[5]</sup>, which
+documents the dynamics of WG21 voting, and <a href="https://wg21.link/p4130r0">P4130R0</a><sup>[6]</sup>, which
+documents the convenership’s structural influence over WG21. Those
+papers examine the mechanism and the officer. This paper examines the
+schedule.</p>
+<p>The author provides information, asks nothing, and serves at the
 pleasure of the chair.</p>
-<p><a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup>,
-“Coroutines for I/O,” uses thread-local propagation for the frame
-allocator. This paper documents why that choice is one of exactly two
-possibilities, not a preference among many. The analysis stands
-independent of the author’s library work.</p>
 <hr />
-<h2 id="the-constraint">2. The Constraint</h2>
-<p>Not every awaitable has a frame. Leaf I/O operations -
-<code>sock.read_some(buf)</code>, timer waits, DNS lookups - return
-plain awaitable structs. No coroutine, no frame, no
-<code>operator new</code>. The parent’s <code>await_transform</code>
-receives them, injects the execution environment, and no frame
-allocation is involved. The timing problem does not apply to these
-operations.</p>
-<p>The timing problem applies to <strong>child coroutines</strong> -
-functions that contain <code>co_await</code>:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> handle_request<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">)</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span>s<span class="op">);</span>  <span class="co">// coroutine - has a frame</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> send_response<span class="op">(</span>s<span class="op">,</span> hdr<span class="op">);</span>        <span class="co">// coroutine - has a frame</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>parse_header</code> contains <code>co_await</code>. It has
-local variables that persist across suspension points. It is a
-coroutine. It has a frame. The call expression
-<code>parse_header(s)</code> allocates that frame before the parent’s
-<code>await_transform</code> runs. There is nothing for
-<code>await_transform</code> to wrap - the task already exists.</p>
-<p>To make <code>parse_header</code> a plain awaitable instead of a
-coroutine, one would have to hand-write the state machine the compiler
-generates. That is what coroutines exist to avoid.</p>
-<p>When a coroutine is called, the compiler allocates the frame first,
-then begins execution:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> fetch<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> b<span class="op">);</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> t <span class="op">=</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span>    <span class="co">// operator new HERE</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> t<span class="op">;</span>                   <span class="co">// too late</span></span></code></pre></div>
-<p><code>promise_type::operator new</code> receives the frame size and
-the coroutine’s own parameters. It executes before the coroutine body,
-before <code>initial_suspend</code>, before any user code inside the
-coroutine runs. The frame allocator must be available at this point. Any
-mechanism that delivers context later - after the call expression
-returns, after <code>co_await</code> begins, after the coroutine body
-starts - cannot influence frame allocation.</p>
-<p>The question is: what mechanisms can deliver a runtime value to
-<code>promise_type::operator new</code>?</p>
-<hr />
-<h2 id="the-enumeration">3. The Enumeration</h2>
-<p>C++20 provides a finite set of customization points for coroutines.
-Each one fires at a specific point in the coroutine lifecycle. The
-following table places every customization point in time relative to
-<code>operator new</code>:</p>
+<h2 id="the-model">2. The Model</h2>
+<p>In 2011, at the Bloomington meeting, Herb Sutter proposed a change to
+the committee’s release cadence. The minutes record the
+rationale<sup>[7]</sup>:</p>
+<blockquote>
+<p>Knowing that another ship train is coming is a nice pressure release
+valve. The biggest problem with 0x was feature creep - the mentality
+that if a feature does not get in now it never will. The now or never
+pressure makes adding stuff more urgent and creates tension in the
+committee.</p>
+</blockquote>
+<p>The committee adopted the proposal. C++ would ship every three years.
+The model was documented in <a href="https://wg21.link/p1000r2">P1000R2</a><sup>[8]</sup> and revised
+through <a href="https://wg21.link/p1000r6">P1000R6</a><sup>[9]</sup>.
+Its core claim is a single sentence<sup>[8]</sup>:</p>
+<blockquote>
+<p>Model (2) simply means “ship what’s ready.”</p>
+</blockquote>
+<p>The safety valve is explicit<sup>[9]</sup>:</p>
+<blockquote>
+<p>If we see a feature is not ready yet, we pull it back out to let it
+bake more, as we did for concepts in C++11 and contracts in C++20. It
+can finish baking and ship in C++next.</p>
+</blockquote>
+<p>The model’s author assessed its early results on his blog in
+2016<sup>[10]</sup>:</p>
+<blockquote>
+<p>Never before in the history of C++ has the standard maintained such
+high specification quality, never before has it released on a regular
+predictable schedule… and as we removed that quality and schedule
+uncertainty, it’s no accident that never before have all the major
+compilers tracked the standard so closely, which benefits the whole
+worldwide C++ community.</p>
+</blockquote>
+<p>And in 2019<sup>[11]</sup>:</p>
+<blockquote>
+<p>By objective metrics, notably national body comment volume and defect
+reports, C++14 and C++17 have been our most stable releases ever, each
+about 3-4 times better on those metrics than C++98 or C++11.</p>
+</blockquote>
+<p>The same blog post acknowledged that the major/minor alternation did
+not materialize<sup>[10]</sup>:</p>
+<blockquote>
+<p>Also, we initially thought a train model would let us alternate
+“minor” and “major” releases. The idea was that C++14 could be a “minor”
+release, and C++17 a “major” release. What actually happened was that we
+learned the pipeline+train model leads to regular “medium” releases as
+the pipeline moves at a steady pace and we regularly release what’s
+ready.</p>
+</blockquote>
+<p>The model makes five testable claims:</p>
 <table>
 <colgroup>
-<col style="width: 40%" />
-<col style="width: 42%" />
-<col style="width: 17%" />
+<col style="width: 62%" />
+<col style="width: 37%" />
 </colgroup>
 <thead>
 <tr>
-<th>Customization point</th>
-<th>When it fires</th>
-<th>Before <code>operator new</code>?</th>
+<th>Claim</th>
+<th>Source</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>promise_type::operator new</code></td>
-<td>Frame allocation</td>
-<td>Is <code>operator new</code></td>
+<td>Ship what is ready</td>
+<td>P1000R2-R6<sup>[8]</sup></td>
 </tr>
 <tr>
-<td><code>std::coroutine_traits</code></td>
-<td>Compile time (selects <code>promise_type</code>)</td>
-<td>Compile time only</td>
+<td>Pull features that are not ready</td>
+<td>P1000R6<sup>[9]</sup></td>
 </tr>
 <tr>
-<td><code>initial_suspend</code></td>
-<td>After frame creation, before coroutine body</td>
-<td>No</td>
+<td>Eliminate “now or never” pressure</td>
+<td>N3316<sup>[7]</sup></td>
 </tr>
 <tr>
-<td><code>await_transform</code></td>
-<td>When parent <code>co_await</code>s the child’s return value</td>
-<td>No</td>
+<td>Higher specification quality</td>
+<td>Sutter blog<sup>[10]</sup></td>
 </tr>
 <tr>
-<td><code>operator co_await</code></td>
-<td>Same as <code>await_transform</code> (operand already
-evaluated)</td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>await_ready</code> / <code>await_suspend</code> /
-<code>await_resume</code></td>
-<td>After <code>await_transform</code></td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>final_suspend</code></td>
-<td>After coroutine body completes</td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>return_value</code> / <code>return_void</code></td>
-<td>At <code>co_return</code></td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>yield_value</code></td>
-<td>At <code>co_yield</code></td>
-<td>No</td>
-</tr>
-<tr>
-<td><code>unhandled_exception</code></td>
-<td>On exception</td>
-<td>No</td>
+<td>Closer compiler tracking</td>
+<td>Sutter blog<sup>[10]</sup></td>
 </tr>
 </tbody>
 </table>
-<p>Every customization point except <code>operator new</code> itself
-fires after the frame exists. <code>coroutine_traits</code> operates at
-compile time - it selects which <code>promise_type</code> to use, but
-cannot inject a runtime value.</p>
-<p>The compiler passes exactly one set of runtime values to
-<code>operator new</code>: the frame size and the coroutine’s parameter
-list. No other runtime information is available at that point.</p>
+<p>The following sections examine the published record for each release
+under this model.</p>
 <hr />
-<h2 id="the-two-paths">4. The Two Paths</h2>
-<h3 id="path-a-the-parameter-list">4.1 Path A: The Parameter List</h3>
-<p>The coroutine’s parameters are forwarded to
-<code>promise_type::operator new</code>. If the allocator appears in the
-parameter list, <code>operator new</code> can use it. This is the
-<code>allocator_arg_t</code> pattern:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> fetch<span class="op">(</span><span class="bu">std::</span>allocator_arg_t<span class="op">,</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                MyAllocator alloc<span class="op">,</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> b<span class="op">);</span></span></code></pre></div>
-<p>The promise provides overloads that detect the tag:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">promise_type</span> <span class="op">{</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Alloc<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a<span class="op">.</span>allocate<span class="op">(</span>sz<span class="op">);</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> Alloc<span class="op">,</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>             <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        T<span class="op">&amp;,</span> <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a<span class="op">.</span>allocate<span class="op">(</span>sz<span class="op">);</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
-<p>This works. The allocator reaches <code>operator new</code> at the
-right time. The cost is that every coroutine in a call chain must carry
-the allocator in its parameter list. <a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup> Section 5.2
-documents the ergonomic consequences.</p>
-<h3 id="path-b-ambient-state">4.2 Path B: Ambient State</h3>
-<p>If the allocator is not in the parameter list,
-<code>operator new</code> must read it from somewhere else. The only
-“somewhere else” available to a function at call time is ambient state:
-global, thread-local, or fiber-local storage.</p>
-<p>Global state is too coarse - a single allocator for every coroutine
-chain in the process. Thread-local state scoped per-chain is the minimum
-viable mechanism. <a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup> Section 5.3
-documents the thread-local write-through cache that delivers the
-allocator to <code>operator new</code> and restores it on every
-resume.</p>
+<h2 id="c20---the-first-stress-test">3. C++20 - The First Stress
+Test</h2>
+<p>C++20 was the first release under the train model to carry major
+language features: modules, coroutines, concepts, ranges, and contracts.
+Four of the five shipped. The fifth tested the safety valve.</p>
+<h3 id="contracts-pulled">3.1 Contracts Pulled</h3>
+<p>At Cologne in July 2019, the committee removed contracts from C++20.
+Josuttis, Voutilainen, Orr, Vandevoorde, Spicer, and Di Bella wrote in
+<a href="https://wg21.link/p1823r0">P1823R0</a><sup>[12]</sup>:</p>
+<blockquote>
+<p>This is a proposal nobody likes and we are not happy to make it. But
+we have to suggest to remove Contracts from C++20, because the feature
+is not ready for standardization yet and to continue to force to have it
+in C++20 is taking the whole C++20 at risk.</p>
+</blockquote>
+<p>The plenary vote was 68 in favour, 0 opposed, 4
+abstaining<sup>[12]</sup>. The safety valve worked.</p>
+<p>The feature then consumed committee bandwidth across four consecutive
+cycles: removed from C++20 in 2019, redesigned through C++23, contested
+again in C++26. The pull was not free.</p>
+<h3 id="ranges-shipped-knowingly-incomplete">3.2 Ranges Shipped
+Knowingly Incomplete</h3>
+<p>Revzin, Hoekstra, and Song wrote in <a href="https://wg21.link/p2214r0">P2214R0</a><sup>[13]</sup>:</p>
+<blockquote>
+<p>When Ranges was merged into C++20, it was knowingly incomplete. While
+it was based on the implementation experience in range-v3, only a small
+part of that library was adopted into C++20.</p>
+</blockquote>
+<p>“Ship what is ready” became “ship what is ready enough.” The
+remainder was planned for C++23.</p>
+<h3 id="coroutines-without-library-support">3.3 Coroutines Without
+Library Support</h3>
+<p>C++20 shipped coroutines as a language feature without a standard
+task type, without library-level coroutine utilities, and without
+integration with the rest of the standard library. Users who wanted to
+use coroutines needed a third-party library or had to write their own
+promise types. The C++20 standard provides the coroutine machinery -
+<code>coroutine_handle</code>, <code>coroutine_traits</code>,
+<code>suspend_always</code>, <code>suspend_never</code> - but no
+concrete coroutine type that a user can pick up and use.</p>
+<p>A standard <code>std::execution::task</code> type would not be
+proposed until <a href="https://wg21.link/p3552r3">P3552</a><sup>[14]</sup>, six years
+later, targeting C++26.</p>
+<h3 id="the-defect-load">3.4 The Defect Load</h3>
+<p>By 2021, the consequences were visible. Nina Ranns wrote in the admin
+telecon minutes (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/n4890.pdf">N4890</a>)<sup>[15]</sup>:</p>
+<blockquote>
+<p>This time we have quite a few “defects” in C++20 that are too large
+to be handled via the issues list, so they are being fixed by proposals…
+At this time, there are no nonexperimental implementations of these
+features shipped, so this is our last chance to get them fixed before
+the defects ship.</p>
+</blockquote>
+<p>The model’s author had written in <a href="https://wg21.link/p1000r2">P1000R2</a><sup>[8]</sup>:</p>
+<blockquote>
+<p>The reality is that we aren’t going to find many feature interaction
+problems until users are using them in production, which generally means
+until after the standard ships, because implementers will generally wait
+until the standard ships to implement most things.</p>
+</blockquote>
+<p>Two years after C++20 shipped, some of its features had no
+nonexperimental implementations. The defects were proposal-sized.</p>
 <hr />
-<h2 id="the-rejected-alternatives">5. The Rejected Alternatives</h2>
-<p>Each alternative that appears to offer a third path reduces to Path
-A, Path B, or arrives too late.</p>
-<h3 id="stdcoroutine_traits">5.1 <code>std::coroutine_traits</code></h3>
-<p><code>coroutine_traits&lt;R, Args...&gt;</code> selects the
-<code>promise_type</code> based on the coroutine’s return type and
-parameter types. It operates at compile time. It can change
-<em>which</em> <code>operator new</code> runs. It cannot inject a
-runtime value that is not already in the parameter list.</p>
-<p>A <code>coroutine_traits</code> specialization that detects an
-allocator parameter type and selects an allocator-aware promise is a
-compile-time optimization of Path A. The allocator must still appear in
-the parameter list. The signature pollution remains.</p>
-<h3 id="await_transform">5.2 <code>await_transform</code></h3>
-<p>The parent coroutine’s <code>await_transform</code> fires when the
-parent evaluates <code>co_await child_expr</code>. The child expression
-is the operand. The operand is fully evaluated - including the child’s
-<code>operator new</code> - before <code>await_transform</code>
-runs.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">//      ^^^^^^^^^^^^^^^^^</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">//      evaluated first: operator new fires here</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// then await_transform runs on the returned task</span></span></code></pre></div>
-<p><code>await_transform</code> can inject context into the child’s
-<code>await_suspend</code>. It cannot influence the child’s
-<code>operator new</code>. Too late.</p>
-<h3 id="operator-co_await">5.3 <code>operator co_await</code></h3>
-<p><code>operator co_await</code> converts the operand into an awaiter.
-It runs after the operand is evaluated, at the same point as
-<code>await_transform</code>. The child’s frame already exists. Too
-late.</p>
-<h3 id="initial_suspend">5.4 <code>initial_suspend</code></h3>
-<p><code>initial_suspend</code> runs inside the child coroutine, after
-the frame is allocated. It can <em>capture</em> a value from TLS (as the
-IoAwaitable protocol does), but it cannot <em>deliver</em> a value to
-<code>operator new</code>. It is useful for Path B’s capture step, not
-as an independent delivery mechanism.</p>
-<h3 id="deferred-invocation">5.5 Deferred Invocation</h3>
-<p>One could defer the child’s construction so that the parent’s
-<code>await_transform</code> invokes it:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> deferred<span class="op">([&amp;]{</span> <span class="cf">return</span> fetch<span class="op">(</span>sock<span class="op">,</span> buf<span class="op">);</span> <span class="op">});</span></span></code></pre></div>
-<p>The parent’s <code>await_transform</code> would set the allocator,
-invoke the lambda, and forward to the child’s
-<code>await_suspend</code>. This eliminates TLS in principle. In
-practice:</p>
+<h2 id="c23---the-pandemic-cycle">4. C++23 - The Pandemic Cycle</h2>
+<p>C++23 was developed almost entirely during the COVID-19 pandemic. The
+committee met virtually from 2020 through early 2022. The Direction
+Group assessed the impact in <a href="https://wg21.link/p2000r4">P2000R4</a><sup>[16]</sup>:</p>
+<blockquote>
+<p>The attendance of virtual meetings is less consistent (several key
+voices are often missing)… the proposals that do make it through the new
+processes are mostly modest.</p>
+</blockquote>
+<h3 id="p2300-deferred">4.1 P2300 Deferred</h3>
+<p>The sender/receiver framework (<a href="https://wg21.link/p2300r10">P2300</a><sup>[4]</sup>) was proposed
+for C++23. The January 2022 electronic poll to send P2300R4 to LWG
+received SF:23 / WF:14 / N:0 / WA:6 / SA:11 - no
+consensus<sup>[17]</sup>. The published outcome noted:</p>
+<blockquote>
+<p>Sustained strong opposition against including such a large proposal
+into C++23 at such a late stage.</p>
+</blockquote>
+<p>One voter comment<sup>[17]</sup>:</p>
+<blockquote>
+<p>This is an enormous proposal that is less than 6 months old.</p>
+</blockquote>
+<p>P2300 was deferred to C++26.</p>
+<h3 id="contracts-missed-again">4.2 Contracts Missed Again</h3>
+<p>Contracts missed C++23 entirely. The Direction Group wrote in <a href="https://wg21.link/p0939r4">P0939R4</a><sup>[18]</sup>:</p>
+<blockquote>
+<p>We would prefer a delay until C++26 over another heated debate and
+potential failure for C++23.</p>
+</blockquote>
+<p>Pulled from C++20 in 2019. Absent from C++23 in 2023. The feature
+that tested the safety valve was now in its second consecutive cycle
+without a home.</p>
+<h3 id="what-c23-delivered">4.3 What C++23 Delivered</h3>
+<p>C++23 shipped on time. It delivered <code>std::expected</code>,
+<code>std::print</code>, <code>std::mdspan</code>,
+<code>std::generator</code>, deducing <code>this</code>,
+<code>std::flat_map</code>, and ranges completions planned since C++20.
+These were valuable additions. The release was not contested.</p>
+<p>The train model worked for C++23 in the way it was designed to work:
+the large, contested features were deferred, and the smaller, ready
+features shipped. The Direction Group’s own word for the result was
+“modest.”</p>
+<hr />
+<h2 id="c26---maximum-stress">5. C++26 - Maximum Stress</h2>
+<p>C++26 carries three features that each generated substantial
+published opposition: contracts (P2900), <code>std::execution</code>
+(P2300), and <code>std::execution::task</code> (P3552). All three are in
+the working paper. All three produced paper trails documenting concern
+about readiness.</p>
+<h3 id="contracts-p2900">5.1 Contracts (P2900)</h3>
+<p>Contracts were pulled from C++20 in 2019 (Section 3.1). They missed
+C++23 entirely (Section 4.2). They returned as <a href="https://wg21.link/p2900r10">P2900</a><sup>[19]</sup> targeting
+C++26.</p>
+<p>The published opposition is extensive:</p>
 <ul>
-<li>Every call site requires a lambda wrapper. The ergonomic cost
-exceeds <code>allocator_arg_t</code>.</li>
-<li>The lambda captures references to the parent’s locals. The child
-coroutine outlives the lambda. Use-after-free at every call site.</li>
-<li>The child’s <code>operator new</code> still needs to read the
-allocator from somewhere. If not from the parameter list, then from
-ambient state. The lambda approach defers the invocation but does not
-eliminate the delivery problem - it moves it inside
-<code>await_transform</code>, where the same two paths apply.</li>
+<li><a href="https://wg21.link/p3573r0">P3573R0</a><sup>[20]</sup>
+(Stroustrup and eight co-authors)</li>
+<li><a href="https://wg21.link/p3829r0">P3829R0</a><sup>[21]</sup>
+(Chisnall, Spicer, Dos Reis, Voutilainen, Garcia Sanchez): “Contracts do
+not belong in the language”</li>
+<li><a href="https://wg21.link/p3835r0">P3835R0</a><sup>[22]</sup>, <a href="https://wg21.link/p3851r0">P3851R0</a><sup>[23]</sup>, <a href="https://wg21.link/p3849r1">P3849R1</a><sup>[24]</sup> (Swedish
+NB)</li>
+<li><a href="https://wg21.link/p3853r0">P3853R0</a><sup>[25]</sup>, <a href="https://wg21.link/p3878r0">P3878R0</a><sup>[26]</sup>
+(Voutilainen, Wakely, Spicer)</li>
 </ul>
-<p>Deferred invocation is Path A with worse ergonomics, or Path B with
-an extra indirection. It is not a third path.</p>
-<h3 id="promise-based-injection">5.6 Promise-Based Injection</h3>
-<p>The parent’s promise could store the allocator and the child’s
-<code>operator new</code> could read it from the parent’s promise. But
-<code>operator new</code> does not receive the parent’s promise. It
-receives the child’s own parameters. The parent’s promise is not
-accessible to the child’s <code>operator new</code> through any standard
-mechanism.</p>
-<p>One could pass the parent’s promise as a parameter to the child
-coroutine. This is Path A again - the parameter list carries the
-context.</p>
-<h3 id="global-pmrget_default_resource">5.7 Global
-<code>pmr::get_default_resource()</code></h3>
-<p><code>std::pmr::get_default_resource()</code> is a process-wide
-ambient allocator. It is Path B with process scope instead of per-chain
-scope. A single allocator for every coroutine chain in the process is
-insufficient for deployments that need per-tenant budgets, bounded
-pools, or allocation tracking scoped to individual request chains.</p>
-<h3 id="sender-environment-bridge-wrappers">5.8 Sender-Environment
-Bridge Wrappers</h3>
-<p>A wrapper object can read the allocator from the sender execution
-environment and inject <code>allocator_arg_t</code> into the coroutine’s
-parameter list at the launch site. The wrapper intercepts the call,
-reads the allocator via <code>read_env(get_allocator)</code>, and
-invokes the coroutine with
-<code>std::allocator_arg, alloc, args...</code>. The coroutine’s
-<code>operator new</code> sees the allocator at the right time.</p>
-<p>This automates the first hop - from the sender world into the
-coroutine’s parameter list. Inside the coroutine, every
-<code>co_await</code> of a child coroutine still requires manual
-forwarding:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> env<span class="op">&gt;</span> handle_request<span class="op">(</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> <span class="kw">auto</span> alloc<span class="op">,</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">&amp;</span> s<span class="op">)</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    buffer buf<span class="op">;</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// wrapper helped at the launch site,</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// but here we are back to manual:</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">,</span> buf<span class="op">);</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> send_response<span class="op">(</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">,</span> hdr<span class="op">);</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The wrapper is not present at internal call sites. It solves the
-sender-to-coroutine boundary but not the coroutine-to-coroutine chain.
-Every child coroutine still needs <code>allocator_arg_t</code> in its
-signature. Every internal <code>co_await</code> still forwards the
-allocator manually.</p>
-<p>A sender-environment bridge wrapper is Path A with automation at one
-boundary. The viral signature pollution remains for the entire chain
-below.</p>
-<hr />
-<h2 id="the-design-space">6. The Design Space</h2>
+<p>National body comments from the C++26 CD ballot (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/n5028.pdf">N5028</a>)<sup>[27]</sup>
+include ES-048, ES-049, ES-050, US 25-052, US 26-051, FR-004, FR-005,
+FI-071, and RO 2-056.</p>
+<p>The defense is documented in <a href="https://wg21.link/p3846r0">P3846R0</a><sup>[28]</sup> (Doumler,
+Berne, and fifteen co-authors), which addresses seventeen numbered
+concerns. At Hagenberg in February 2025, EWG polled “remove P2900 from
+CWG’s consideration for C++26” and reached consensus against
+removal<sup>[29]</sup>.</p>
+<p>Ville Voutilainen wrote in <a href="https://wg21.link/p3608r0">P3608R0</a><sup>[30]</sup>:</p>
+<blockquote>
+<p>And all this with our noses pressed against a deadline. We are
+rushing things in, without employing prudent engineering practices, most
+importantly the quality assurance ones, quite plainly meaning especially
+testing.</p>
+</blockquote>
+<p>And in <a href="https://wg21.link/p3853r0">P3853R0</a><sup>[25]</sup>:</p>
+<blockquote>
+<p>We can’t afford to ship a contracts facility in a C++ IS without
+running that experiment. Our users can’t afford that. Our ecosystem
+can’t afford that.</p>
+</blockquote>
+<p>Doumler, Berne, and co-authors wrote in <a href="https://wg21.link/p3912r0">P3912R0</a><sup>[31]</sup>:</p>
+<blockquote>
+<p>Rushing a new feature with new syntax into C++26 during the NB
+comment phase runs counter to the established WG21 model for
+standardisation as described in [SD-4].</p>
+</blockquote>
+<p>The three-cycle pattern:</p>
 <table>
-<colgroup>
-<col style="width: 39%" />
-<col style="width: 42%" />
-<col style="width: 17%" />
-</colgroup>
 <thead>
 <tr>
-<th>Mechanism</th>
-<th>Delivers to <code>operator new</code>?</th>
-<th>Reduces to</th>
+<th>Cycle</th>
+<th>Contracts Status</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Parameter list</td>
-<td>Yes</td>
-<td>Path A</td>
+<td>C++20</td>
+<td>Pulled (P1823R0, plenary 68/0/4)</td>
 </tr>
 <tr>
-<td><code>coroutine_traits</code></td>
-<td>Compile time only</td>
-<td>Path A</td>
+<td>C++23</td>
+<td>Absent</td>
 </tr>
 <tr>
-<td><code>await_transform</code></td>
-<td>No (too late)</td>
-<td>-</td>
-</tr>
-<tr>
-<td><code>operator co_await</code></td>
-<td>No (too late)</td>
-<td>-</td>
-</tr>
-<tr>
-<td><code>initial_suspend</code></td>
-<td>No (too late)</td>
-<td>-</td>
-</tr>
-<tr>
-<td>Deferred invocation</td>
-<td>Indirectly</td>
-<td>Path A or B</td>
-</tr>
-<tr>
-<td>Promise-based injection</td>
-<td>No (parent inaccessible)</td>
-<td>Path A</td>
-</tr>
-<tr>
-<td>Sender-env bridge wrapper</td>
-<td>First hop only</td>
-<td>Path A</td>
-</tr>
-<tr>
-<td>Thread-local storage</td>
-<td>Yes</td>
-<td>Path B</td>
-</tr>
-<tr>
-<td>Global <code>pmr</code> resource</td>
-<td>Yes</td>
-<td>Path B</td>
-</tr>
-<tr>
-<td>Fiber-local storage</td>
-<td>Yes</td>
-<td>Path B</td>
+<td>C++26</td>
+<td>In working paper, contested</td>
 </tr>
 </tbody>
 </table>
-<p>Every row that delivers to <code>operator new</code> is either Path A
-(the allocator is in the parameter list) or Path B (the allocator is in
-ambient state). Every row that is neither Path A nor Path B does not
-deliver to <code>operator new</code>.</p>
+<h3 id="stdexecutiontask-p3552">5.2 <code>std::execution::task</code>
+(P3552)</h3>
+<p><a href="https://wg21.link/p3552r3">P3552R3</a><sup>[14]</sup>
+proposes <code>std::execution::task</code>, a coroutine task type for
+use with <code>std::execution</code>. Jonathan Müller wrote in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[32]</sup>:</p>
+<blockquote>
+<p>I championed the plenary objections: First off, the proper procedure
+was not followed: The paper was forwarded after the feature freeze
+deadline in a telecon.</p>
+</blockquote>
+<p>And<sup>[32]</sup>:</p>
+<blockquote>
+<p>If something has issues, and we know that it has issues, we should
+not have allowed a vote to approve it.</p>
+</blockquote>
+<p>Dietmar Kühl, the author of P3552, wrote in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[33]</sup>:</p>
+<blockquote>
+<p>The argument that we should only standardise perfect design would
+actually lead to hardly anything getting standardised because pretty
+much everything is imperfect on some level.</p>
+</blockquote>
+<p>The model’s safety valve, from <a href="https://wg21.link/p1000r6">P1000R6</a><sup>[9]</sup>:</p>
+<blockquote>
+<p>If we see a feature is not ready yet, we pull it back out to let it
+bake more.</p>
+</blockquote>
+<p>Kühl’s response<sup>[33]</sup>:</p>
+<blockquote>
+<p>Pretty much everything is imperfect on some level.</p>
+</blockquote>
+<h3 id="stdexecution-p2300">5.3 <code>std::execution</code> (P2300)</h3>
+<p><a href="https://wg21.link/p2300r10">P2300R10</a><sup>[4]</sup>
+(<code>std::execution</code>) was adopted into the C++26 working paper
+at St. Louis in July 2024<sup>[34]</sup>. Baker, Niebler, Shoop, and
+Radu had written in <a href="https://wg21.link/p3109r0">P3109R0</a><sup>[35]</sup>:</p>
+<blockquote>
+<p>However, before we ship P2300 and freeze its design in the standard,
+we should ensure that all potentially-breaking design questions are
+fully resolved, and that the initial release includes a sufficiently
+well-rounded set of utilities to be generally useful.</p>
+</blockquote>
+<p>In the C++23 cycle, a voter comment on the P2300R4 poll
+stated<sup>[17]</sup>:</p>
+<blockquote>
+<p>This is an enormous proposal that is less than 6 months old.</p>
+</blockquote>
+<p>Deferred from C++23 as “not sufficiently stable.” Adopted for C++26
+with a companion task type forwarded after the feature freeze
+deadline.</p>
 <hr />
-<h2 id="the-tradeoff">7. The Tradeoff</h2>
-<p>The choice between Path A and Path B is a choice between two
-costs:</p>
+<h2 id="the-implementers-speak">6. The Implementers Speak</h2>
+<p>At the Kona 2025 meeting, a group of implementers convened a closed
+session to discuss their challenges. Twenty attended in person. Nine
+attended remotely. The resulting paper, <a href="https://wg21.link/p3962r0">P3962R0</a><sup>[36]</sup>, is authored
+by eighteen implementers from GCC, Clang, MSVC, EDG, libc++, and
+libstdc++.</p>
+<h3 id="the-assessment">6.1 The Assessment</h3>
+<p>Ranns, Keane, Serebrennikov, Ballman, Sandoe, Caves, DaCamara, Dos
+Reis, Brito, Meerwald, Xu, Yaghmour, Miller, Childers, Waffl3x, Cardoso
+Lopes, Tong, and Dionne write in P3962R0<sup>[36]</sup>:</p>
+<blockquote>
+<p>Full conformance to recent standards remains difficult in practice,
+with some implementations still working toward C++20 conformance with
+limited capacity to adopt newer standards.</p>
+</blockquote>
+<p>And<sup>[36]</sup>:</p>
+<blockquote>
+<p>When features accumulate faster than they can be fully implemented,
+integrated, and adjusted, they stack on top of incomplete or
+inconsistent foundations, further increasing the risk of non-portable
+code.</p>
+</blockquote>
+<p>On the cost of features<sup>[36]</sup>:</p>
+<blockquote>
+<p>Implementation cost is not limited to initial development. Ongoing
+maintenance, performance implications, ABI stability, testing matrix
+growth, and interactions with existing features all contribute
+substantially to the long-term burden.</p>
+</blockquote>
+<p>On displacement<sup>[36]</sup>:</p>
+<blockquote>
+<p>Adding new features to the standard necessarily displaces other work,
+including bug fixes, conformance improvements, performance tuning, and
+various high-value library enhancements.</p>
+</blockquote>
+<p>On the implementer voice<sup>[36]</sup>:</p>
+<blockquote>
+<p>Implementers’ role and expertise is not always fully reflected in
+committee processes, particularly during early design discussions.
+Implementation feedback is often introduced late, treated as
+adversarial, or framed primarily as an obstacle to progress rather than
+as essential design input.</p>
+</blockquote>
+<h3 id="the-suggested-actions">6.2 The Suggested Actions</h3>
+<p>The implementers’ recommendations<sup>[36]</sup>:</p>
+<blockquote>
+<p>We would like the committee to consider ways of slowing down the
+addition of features into the standard to allow implementers to catch
+up, and to allow the existing features to improve in quality.</p>
+</blockquote>
+<p>And<sup>[36]</sup>:</p>
+<blockquote>
+<p>The committee should consider longer standardization cycles or
+alternating feature-focused and consolidation-focused releases.</p>
+</blockquote>
+<p>And<sup>[36]</sup>:</p>
+<blockquote>
+<p>We should also explicitly prioritize defect resolution, conformance,
+and portability work alongside new features.</p>
+</blockquote>
+<p>The model’s safety valve operates on individual features: “If we see
+a feature is not ready yet, we pull it back out”<sup>[9]</sup>. The
+implementers are not asking for individual features to be pulled. They
+are asking for the pace itself to slow.</p>
+<h3 id="selective-non-compliance">6.3 Selective Non-Compliance</h3>
+<p>Daveed Vandevoorde, a senior EDG implementer, wrote in <a href="https://wg21.link/p3590r0">P3590R0</a><sup>[37]</sup>:</p>
+<blockquote>
+<p>I suspect most of the principal C++ implementations will opt not to
+be standard compliant for the better part of a decade, while they (a)
+keep working on outstanding pre-C++26 language features (“modules” being
+most notable) and (b) prioritize newer C++26 and C++29 features that
+provide “more bang for the buck.”</p>
+</blockquote>
+<p>A senior implementer predicting that compiler vendors will choose
+which parts of the standard to implement and which to defer
+indefinitely. The standard ships. The implementations do not follow.</p>
+<hr />
+<h2 id="social-dynamics">7. Social Dynamics</h2>
+<p>The train model is a scheduling mechanism. It operates inside a
+social system. The published record documents five patterns in that
+system.</p>
+<h3 id="the-persistence-of-deadline-pressure">7.1 The Persistence of
+Deadline Pressure</h3>
+<p>The train model was designed to eliminate “now or never” pressure.
+Sutter’s original rationale at Bloomington in 2011<sup>[7]</sup>:</p>
+<blockquote>
+<p>The biggest problem with 0x was feature creep - the mentality that if
+a feature does not get in now it never will.</p>
+</blockquote>
+<p>Fourteen years later, Voutilainen wrote in <a href="https://wg21.link/p3608r0">P3608R0</a><sup>[30]</sup>:</p>
+<blockquote>
+<p>And all this with our noses pressed against a deadline.</p>
+</blockquote>
+<p>Müller wrote in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[32]</sup> that
+<code>std::execution::task</code> was forwarded after the feature freeze
+deadline. The three-year cycle replaced “now or never” with “now or
+three years from now.” Three years is long enough to create real
+urgency.</p>
+<h3 id="the-cost-of-pulling">7.2 The Cost of Pulling</h3>
+<p>The model assumes pulling is cheap. The contracts record suggests
+otherwise.</p>
+<p>Contracts were pulled from C++20 in July 2019. The feature spent six
+years in redesign. It returned as P2900 for C++26 and generated at least
+nine opposition papers, multiple national body comments, and a
+plenary-level contest. Stroustrup wrote in <a href="https://wg21.link/p1711r0">P1711R0</a><sup>[38]</sup>:</p>
+<blockquote>
+<p>Status quo represents a set of tradeoffs among the concerns of people
+involved.</p>
+</blockquote>
+<p>Pulling a feature resets the tradeoffs. The people involved change.
+The concerns change. The new design must build consensus from scratch,
+against the memory of the old design’s failure. The published record
+shows this process consuming committee bandwidth across four consecutive
+cycles.</p>
+<h3 id="the-vasa-warning">7.3 The Vasa Warning</h3>
+<p>Bjarne Stroustrup wrote in <a href="https://wg21.link/p1962r0">P1962R0</a><sup>[39]</sup>:</p>
+<blockquote>
+<p>Remember the Vasa! In fact, I think that the flood of new proposals
+has increased since I wrote [Vasa]. I think we are trying to do too much
+too fast. We can do much or do less fast. We cannot do both and maintain
+quality and coherence.</p>
+</blockquote>
+<p>The Direction Group invoked the same analogy in <a href="https://wg21.link/p2000r3">P2000R3</a><sup>[40]</sup>:</p>
+<blockquote>
+<p>In the years leading up to the 1998 standard, the committee members
+often reminded themselves of the story of the Vasa, the beautiful 17th
+century battleship that sank on its maiden voyage because of (among
+other things) insufficient work on its foundation and excessive late
+additions.</p>
+</blockquote>
+<p>The same paper<sup>[40]</sup>:</p>
+<blockquote>
+<p>We have no shared aims, no shared taste.</p>
+</blockquote>
+<p>The 2023 admin telecon minutes (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/n4942.pdf">N4942</a>)<sup>[41]</sup>
+documented concern about:</p>
+<blockquote>
+<p>The impact of the organization of WG21 on design directions. The size
+of the committee and the hybrid meetings increase the problems related
+to coherence.</p>
+</blockquote>
+<h3 id="committee-scale">7.4 Committee Scale</h3>
+<p>WG21 has grown from approximately 50 members in the 1990s to over 250
+active participants. The Direction Group acknowledged in <a href="https://wg21.link/p0939r4">P0939R4</a><sup>[18]</sup>:</p>
+<blockquote>
+<p>We are a set of interrelated committees… some “design by committee”
+is unavoidable.</p>
+</blockquote>
+<p>More participants means more proposals, more competing interests, and
+more difficulty achieving genuine consensus. The train model’s
+three-year cadence interacts with this scale: each cycle must process a
+larger volume of proposals through a larger committee, under the same
+fixed deadline.</p>
+<h3 id="the-ship-it-and-fix-it-culture">7.5 The “Ship It and Fix It”
+Culture</h3>
+<p>The model’s author wrote in <a href="https://wg21.link/p1000r6">P1000R6</a><sup>[9]</sup>:</p>
+<blockquote>
+<p>We do intentionally ship features we plan to further improve.</p>
+</blockquote>
+<p>Kühl wrote in <a href="https://wg21.link/p3796r1">P3796R1</a><sup>[33]</sup>:</p>
+<blockquote>
+<p>Pretty much everything is imperfect on some level.</p>
+</blockquote>
+<p>Müller wrote in <a href="https://wg21.link/p3801r0">P3801R0</a><sup>[32]</sup>:</p>
+<blockquote>
+<p>They and a majority of WG21 believe that it is better to have
+something now.</p>
+</blockquote>
+<p>Ranns documented in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/n4890.pdf">N4890</a><sup>[15]</sup>
+that C++20 defects were “too large to be handled via the issues
+list.”</p>
+<p>The model says pull. The culture says ship. When the two conflict,
+the published record shows the culture winning.</p>
+<hr />
+<h2 id="what-the-model-delivers">8. What the Model Delivers</h2>
+<p>The train model provides real benefits. The published record supports
+four.</p>
+<p><strong>Schedule predictability.</strong> C++14 shipped in 2014.
+C++17 shipped in 2017. C++20 shipped in 2020. C++23 shipped in 2023.
+Four consecutive on-time releases. No previous era of C++
+standardization achieved this. The five-year model produced C++98
+(1998), then C++03 (2003, a bug-fix release), then a nine-year gap to
+C++11 (2011). The train runs on time.</p>
+<p><strong>Compiler tracking.</strong> Sutter wrote in
+2016<sup>[10]</sup>: “never before have all the major compilers tracked
+the standard so closely.” By C++17, major compilers were shipping
+conforming implementations within months of publication. By C++20,
+multiple compilers shipped partial conformance the same year. This is a
+genuine achievement of the predictable cadence.</p>
+<p><strong>Reduced pressure for small features.</strong> The train model
+works well for features that are ready. <code>std::optional</code>,
+<code>std::variant</code>, <code>std::filesystem</code>,
+<code>std::expected</code>, <code>std::print</code>,
+<code>std::mdspan</code> - these shipped without controversy, on
+schedule, across multiple releases. The three-year cadence gave authors
+a concrete target and a credible “next train” if the feature needed more
+time.</p>
+<p><strong>Early-cycle quality.</strong> Sutter wrote in
+2019<sup>[11]</sup>: “C++14 and C++17 have been our most stable releases
+ever, each about 3-4 times better on those metrics than C++98 or C++11.”
+C++14 and C++17 were the first two releases under the model. They
+carried smaller feature loads. They were stable.</p>
+<hr />
+<h2 id="what-the-model-does-not-deliver">9. What the Model Does Not
+Deliver</h2>
+<p>The published record documents five properties the model was expected
+to provide but did not.</p>
+<p><strong>Elimination of rushing pressure.</strong> The model was
+designed to eliminate “now or never”<sup>[7]</sup>. The C++26 record
+shows “noses pressed against a deadline”<sup>[30]</sup>, a task type
+forwarded after the feature freeze<sup>[32]</sup>, and a contracts
+facility contested through the NB comment phase<sup>[31]</sup>. The
+pressure changed form. It did not disappear.</p>
+<p><strong>Low-cost pulling.</strong> The model assumes that pulling a
+feature is a minor scheduling adjustment: “It can finish baking and ship
+in C++next”<sup>[9]</sup>. Contracts were pulled from C++20 and consumed
+committee bandwidth across four consecutive cycles. The social cost of
+pulling - resetting tradeoffs, rebuilding consensus, defending against
+the memory of failure - is not accounted for in the model.</p>
+<p><strong>Coherence.</strong> The Direction Group wrote: “We have no
+shared aims, no shared taste”<sup>[40]</sup>. Stroustrup warned: “We
+cannot do both and maintain quality and coherence”<sup>[39]</sup>. The
+three-year cadence does not address coherence. It addresses
+scheduling.</p>
+<p><strong>Implementation capacity.</strong> Eighteen implementers wrote
+in P3962R0<sup>[36]</sup> that “full conformance to recent standards
+remains difficult in practice” and asked the committee to “consider ways
+of slowing down the addition of features.” The model ships the standard
+on time. It does not ensure the standard can be implemented on time.</p>
+<p><strong>Quality assurance for large features.</strong> C++20 produced
+proposal-sized defects<sup>[15]</sup>. C++26 carries three contested
+features with extensive published opposition. The model’s quality
+mechanism is the safety valve: pull what is not ready. The record shows
+the valve is rarely used for large features because the social cost of
+pulling exceeds the social cost of shipping.</p>
+<hr />
+<h2 id="summary">10. Summary</h2>
 <table>
 <colgroup>
-<col style="width: 29%" />
-<col style="width: 36%" />
-<col style="width: 34%" />
-</colgroup>
-<thead>
-<tr>
-<th>Property</th>
-<th>Path A (<code>allocator_arg_t</code>)</th>
-<th>Path B (thread-local)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Allocator reaches <code>operator new</code></td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Signature pollution</td>
-<td>Every coroutine in the chain</td>
-<td>None</td>
-</tr>
-<tr>
-<td>Call-site pollution</td>
-<td>Every <code>co_await</code> forwards the allocator</td>
-<td>None</td>
-</tr>
-<tr>
-<td>Hidden state</td>
-<td>None</td>
-<td>Thread-local write-through cache</td>
-</tr>
-<tr>
-<td>Thread migration</td>
-<td>No concern</td>
-<td>Requires restore on resume</td>
-</tr>
-<tr>
-<td>Per-chain scoping</td>
-<td>Explicit in parameters</td>
-<td>Requires protocol discipline</td>
-</tr>
-<tr>
-<td>Ergonomic cost</td>
-<td>High (viral parameter threading)</td>
-<td>Low (transparent to coroutine authors)</td>
-</tr>
-</tbody>
-</table>
-<p>Path A makes the allocator visible in every signature. Path B makes
-it invisible. Path A requires every coroutine author to thread the
-allocator through every call site. Path B requires the protocol
-machinery to maintain the thread-local invariant. Both are correct. The
-tradeoff is signature pollution versus ambient state.</p>
-<h3 id="the-ergonomic-cost-of-path-a">7.1 The Ergonomic Cost of Path
-A</h3>
-<p>The table above summarizes the tradeoff. The following example makes
-it concrete. Consider a three-deep coroutine chain:
-<code>accept_loop</code> calls <code>handle_request</code> calls
-<code>parse_header</code>.</p>
-<p><strong>Path A</strong> - every signature carries the allocator,
-every call site forwards it:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span>header<span class="op">,</span> env<span class="op">&gt;</span> parse_header<span class="op">(</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> <span class="kw">auto</span> alloc<span class="op">,</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> line <span class="op">=</span> <span class="cf">co_await</span> s<span class="op">.</span>read_some<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> parse<span class="op">(</span>line<span class="op">);</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> env<span class="op">&gt;</span> handle_request<span class="op">(</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> <span class="kw">auto</span> alloc<span class="op">,</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">&amp;</span> s<span class="op">)</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    buffer buf<span class="op">;</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">,</span> buf<span class="op">);</span></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> s<span class="op">.</span>write<span class="op">(</span>make_response<span class="op">(</span>hdr<span class="op">));</span></span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> env<span class="op">&gt;</span> accept_loop<span class="op">(</span></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> <span class="kw">auto</span> alloc<span class="op">,</span></span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    acceptor<span class="op">&amp;</span> acc<span class="op">)</span></span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> s <span class="op">=</span> <span class="cf">co_await</span> acc<span class="op">.</span>accept<span class="op">();</span></span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> handle_request<span class="op">(</span></span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">);</span></span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>Path B</strong> - clean signatures, plain calls:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span>header<span class="op">&gt;</span> parse_header<span class="op">(</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">&amp;</span> s<span class="op">,</span> buffer<span class="op">&amp;</span> buf<span class="op">)</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> line <span class="op">=</span> <span class="cf">co_await</span> s<span class="op">.</span>read_some<span class="op">(</span>buf<span class="op">);</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_return</span> parse<span class="op">(</span>line<span class="op">);</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> handle_request<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">)</span></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    buffer buf<span class="op">;</span></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        s<span class="op">,</span> buf<span class="op">);</span></span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> s<span class="op">.</span>write<span class="op">(</span>make_response<span class="op">(</span>hdr<span class="op">));</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> accept_loop<span class="op">(</span>acceptor<span class="op">&amp;</span> acc<span class="op">)</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> s <span class="op">=</span> <span class="cf">co_await</span> acc<span class="op">.</span>accept<span class="op">();</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_await</span> handle_request<span class="op">(</span>s<span class="op">);</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>With Path A, the first two parameters of every coroutine have nothing
-to do with what the function does. <code>parse_header</code> parses a
-header from a socket. The allocator is infrastructure, not interface.
-Every tutorial, every example, every code review must explain the
-leading parameter pair. Forgetting <code>allocator_arg</code> at one
-call site is not a compile error - the code compiles, runs correctly,
-and silently falls back to the default allocator.</p>
-<p>With Path B, the coroutine signatures are pure domain logic. The
-allocator propagates through three coroutine frames without any
-coroutine author writing any allocator-related code.</p>
-<h3 id="compilation-model-consequences">7.2 Compilation Model
-Consequences</h3>
-<p>Path A with a generic allocator parameter (<code>auto alloc</code>)
-makes every coroutine a function template. This has consequences beyond
-ergonomics:</p>
-<ul>
-<li><strong>Separate compilation.</strong> A template coroutine must be
-visible at the point of instantiation. It cannot be compiled in one
-translation unit and called from another without exposing the full
-definition in a header.</li>
-<li><strong>Virtual functions.</strong> Templates cannot be virtual
-member functions. A coroutine that takes <code>auto alloc</code> cannot
-participate in a class hierarchy through virtual dispatch.</li>
-<li><strong>Type erasure.</strong> A template coroutine cannot be stored
-behind <code>std::function</code> or a vtable without first fixing the
-allocator type.</li>
-</ul>
-<p>Fixing the allocator type recovers separate compilation:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">alloc_t</span> <span class="op">=</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pmr::polymorphic_allocator<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">&gt;;</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> env<span class="op">&gt;</span> handle_request<span class="op">(</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> <span class="dt">alloc_t</span> alloc<span class="op">,</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">&amp;</span> s<span class="op">);</span></span></code></pre></div>
-<p>This is no longer a template. It can be separately compiled and
-virtual. But the allocator type is now hardcoded into every signature.
-Code that uses a different allocator type cannot call these coroutines
-without wrapping the allocator in a <code>polymorphic_allocator</code>
-at every call site.</p>
-<table>
-<colgroup>
-<col style="width: 31%" />
-<col style="width: 32%" />
-<col style="width: 22%" />
-<col style="width: 13%" />
-</colgroup>
-<thead>
-<tr>
-<th>Choice</th>
-<th>Separately compiled?</th>
-<th>Any allocator?</th>
-<th>Virtual?</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>auto alloc</code></td>
-<td>No</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Fixed allocator</td>
-<td>Yes</td>
-<td>PMR only</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Path B (no param)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p>Path B sidesteps the entire question. The coroutine signature has no
-allocator parameter. It is not a template for allocator reasons. It can
-be separately compiled, virtual, and type-erased. The allocator type is
-the promise type’s concern, not the function signature’s concern.</p>
-<hr />
-<h2 id="the-hybrid">8. The Hybrid</h2>
-<p>The two paths are not mutually exclusive. A conforming promise type
-can provide both, and the compiler’s overload resolution dispatches
-automatically:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">promise_type</span> <span class="op">{</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path A: allocator_arg_t in parameter list</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> Alloc<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> a<span class="op">);</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path A: member function variant</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span><span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> Alloc<span class="op">,</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>             <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">,</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        T<span class="op">&amp;,</span> <span class="bu">std::</span>allocator_arg_t<span class="op">,</span> Alloc<span class="op">&amp;</span> a<span class="op">,</span></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        Args<span class="op">&amp;&amp;...)</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> a<span class="op">);</span></span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path B: ambient state fallback</span></span>
-<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t sz<span class="op">)</span></span>
-<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> mr <span class="op">=</span></span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>            get_current_frame_allocator<span class="op">();</span></span>
-<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>mr<span class="op">)</span></span>
-<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>            mr <span class="op">=</span> <span class="bu">std::</span>pmr::new_delete_resource<span class="op">();</span></span>
-<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> allocate_frame<span class="op">(</span>sz<span class="op">,</span> mr<span class="op">);</span></span>
-<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
-<p>If the coroutine’s parameter list begins with
-<code>allocator_arg_t</code>, the first overload wins. Otherwise the
-parameterless overload wins and reads the current frame allocator from
-ambient state. The dispatch is entirely mechanical - no user
-intervention, no protocol change, no new types.</p>
-<p>The consequences:</p>
-<ul>
-<li><strong>Users who reject ambient state</strong> pass
-<code>allocator_arg_t</code> at every call site. The thread-local is
-never read. They pay the signature pollution documented in Section 7,
-but they get fully explicit control.</li>
-<li><strong>Users who want clean signatures</strong> use the IoAwaitable
-protocol as-is. The ambient state propagates the allocator
-transparently. They never touch <code>allocator_arg_t</code>.</li>
-<li><strong>Users who want both</strong> can pass
-<code>allocator_arg_t</code> at specific boundaries and let ambient
-state handle the rest of the chain.</li>
-</ul>
-<p>Both overloads live in the same promise type. A conforming promise
-mixin (<a href="https://wg21.link/p4003r1">P4003R1</a><sup>[4]</sup>
-Section 7) provides both paths. Task types that inherit from the mixin
-support both paths automatically. No ecosystem fragmentation occurs
-because the choice is per-call-site, not per-task-type.</p>
-<hr />
-<h2 id="addressing-tls-concerns">9. Addressing TLS Concerns</h2>
-<p>Thread-local storage has a well-deserved reputation for creating
-hidden coupling and brittle behavior. The concerns are familiar. This
-section examines each one as it applies to the specific case of frame
-allocator propagation.</p>
-<h3 id="platforms-without-thread-local-storage">9.1 Platforms Without
-Thread-Local Storage</h3>
-<p>The concern is that TLS excludes embedded systems, bare-metal
-targets, GPUs, and some RTOS environments. A survey of platforms reveals
-that this concern, while intuitive, defends a platform combination that
-does not exist in practice.</p>
-<p>Frame allocator customization requires three capabilities
-simultaneously: C++20 coroutines (the language feature),
-<code>&lt;memory_resource&gt;</code> (the standard PMR header,
-hosted-only<sup>[5]</sup>), and a heap worth customizing. The following
-table categorizes platforms by these capabilities:</p>
-<table style="width:100%;">
-<colgroup>
-<col style="width: 51%" />
-<col style="width: 14%" />
-<col style="width: 20%" />
-<col style="width: 8%" />
 <col style="width: 5%" />
+<col style="width: 38%" />
+<col style="width: 21%" />
+<col style="width: 19%" />
+<col style="width: 14%" />
 </colgroup>
 <thead>
 <tr>
-<th>Platform category</th>
-<th>Coroutines</th>
-<th><code>thread_local</code></th>
-<th>PMR</th>
-<th>Heap</th>
+<th>Release</th>
+<th>Major Features Shipped</th>
+<th>Pulled / Deferred</th>
+<th>Contested at Shipping</th>
+<th>Defect Load</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Desktop (Linux, Windows, macOS)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
+<td>C++14</td>
+<td>Generic lambdas, variable templates</td>
+<td></td>
+<td></td>
+<td>Low</td>
 </tr>
 <tr>
-<td>Mobile (iOS, Android)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
+<td>C++17</td>
+<td><code>std::optional</code>, <code>std::variant</code>, fold
+exprs</td>
+<td>Concepts TS (not merged)</td>
+<td></td>
+<td>Low</td>
 </tr>
 <tr>
-<td>Game consoles (Xbox, PS5)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
+<td>C++20</td>
+<td>Modules, coroutines, concepts, ranges</td>
+<td>Contracts</td>
+<td>Coroutines (NB opposed)</td>
+<td>Proposal-sized</td>
 </tr>
 <tr>
-<td>Full RTOS (QNX, Zephyr, VxWorks)</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Hosted</td>
-<td>Yes</td>
+<td>C++23</td>
+<td><code>std::expected</code>, <code>std::print</code>,
+<code>std::mdspan</code></td>
+<td>P2300, contracts</td>
+<td></td>
+<td>Moderate</td>
 </tr>
 <tr>
-<td>Lightweight RTOS (FreeRTOS, Pico)</td>
-<td>Partial</td>
-<td>No</td>
-<td>No</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Bare metal (Cortex-M, RISC-V)</td>
-<td>Partial</td>
-<td>No</td>
-<td>No</td>
-<td>Rare</td>
-</tr>
-<tr>
-<td>GPU device code (CUDA, SYCL)</td>
-<td>No</td>
-<td>No</td>
-<td>No</td>
-<td>No</td>
+<td>C++26</td>
+<td>Contracts, <code>std::execution</code>, reflection</td>
+<td>Trivial relocation (removed)</td>
+<td>Contracts, task, P2300</td>
+<td>To be determined</td>
 </tr>
 </tbody>
 </table>
-<p>Every platform in the top four rows - where all three capabilities
-are present - has <code>thread_local</code>. Every platform in the
-bottom three rows lacks at least one of the other prerequisites.</p>
-<p>Two cases deserve specific attention:</p>
-<ul>
-<li><p><strong>Raspberry Pi Pico (RP2040).</strong> Has C++20 coroutines
-(via community libraries), has <code>malloc</code>, but
-<code>thread_local</code> support remains an open pull request (targeted
-for SDK 2.3.0). However, the Pico SDK uses newlib in freestanding mode -
-<code>&lt;memory_resource&gt;</code> is not available. There is no
-<code>std::pmr::memory_resource</code> to propagate.</p></li>
-<li><p><strong>Pigweed</strong> (Google’s embedded
-framework<sup>[6]</sup>). Has C++20 coroutines via
-<code>pw::async2::Coro</code>. Uses its own <code>pw::Allocator</code>,
-not PMR. Every coroutine takes a <code>CoroContext</code> (wrapping an
-allocator) as its first parameter - Path A by design. Pigweed chose Path
-A not because TLS is unavailable, but because it operates in
-freestanding environments where PMR does not exist.</p></li>
-</ul>
-<p>The <code>&lt;memory_resource&gt;</code> header is
-hosted-only<sup>[5]</sup>. Freestanding implementations are not required
-to provide it. Platforms without TLS are overwhelmingly freestanding.
-The intersection of “has <code>&lt;memory_resource&gt;</code>” and
-“lacks <code>thread_local</code>” is empty across every platform
-surveyed.</p>
-<p>The hybrid (Section 8) addresses the theoretical case: the
-<code>allocator_arg_t</code> overload is always available. On any
-hypothetical platform without TLS, the Path B overload falls back to
-<code>std::pmr::new_delete_resource()</code> - the same behavior as not
-customizing the frame allocator at all. But no such platform has been
-identified that also provides the hosted standard library features
-needed to make frame allocator customization meaningful.</p>
-<h3 id="performance">9.2 Performance</h3>
-<p>TLS has earned a reputation for overhead in two cases: variables with
-dynamic initializers (which require a guard check on every access) and
-variables in dynamically loaded shared libraries (which may require a
-slow <code>__tls_get_addr</code> call).</p>
-<p>The frame allocator thread-local is neither. It is a zero-initialized
-pointer with no dynamic initializer and no destructor. The loader zeros
-it as part of the static TLS block at thread creation. On Linux, reading
-it is a single <code>fs:</code>-relative load - one instruction. On
-Windows, even the DLL case is a few pointer chases - single-digit
-nanoseconds. For I/O coroutines where the operation itself takes
-microseconds, the TLS access is not measurable.</p>
-<h3 id="invisible-action-at-a-distance">9.3 Invisible Action at a
-Distance</h3>
-<p>The standard objection to ambient state is that a function’s behavior
-depends on state not in its signature. This concern is valid for state
-that affects correctness. The frame allocator does not affect
-correctness.</p>
-<p>The frame allocator is a performance policy, not a correctness
-invariant. A coroutine that receives the wrong frame allocator - or no
-frame allocator at all - produces the correct result. Its frame is
-allocated from a different memory pool. The program runs. The output is
-identical. The difference is where the bytes came from.</p>
-<p>This distinguishes the frame allocator from the other two values in
-<code>io_env</code>:</p>
-<table>
-<colgroup>
-<col style="width: 18%" />
-<col style="width: 59%" />
-<col style="width: 22%" />
-</colgroup>
-<thead>
-<tr>
-<th>Context</th>
-<th>Wrong value</th>
-<th>Consequence</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Executor</td>
-<td>Coroutine runs on the wrong thread</td>
-<td>Data races, UB</td>
-</tr>
-<tr>
-<td>Stop token</td>
-<td>Cancellation does not propagate</td>
-<td>Hangs, deadlocks</td>
-</tr>
-<tr>
-<td>Frame allocator</td>
-<td>Frame allocated from a different memory pool</td>
-<td>Suboptimal allocation strategy</td>
-</tr>
-</tbody>
-</table>
-<p>A protocol violation for the frame allocator degrades to the default
-allocation strategy - the same behavior every coroutine has when no
-frame allocator is customized at all.</p>
-<h3 id="silent-failure-on-protocol-violation">9.4 Silent Failure on
-Protocol Violation</h3>
-<p>The concern is that a broken TLS chain silently delivers the wrong
-allocator. This is true. It is equally true of
-<code>allocator_arg_t</code>.</p>
-<p>With <code>allocator_arg_t</code>, the protocol violation is
-forgetting to pass the allocator at a call site:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>task<span class="op">&lt;</span><span class="dt">void</span><span class="op">&gt;</span> handle_request<span class="op">(</span>socket<span class="op">&amp;</span> s<span class="op">)</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// forgot allocator_arg here</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> hdr <span class="op">=</span> <span class="cf">co_await</span> parse_header<span class="op">(</span>s<span class="op">);</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// remembered here</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> send_response<span class="op">(</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>allocator_arg<span class="op">,</span> alloc<span class="op">,</span> s<span class="op">,</span> hdr<span class="op">);</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The code compiles. It runs. <code>parse_header</code>’s frame is
-allocated from <code>new_delete_resource()</code>. No error. Silent
-fallback.</p>
-<table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 42%" />
-<col style="width: 36%" />
-</colgroup>
-<thead>
-<tr>
-<th>Property</th>
-<th><code>allocator_arg_t</code></th>
-<th>Thread-local</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Failure mode</td>
-<td>Wrong allocator, program correct</td>
-<td>Wrong allocator, program correct</td>
-</tr>
-<tr>
-<td>Who can cause the failure</td>
-<td>Every application developer at every call site</td>
-<td>Library author writing a custom promise type</td>
-</tr>
-<tr>
-<td>Frequency of opportunity</td>
-<td>Every <code>co_await</code> in every coroutine</td>
-<td>Once per promise type implementation</td>
-</tr>
-<tr>
-<td>Prevention</td>
-<td>Programmer discipline at every call site</td>
-<td>Use the standard promise mixin</td>
-</tr>
-</tbody>
-</table>
-<p>The failure surface with <code>allocator_arg_t</code> is every call
-site in every coroutine written by every application developer. The
-failure surface with TLS is the promise type implementation - written
-once by a library author, typically by inheriting from the standard
-mixin. The silent failure objection applies to both paths. The failure
-is more likely with Path A.</p>
-<h3 id="precedent">9.5 Precedent</h3>
-<p>The concern is that standardizing TLS for frame allocators normalizes
-TLS as a general propagation mechanism, inviting TLS for executors,
-logging contexts, error handlers, and other cross-cutting concerns.</p>
-<p>The <code>operator new</code> timing gap is unique to the frame
-allocator. The executor arrives through <code>await_suspend</code>,
-after the frame exists. The stop token arrives through
-<code>await_suspend</code>. Logging contexts, error handlers, and
-container allocators can be passed as parameters or stored in
-<code>io_env</code> - none face the constraint that
-<code>operator new</code>’s fixed signature imposes on the frame
-allocator.</p>
-<p>TLS for the frame allocator does not generalize because the
-constraint does not generalize. A proposal to use TLS for executors
-would be answered: <code>await_suspend</code> delivers the executor, no
-TLS needed. The precedent is narrow and structurally bounded.</p>
-<h3 id="categorical-rejection">9.6 Categorical Rejection</h3>
-<p>Some hold that thread-local storage is categorically inappropriate
-for standard library mechanisms, regardless of the specific use case.
-This is a legitimate position. The hybrid (Section 8) provides the
-answer: users who hold this position use <code>allocator_arg_t</code>
-exclusively. The thread-local is never read.
-<code>std::pmr::get_default_resource()</code> provides a process-wide
-allocator channel through similar ambient state, adopted in C++17.</p>
+<p>The empty cells in the “Contested at Shipping” column for C++14,
+C++17, and C++23 are findings. The non-empty cells for C++20 and C++26
+are also findings.</p>
 <hr />
-<h2 id="anticipated-objections">10. Anticipated Objections</h2>
-<p><strong>Q: Return an awaitable instead of a task, and let
-<code>await_transform</code> create the frame.</strong></p>
-<p>A: This works for leaf I/O operations, which are already plain
-awaitables (Section 2). It does not work for child coroutines. A
-function that contains <code>co_await</code> is a coroutine - it has a
-frame, allocated by the call expression, before
-<code>await_transform</code> runs. The only way to avoid the frame is to
-not use a coroutine, which means hand-writing the state machine the
-compiler generates.</p>
-<p><strong>Q: A future language change could add a new delivery
-mechanism.</strong></p>
-<p>A: A language change that provides a new way to pass runtime state to
-<code>operator new</code> without putting it in the parameter list would
-be a new form of ambient state - a new instance of Path B. The two-path
-structure is a consequence of <code>operator new</code>’s fixed
-interface, not of the current set of customization points. A language
-change that alters <code>operator new</code>’s interface would be a
-different analysis.</p>
-<p><strong>Q: HALO (Heap Allocation eLision Optimization) eliminates the
-frame allocation entirely.</strong></p>
-<p>A: When HALO applies, the frame is stack-allocated and the allocator
-is irrelevant. This paper addresses the case where HALO does not apply -
-the general case for I/O coroutines, where the frame outlives the
-caller.</p>
+<h2 id="limitations">11. Limitations</h2>
+<p>This paper presents the published record. It does not claim the
+record tells the whole story.</p>
+<p>The train model’s benefits are real. Schedule predictability,
+compiler tracking, and reduced pressure for small features are genuine
+achievements documented by the model’s author and confirmed by the
+release history. This paper does not argue that the model should be
+abandoned.</p>
+<p>The contested features in C++26 may prove successful. Contracts may
+ship, stabilize, and become indispensable. <code>std::execution</code>
+may become the foundation of C++ asynchronous programming.
+<code>std::execution::task</code> may prove adequate. The opposition
+papers document concerns at a point in time. The long-term outcome is
+not yet known.</p>
+<p>The implementers’ assessment in P3962R0 reflects the perspective of
+eighteen individuals. Other implementers may disagree. The paper itself
+notes that “this is not an extensive list of topics discussed.”</p>
+<p>Simpler explanations may exist for every pattern documented here. The
+pandemic disrupted the C++23 cycle. C++20 was the first release to carry
+multiple major language features under the train model. C++26 may be an
+outlier rather than a trend. The reader should consider these
+alternatives.</p>
+<p>The conclusions are the reader’s.</p>
 <hr />
-<h2 id="acknowledgments">Acknowledgments</h2>
-<p>The author thanks Michael Hava for identifying that R0 failed to
-distinguish leaf I/O awaitables from child coroutines, prompting the
-scoping clarification in Section 2; Steve Gerbino and Mungo Gill for <a href="https://github.com/cppalliance/capy">Capy</a> and <a href="https://github.com/cppalliance/corosio">Corosio</a> implementation
-work, where the frame allocator timing constraint was first encountered
-in practice; and Klemens Morgenstern for discussions on coroutine frame
-allocation and thread-local propagation.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>The author thanks Nina Ranns and the seventeen co-authors of <a href="https://wg21.link/p3962r0">P3962R0</a><sup>[36]</sup> for
+documenting the implementers’ assessment in a public paper. The author
+thanks Joaquín M López Muñoz and Peter Dimov for their critique of <a href="https://wg21.link/p4129r1">P4129R1</a><sup>[5]</sup>, which
+informed the analytical approach used in this paper. The author thanks
+Herb Sutter for documenting the train model’s rationale and claims in <a href="https://wg21.link/p1000r2">P1000R2</a><sup>[8]</sup> through <a href="https://wg21.link/p1000r6">P1000R6</a><sup>[9]</sup> and on his
+blog, providing the baseline against which the record can be
+examined.</p>
 <hr />
 <h2 id="references">References</h2>
-<ol type="1">
-<li><p><a href="https://wg21.link/p4100r0">P4100R0</a> - “The Network
-Endeavor: Coroutine-Native I/O for C++29” (Vinnie Falco, Steve Gerbino,
-Michael Vandeberg, Mungo Gill, Mohammad Nejati, 2026).
-https://wg21.link/p4100r0</p></li>
-<li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
-Coroutine-native networking library.
-https://github.com/cppalliance/corosio</p></li>
-<li><p><a href="https://github.com/cppalliance/capy">cppalliance/capy</a> -
-Coroutine I/O primitives library.
-https://github.com/cppalliance/capy</p></li>
-<li><p><a href="https://wg21.link/p4003r1">P4003R1</a> - “Coroutines for
-I/O” (Vinnie Falco, Steve Gerbino, Mungo Gill, 2026).
-https://wg21.link/p4003r1</p></li>
-<li><p><a href="https://en.cppreference.com/w/cpp/freestanding">Freestanding and
-hosted implementations</a> - cppreference.com.
-<code>&lt;memory_resource&gt;</code> is not required for freestanding
-implementations. https://en.cppreference.com/w/cpp/freestanding</p></li>
-<li><p><a href="https://pigweed.dev/pw_async2/coroutines.html">Pigweed
-pw_async2: Coroutines</a> - Google’s embedded C++20 coroutine framework.
-Every coroutine takes a <code>CoroContext</code> (wrapping a
-<code>pw::Allocator</code>) as its first parameter.
-https://pigweed.dev/pw_async2/coroutines.html</p></li>
-</ol>
+<ul>
+<li>[1] Corosio: https://github.com/cppalliance/corosio</li>
+<li>[2] Capy: https://github.com/cppalliance/capy</li>
+<li>[3] <a href="https://wg21.link/p2469r0">P2469R0</a>: “Asio and
+Sender/Receiver.” https://wg21.link/p2469r0</li>
+<li>[4] <a href="https://wg21.link/p2300r10">P2300R10</a>:
+“<code>std::execution</code>.” Dominiak, Evtushenko, Baker, Teodorescu,
+Howes, Shoop, Garland, Niebler, Lelbach. https://wg21.link/p2300r10</li>
+<li>[5] <a href="https://wg21.link/p4129r1">P4129R1</a>: “The Dynamics
+of Voting in WG21.” Falco. https://wg21.link/p4129r1</li>
+<li>[6] <a href="https://wg21.link/p4130r0">P4130R0</a>: “The
+Convenership’s Structural Influence Over WG21.” Falco.
+https://wg21.link/p4130r0</li>
+<li>[7] N3316: “Minutes, PL22.16 Meeting No. 57, WG21 Meeting No. 52,
+15-19 August 2011 Bloomington, Indiana, USA.” Kloepper.
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2011/n3316.pdf</li>
+<li>[8] <a href="https://wg21.link/p1000r2">P1000R2</a>: “C++ IS
+schedule.” Sutter. https://wg21.link/p1000r2</li>
+<li>[9] <a href="https://wg21.link/p1000r6">P1000R6</a>: “C++ IS
+schedule.” Sutter. https://wg21.link/p1000r6</li>
+<li>[10] Sutter, H. “Trip report: Winter ISO C++ standards meeting.”
+Blog post, March 11, 2016.
+https://herbsutter.com/2016/03/11/trip-report-winter-iso-c-standards-meeting/</li>
+<li>[11] Sutter, H. “Draft FAQ: Why does the C++ standard ship every
+three years?” Blog post, July 13, 2019.
+https://herbsutter.com/2019/07/13/draft-faq-why-does-the-c-standard-ship-every-three-years/</li>
+<li>[12] <a href="https://wg21.link/p1823r0">P1823R0</a>: “Remove
+Contracts from C++20.” Josuttis, Voutilainen, Orr, Vandevoorde, Spicer,
+Di Bella. https://wg21.link/p1823r0</li>
+<li>[13] <a href="https://wg21.link/p2214r0">P2214R0</a>: “A Plan for
+C++23 Ranges.” Revzin, Hoekstra, Song. https://wg21.link/p2214r0</li>
+<li>[14] <a href="https://wg21.link/p3552r3">P3552R3</a>:
+“<code>task</code> - An Asynchronous Coroutine Task Type.” Kühl.
+https://wg21.link/p3552r3</li>
+<li>[15] N4890: “WG21 2021-05 Admin telecon minutes.” Ranns.
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/n4890.pdf</li>
+<li>[16] <a href="https://wg21.link/p2000r4">P2000R4</a>: “Direction for
+ISO C++.” Stroustrup, Hinnant, Orr, Vandevoorde, Wong.
+https://wg21.link/p2000r4</li>
+<li>[17] <a href="https://wg21.link/p2459r0">P2459R0</a>: “2022 January
+Library Evolution Poll Outcomes.” https://wg21.link/p2459r0</li>
+<li>[18] <a href="https://wg21.link/p0939r4">P0939R4</a>: “Direction for
+ISO C++.” Stroustrup, Sutter, Vandevoorde.
+https://wg21.link/p0939r4</li>
+<li>[19] <a href="https://wg21.link/p2900r10">P2900R10</a>: “Contracts
+for C++.” Berne, Doumler. https://wg21.link/p2900r10</li>
+<li>[20] <a href="https://wg21.link/p3573r0">P3573R0</a>: “Contracts
+concerns.” Stroustrup et al. https://wg21.link/p3573r0</li>
+<li>[21] <a href="https://wg21.link/p3829r0">P3829R0</a>: “Contracts do
+not belong in the language.” Chisnall, Spicer, Dos Reis, Voutilainen,
+Garcia Sanchez. https://wg21.link/p3829r0</li>
+<li>[22] <a href="https://wg21.link/p3835r0">P3835R0</a>: “Contracts
+make C++ less safe.” Spicer et al. https://wg21.link/p3835r0</li>
+<li>[23] <a href="https://wg21.link/p3851r0">P3851R0</a>: “Position on
+contracts assertion for C++26.” Garcia et
+al. https://wg21.link/p3851r0</li>
+<li>[24] <a href="https://wg21.link/p3849r1">P3849R1</a>: “Contracts
+concerns from the Swedish NB.” Achitz. https://wg21.link/p3849r1</li>
+<li>[25] <a href="https://wg21.link/p3853r0">P3853R0</a>: “Remove
+contracts, ship as TS.” Voutilainen. https://wg21.link/p3853r0</li>
+<li>[26] <a href="https://wg21.link/p3878r0">P3878R0</a>: “Contracts not
+fit for hardening.” Voutilainen, Wakely, Spicer.
+https://wg21.link/p3878r0</li>
+<li>[27] N5028: “C++26 CD Ballot Summary.” Sutter.
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/n5028.pdf</li>
+<li>[28] <a href="https://wg21.link/p3846r0">P3846R0</a>: “C++26
+Contracts, reasserted.” Doumler, Berne et
+al. https://wg21.link/p3846r0</li>
+<li>[29] <a href="https://wg21.link/p2899r1">P2899R1</a>: “Contracts for
+C++ - Rationale.” Doumler et al. Hagenberg 2025 EWG poll.
+https://wg21.link/p2899r1</li>
+<li>[30] <a href="https://wg21.link/p3608r0">P3608R0</a>: “C++26 is not
+ready.” Voutilainen. https://wg21.link/p3608r0</li>
+<li>[31] <a href="https://wg21.link/p3912r0">P3912R0</a>: “Rushing a new
+feature.” Doumler et al. https://wg21.link/p3912r0</li>
+<li>[32] <a href="https://wg21.link/p3801r0">P3801R0</a>: “Concerns
+about <code>std::execution::task</code>.” Müller.
+https://wg21.link/p3801r0</li>
+<li>[33] <a href="https://wg21.link/p3796r1">P3796R1</a>:
+“<code>std::execution::task</code> issues.” Kühl.
+https://wg21.link/p3796r1</li>
+<li>[34] Sutter, H. “Trip Report: Summer ISO C++ Standards Meeting (St
+Louis, MO, USA).” Blog post, July 2, 2024.
+https://herbsutter.com/2024/07/02/trip-report-summer-iso-c-standards-meeting-st-louis-mo-usa/</li>
+<li>[35] <a href="https://wg21.link/p3109r0">P3109R0</a>: “A plan for
+<code>std::execution</code> for C++26.” Baker, Niebler, Shoop, Radu.
+https://wg21.link/p3109r0</li>
+<li>[36] <a href="https://wg21.link/p3962r0">P3962R0</a>:
+“Implementation reality of WG21 standardization.” Ranns, Keane,
+Serebrennikov, Ballman, Sandoe, Caves, DaCamara, Dos Reis, Brito,
+Meerwald, Xu, Yaghmour, Miller, Childers, Waffl3x, Cardoso Lopes, Tong,
+Dionne. https://wg21.link/p3962r0</li>
+<li>[37] <a href="https://wg21.link/p3590r0">P3590R0</a>: “Constexpr
+Coroutines Burdens.” Vandevoorde. https://wg21.link/p3590r0</li>
+<li>[38] <a href="https://wg21.link/p1711r0">P1711R0</a>: “What to do
+about contracts?” Stroustrup. https://wg21.link/p1711r0</li>
+<li>[39] <a href="https://wg21.link/p1962r0">P1962R0</a>: “How can you
+be so certain?” Stroustrup. https://wg21.link/p1962r0</li>
+<li>[40] <a href="https://wg21.link/p2000r3">P2000R3</a>: “Direction for
+ISO C++.” Stroustrup, Hinnant, Orr, Vandevoorde, Wong.
+https://wg21.link/p2000r3</li>
+<li>[41] N4942: “WG21 2023-06 Admin telecon minutes.” Ranns.
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/n4942.pdf</li>
+</ul>
 
 </body>
 </html>

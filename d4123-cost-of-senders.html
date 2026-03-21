@@ -933,8 +933,8 @@ mailing)</h3>
 </ul>
 <hr />
 <h2 id="disclosure">1. Disclosure</h2>
-<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[4]</sup>
-and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[5]</sup>
+<p>The author developed and maintains <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[3]</sup>
+and <a href="https://github.com/cppalliance/capy">Capy</a><sup>[4]</sup>
 and believes coroutine-native I/O is the correct foundation for
 networking in C++. The author provides information, asks nothing, and
 serves at the pleasure of the chair.</p>
@@ -950,12 +950,12 @@ fix that has been proposed, discussed, or implied. The following are
 assumed to ship:</p>
 <ul>
 <li><strong>Case A (concession):</strong> I/O operations return
-awaitables, not senders. The template operation state problem (<a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[6]</sup>
+awaitables, not senders. The template operation state problem (<a href="https://isocpp.org/files/papers/P4088R0.pdf">P4088R0</a><sup>[5]</sup>
 Section 6.1) does not arise. This is the generous case.</li>
 <li><strong>Case B (stated direction):</strong> I/O operations return
 senders. LEWG polled in October 2021 that “the sender/receiver model
 (P2300) is a good basis for most asynchronous use cases, including
-networking” (<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[21]</sup>); SG4 polled
+networking” (<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[20]</sup>); SG4 polled
 at Kona (November 2023) that networking must use the sender model. Under
 Case B, every <code>co_await</code> of an I/O sender inside a
 <code>task&lt;T, IoEnv&gt;</code> goes through
@@ -1448,7 +1448,7 @@ now receive <code>tuple&lt;error_code, size_t&gt;</code> instead of
 with <code>if constexpr</code>. Partial transfer data (bytes read before
 the error) is semantically misplaced inside the error channel.
 <code>retry</code> sees the tuple and retries the whole operation; the
-byte count is lost. <a href="https://isocpp.org/files/papers/D4124R0.pdf">D4124R0</a><sup>[20]</sup>
+byte count is lost. <a href="https://isocpp.org/files/papers/P4124R0.pdf">P4124R0</a><sup>[19]</sup>
 examines these problems in detail and shows that the first three routing
 strategies fail to achieve correct I/O error handling, and that the
 fourth corrupts downstream composition, without a domain-aware
@@ -1602,7 +1602,7 @@ specification.</li>
 concessions in Section 2 are hypothetical. The gap in Section 4 would be
 larger.</p>
 <p>LEWG and SG4 have polled that networking should use the sender model
-(<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[21]</sup>). Case A
+(<a href="https://wg21.link/p2453r0">P2453R0</a><sup>[20]</sup>). Case A
 (I/O as awaitables) is therefore more generous than the stated
 direction. Case B (Section 5.7) documents the cost under the stated
 plan.</p>
@@ -1821,9 +1821,6 @@ https://wg21.link/p3552r3</p></li>
 <li><p><a href="https://github.com/bemanproject/task">bemanproject/task</a> -
 P3552R3 reference implementation.
 https://github.com/bemanproject/task</p></li>
-<li><p><a href="https://isocpp.org/files/papers/D4051R0.pdf">D4051R0</a>
-- “Steelmanning P3552R3” (Vinnie Falco, 2026).
-https://isocpp.org/files/papers/D4051R0.pdf</p></li>
 <li><p><a href="https://github.com/cppalliance/corosio">cppalliance/corosio</a> -
 Coroutine-native networking library.
 https://github.com/cppalliance/corosio</p></li>
@@ -1871,9 +1868,9 @@ https://wg21.link/p0709r4</p></li>
 <li><p><a href="https://isocpp.org/files/papers/D2583R3.pdf">D2583R3</a>
 - “Symmetric Transfer and Sender Composition” (Mungo Gill, Vinnie Falco,
 2026). https://isocpp.org/files/papers/D2583R3.pdf</p></li>
-<li><p><a href="https://isocpp.org/files/papers/D4124R0.pdf">D4124R0</a>
+<li><p><a href="https://isocpp.org/files/papers/P4124R0.pdf">P4124R0</a>
 - “Domain-Aware Combinators” (Vinnie Falco, 2026).
-https://isocpp.org/files/papers/D4124R0.pdf</p></li>
+https://isocpp.org/files/papers/P4124R0.pdf</p></li>
 <li><p><a href="https://wg21.link/p2453r0">P2453R0</a> - “Outcomes from
 the LEWG 2021-09-28 telecon” (Ben Craig, 2021).
 https://wg21.link/p2453r0</p></li>

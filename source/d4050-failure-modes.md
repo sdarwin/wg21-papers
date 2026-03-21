@@ -1,6 +1,6 @@
 ---
 title: "Failure Modes in Large-Scale Standardization"
-document: D4050R0
+document: P4050R0
 date: 2026-03-16
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
