@@ -1,5 +1,5 @@
 ---
-title: "The Missing Feedback Loop"
+title: "What Every Proposal Must Contain"
 document: P4133R0
 date: 2026-03-21
 reply-to:

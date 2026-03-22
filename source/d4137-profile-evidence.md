@@ -1,6 +1,6 @@
 ---
 title: "PAVE: Profile Analysis and Verification Evidence"
-document: D0000R0
+document: P4137R0
 date: 2026-03-15
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -9,7 +9,9 @@ audience: SG12, SG23, EWG
 
 ## Abstract
 
-[P3984R0](https://wg21.link/p3984r0)<sup>[1]</sup>, "A type-safety profile," defines two guarantees: every object is used according to its definition, and no resource is leaked. The paper describes the rules that a compiler would enforce and the constructs it would ban. It does not measure how much of a real codebase those rules can verify. The profile's own design excludes large categories of code from verification - constructors and destructors are trusted rather than verified, the concurrency profile is deferred, invalidation analysis rejects valid code with non-trivial control flow, and every abstraction implementation must be isolated as unverifiable. The committee is being asked to standardize a guarantee whose practical coverage is unknown. This paper proposes PAVE - Profile Analysis and Verification Evidence - a three-phase methodology that measures what the type-safety profile can verify on real code. Phase 1 classifies every function in a codebase against the profile's rules using AST predicates. Phase 2 applies semantic analysis to the rejected functions to distinguish true positives from false positives. Phase 3 infers annotations that expand the verifiable subset. The tools to execute all three phases exist today.
+Nobody has measured what the type-safety profile actually covers.
+
+[P3984R0](https://wg21.link/p3984r0)<sup>[1]</sup> defines the rules. It does not measure how much of a real codebase those rules can verify. This paper proposes PAVE - Profile Analysis and Verification Evidence - a three-phase methodology that answers the question. Phase 1 classifies every function against the profile's rules using AST predicates. Phase 2 distinguishes true positives from false positives. Phase 3 infers annotations that expand the verifiable subset. The tools exist today.
 
 ---
 

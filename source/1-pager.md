@@ -55,7 +55,7 @@ These papers contain all of the analysis and supporting material to deliver netw
 - [P4129R1](https://isocpp.org/files/papers/P4129R1.pdf) - The Dynamics of Voting in WG21
 - [P4130R0](https://isocpp.org/files/papers/P4130R0.pdf) - The Convenership's Structural Influence Over WG21
 - [P4131R0](https://isocpp.org/files/papers/P4131R0.pdf) - Retrospective: Effects of the WG21 Train Model
-- [P4133R0](https://isocpp.org/files/papers/P4133R0.pdf) - The Missing Feedback Loop
+- [P4133R0](https://isocpp.org/files/papers/P4133R0.pdf) - What Every Proposal Must Contain
 - [P4134R0](https://isocpp.org/files/papers/P4134R0.pdf) - A Better WG21
 
 ## Safety

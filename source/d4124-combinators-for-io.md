@@ -1,5 +1,5 @@
 ---
-title: "Domain-Aware Combinators"
+title: "Combinators and Compound Results from I/O"
 document: P4124R0
 date: 2026-03-18
 reply-to:
