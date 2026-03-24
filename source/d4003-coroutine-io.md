@@ -1,7 +1,7 @@
 ---
 title: "Coroutines for I/O"
-document: D4003R1
-date: 2026-02-22
+document: D4003R2
+date: 2026-03-24
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
   - "Steve Gerbino <steve@gerbino.co>"
@@ -18,6 +18,18 @@ We used C++20 coroutines directly for I/O - timers, sockets, DNS, TLS, HTTP - an
 ---
 
 ## Revision History
+
+### R2: March 2026 
+
+* Closed TLS spoilage gap in Section 5.4: intervening code between resume and child creation can overwrite the thread-local frame allocator. Introduced `safe_resume` save/restore protocol
+* Added non-normative note to executor concept (Section 10.3.3) requiring event loop pump sites to save and restore TLS around `.resume()` calls
+* Replaced `std::coroutine_handle<>` with `continuation` in the executor interface. The `continuation` struct embeds an intrusive list pointer, eliminating per-post heap allocation - the last steady-state allocation in the hot path
+
+### R1: March 2026 (pre-Croydon mailing)
+
+* Editorial: fixed list formatting, code line wrapping, acknowledgements
+* Expanded sequence diagram with explicit `set_environment`, `set_continuation`, and `handle.resume()` steps
+* Renamed "Boost.Http" to "Http" in body and references
 
 ### R0: March 2026 (pre-Croydon mailing)
 
@@ -348,8 +360,8 @@ public:
     executor_ref(E const& e) noexcept
         : ex_(&e), vt_(&detail::vtable_for<E>) {}
 
-    std::coroutine_handle<> dispatch(std::coroutine_handle<> h) const;
-    void post(std::coroutine_handle<> h) const;
+    std::coroutine_handle<> dispatch(continuation& c) const;
+    void post(continuation& c) const;
     execution_context& context() const noexcept;
     // ...
 };
@@ -357,7 +369,7 @@ public:
 
 The vtable contains function pointers for each executor operation - `dispatch`, `post`, `context`, work tracking, and comparison. When `executor_ref` is constructed from a typed executor, the compiler generates a vtable for that executor type. Calls through `executor_ref` incur one pointer indirection - roughly 1-2 nanoseconds <sup>[7]</sup> - which is negligible for I/O operations that take 10,000+ nanoseconds.
 
-The `dispatch` member returns a `coroutine_handle<>` for symmetric transfer: if the caller is already in the executor's context, it returns the handle directly for immediate resumption. Otherwise it posts the handle to the executor's queue and returns `noop_coroutine()`. This enables zero-overhead resumption in the common case where the coroutine is already on the right thread.
+The `dispatch` member returns a `coroutine_handle<>` for symmetric transfer: if the caller is already in the executor's context, it returns `c.h` directly for immediate resumption. Otherwise it queues the continuation via its intrusive `next_` pointer and returns `noop_coroutine()`. This enables zero-overhead resumption in the common case where the coroutine is already on the right thread.
 
 At just two pointers, `executor_ref` copies cheaply and stores naturally inside `io_env`. Launch functions preserve a copy of the user's typed _Executor_ in their own coroutine frame. The `executor_ref` holds a pointer to that stored value. As the wrapper propagates through the call chain, the original executor remains valid - it cannot go out of scope until all coroutines in the chain are destroyed.
 
@@ -469,7 +481,8 @@ void run_async( Ex ex, std::stop_token token, Task task )
 
     // Transfer ownership and start execution
     task.release();
-    ex.post( task.handle() );
+    continuation c{ task.handle() };
+    ex.post( c );
 }
 ```
 
@@ -483,12 +496,24 @@ Because launch functions are constrained on the concept rather than a concrete t
 
 **Terminology note.** We use the term _Executor_ intentionally. An executor controls how coroutines resume: `dispatch` for inline continuations via symmetric transfer, `post` for deferred execution. The concept is tailored to I/O's requirements: strand serialization, I/O completion contexts, and thread affinity. This terminology honors Christopher Kohlhoff's executor model in [Boost.Asio](https://www.boost.org/doc/libs/release/doc/html/boost_asio.html)<sup>[3]</sup>, which established the foundation for modern C++ asynchronous I/O.
 
+The executor's `dispatch` and `post` operations accept a `continuation` - a lightweight struct that pairs a `coroutine_handle<>` with an intrusive linked-list pointer:
+
+```cpp
+struct continuation
+{
+    std::coroutine_handle<> h;
+    continuation* next_ = nullptr;
+};
+```
+
+The embedded `next_` pointer allows executors to queue continuations without allocating a separate node for each posted item - eliminating the last steady-state allocation in the hot path. A `continuation` is passed by reference; the caller guarantees address stability for the duration of the queue residency. In coroutine code this invariant is satisfied automatically: I/O awaitables embed their `continuation` and are alive for the duration of the suspension.
+
 ```cpp
 template<class E>
 concept Executor =
     std::is_nothrow_copy_constructible_v<E> &&
     std::is_nothrow_move_constructible_v<E> &&
-    requires( E& e, E const& ce, E const& ce2, std::coroutine_handle<> h ) {
+    requires( E& e, E const& ce, E const& ce2, continuation c ) {
         { ce == ce2 } noexcept -> std::convertible_to<bool>;
         { ce.context() } noexcept;
         requires std::is_lvalue_reference_v<decltype(ce.context())> &&
@@ -499,8 +524,8 @@ concept Executor =
         { ce.on_work_finished() } noexcept;
 
         // Work submission
-        { ce.dispatch( h ) } -> std::same_as< std::coroutine_handle<> >;
-        { ce.post(h) };
+        { ce.dispatch( c ) } -> std::same_as< std::coroutine_handle<> >;
+        { ce.post(c) };
     };
 ```
 
@@ -518,9 +543,9 @@ This structural erasure is often lamented as overhead, but it is an opportunity.
 
 Every coroutine resumption must go through either symmetric transfer or the scheduler queue - never through an inline `resume()` or `dispatch()` that creates a frame below the resumed coroutine.
 
-`dispatch` returns a `std::coroutine_handle<>` for symmetric transfer. If the caller is already in the executor's context, `dispatch` returns the handle directly. Otherwise, the handle is posted to the scheduler queue and `std::noop_coroutine()` is returned. The caller never calls `resume()` on the handle inside `dispatch` - the returned handle is used by the caller for symmetric transfer from `await_suspend`, or called with `.resume()` at the event loop pump level.
+`dispatch` accepts a `continuation&` and returns a `std::coroutine_handle<>` for symmetric transfer. If the caller is already in the executor's context, `dispatch` returns `c.h` directly. Otherwise, the continuation is queued via its intrusive `next_` pointer and `std::noop_coroutine()` is returned. The caller never calls `resume()` on the handle inside `dispatch` - the returned handle is used by the caller for symmetric transfer from `await_suspend`, or called with `safe_resume()` at the event loop pump level (Section 5.4), which saves and restores the thread-local frame allocator around the `.resume()` call.
 
-Unlike general-purpose executors that accept templated callables, `dispatch` takes only `std::coroutine_handle<>` - this is a coroutine-only model. A coroutine handle is a simple pointer: no allocation, no type erasure overhead, no virtual dispatch.
+Unlike general-purpose executors that accept templated callables, `dispatch` and `post` accept only `continuation&` - this is a coroutine-only model. A continuation is two pointers: a coroutine handle and an intrusive list node. No allocation, no type erasure overhead, no virtual dispatch.
 
 Ordinary users writing coroutine tasks do not interact with `dispatch` and `post` directly. These operations are used by authors of coroutine machinery - `promise_type` implementations, awaitables, `await_transform` - to implement asynchronous algorithms such as `when_all`, `when_any`, `async_mutex`, channels, and similar primitives.
 
@@ -905,10 +930,48 @@ flowchart TD
 This is safe because:
 
 - TLS is only read in `operator new` - no other code path inspects the thread-local frame allocator
-- TLS is written by the currently-running coroutine before any child is created, and restored from the heap-stable `io_env` on every resume via `await_resume`
+- TLS is written by the currently-running coroutine before any child is created, and restored from the heap-stable `io_env` on every resume via `await_resume`. Executor event loops preserve this invariant by saving and restoring TLS around each `.resume()` call (see "Intervening Code and TLS Spoilage" below)
 - Thread migration is handled: when a coroutine suspends on thread A and resumes on thread B, the `await_resume` path writes the correct frame allocator into thread B's TLS before the coroutine body continues. TLS is never *read* on a thread unless the coroutine that wrote it is actively executing on that thread
 - No dangling: the coroutine that set TLS is still on the call stack when `operator new` reads it
 - Deallocation is thread-independent: `operator delete` reads the frame allocator from a pointer embedded in the frame footer, not from TLS. A frame can be destroyed on any thread
+
+#### Intervening Code and TLS Spoilage
+
+The analysis above covers the direct case: `co_await child()` is the first expression after resume. Consider instead:
+
+```cpp
+task<void> parent()
+{
+    foo();
+    co_await child();
+}
+```
+
+Between `await_resume` (which sets TLS) and `child()`'s `operator new` (which reads TLS), `foo()` executes. If `foo()` resumes a coroutine from a different chain on this thread - by pumping a dispatch queue, running nested event loop work, or calling `.resume()` on a foreign handle - that coroutine's `await_resume` overwrites TLS with its own frame allocator. When `foo()` returns and `child()` is called, `operator new` reads the wrong value.
+
+The consequence is not memory corruption. `operator delete` reads the frame allocator from the frame footer, not from TLS. A frame allocated from the wrong resource is deallocated from the correct one. The program produces correct results with the wrong allocation strategy for some frames. But a user who passes a `monotonic_buffer_resource` to `run_async` expects every frame in that chain to use it. Silent allocation from a different resource violates that expectation.
+
+The fix is a save/restore protocol at every `.resume()` call site:
+
+```cpp
+inline void
+safe_resume(std::coroutine_handle<> h) noexcept
+{
+    auto* saved = get_current_frame_allocator();
+    h.resume();
+    set_current_frame_allocator(saved);
+}
+```
+
+Every executor event loop and strand dispatch loop saves TLS before resuming a coroutine handle and restores it after the coroutine suspends and `.resume()` returns. TLS now behaves like a stack: each nested resume pushes a frame allocator; when `.resume()` returns, the previous value is restored. The cost is one pointer save and one pointer restore per `.resume()` call - two TLS accesses, negligible compared to the cost of resuming a coroutine.
+
+Two `.resume()` sites intentionally do not use `safe_resume`:
+
+1. **Symmetric transfer workarounds.** When a coroutine calls `.resume()` as a substitute for symmetric transfer (to work around compiler codegen bugs), the calling coroutine is about to suspend unconditionally. When it later resumes, `await_resume` restores TLS from the promise's stored environment. Save/restore here would add overhead on every suspension with no benefit.
+
+2. **Launch function wrappers.** `run_async`'s internal wrapper saves TLS in its constructor and restores it in its destructor, bracketing the entire task lifetime. The `.resume()` inside the wrapper occurs within this bracket.
+
+The burden falls on executor and strand authors - the same people who write promise types, `await_transform`, and `operator new` overloads. They write `safe_resume` once, and every application developer who writes a coroutine body benefits without knowing it exists.
 
 ### 5.5 Addressing TLS Concerns
 
@@ -918,7 +981,7 @@ Thread-local storage has a well-deserved reputation for creating hidden coupling
 
 TLS has earned its bad name: a global variable by another name. Functions behave differently depending on who called them last. The objection is sound in the general case.
 
-This is not the general case. The thread-local here is a **write-through cache** with exactly one purpose: deliver a `memory_resource*` to `operator new`. It is written before every coroutine invocation and read in exactly one place. The canonical value lives in `io_env`, heap-stable and owned by the launch function, repopulated on every resume. No algorithm inspects it. No behavior changes based on its contents. It controls where memory comes from, not what the program does.
+This is not the general case. The thread-local here is a **write-through cache** with exactly one purpose: deliver a `memory_resource*` to `operator new`. It is written before every coroutine invocation - by `await_resume` from the coroutine side, and preserved by `safe_resume` from the event loop side - and read in exactly one place. The canonical value lives in `io_env`, heap-stable and owned by the launch function, repopulated on every resume. No algorithm inspects it. No behavior changes based on its contents. It controls where memory comes from, not what the program does.
 
 The reason TLS is involved at all is `operator new`'s fixed signature. The frame allocator cannot arrive as a parameter without polluting every coroutine signature with `allocator_arg_t` (Section 5.2). The standard library already accepted this tradeoff: `std::pmr::get_default_resource()` is a process-wide thread-local allocator channel, adopted in C++17. Ours is the same principle, scoped per-chain instead of per-process.
 
@@ -1186,6 +1249,9 @@ namespace std {
   // [ioawait.env], struct io_env
   struct io_env;
 
+  // [ioawait.cont], struct continuation
+  struct continuation;
+
   // [ioawait.concepts], concepts
   template<class A> concept io_awaitable = see-below;
   template<class T> concept io_runnable = see-below;
@@ -1237,6 +1303,23 @@ namespace std {
 4 The `stop_token` member carries the cancellation token for the chain. I/O objects at the end of the chain observe this token to support cooperative cancellation.
 
 5 The `frame_allocator` member, when non-null, identifies the memory resource used for coroutine frame allocation in the chain. A null value indicates that no frame allocator was specified at the launch site; the implementation is free to use any allocation strategy.
+
+### 10.2a Struct `continuation` [ioawait.cont]
+
+```cpp
+namespace std {
+  struct continuation {
+    coroutine_handle<> h;
+    continuation* next_ = nullptr;
+  };
+}
+```
+
+1 The struct `continuation` is the schedulable unit in the executor interface. It pairs a coroutine handle with an intrusive linked-list pointer, allowing executors to queue continuations without per-post heap allocation.
+
+2 A `continuation` is passed to `dispatch` and `post` by reference. The caller guarantees that the `continuation` object has a stable address and remains alive for the duration of the queue residency. [ *Note:* In coroutine code, this invariant is satisfied automatically. I/O awaitables embed a `continuation` and are alive for the duration of the suspension. Combinator and trampoline state outlive the child coroutines they manage. *- end note* ]
+
+3 Both members are public. The `h` member holds the coroutine handle to resume. The `next_` member is used by executor implementations for intrusive queue linkage.
 
 ### 10.3 Concepts [ioawait.concepts]
 
@@ -1305,13 +1388,13 @@ template<class E>
 concept executor =
   is_nothrow_copy_constructible_v<E> &&
   is_nothrow_move_constructible_v<E> &&
-  requires(E& e, E const& ce, E const& ce2, coroutine_handle<> h) {
+  requires(E& e, E const& ce, E const& ce2, continuation c) {
     { ce == ce2 } noexcept -> convertible_to<bool>;
     { ce.context() } noexcept -> see-below;
     { ce.on_work_started() } noexcept;
     { ce.on_work_finished() } noexcept;
-    { ce.dispatch(h) } -> same_as<coroutine_handle<>>;
-    { ce.post(h) };
+    { ce.dispatch(c) } -> same_as<coroutine_handle<>>;
+    { ce.post(c) };
   };
 ```
 
@@ -1319,27 +1402,29 @@ concept executor =
 
 2 No comparison operator, copy operation, move operation, swap operation, or member functions `context`, `on_work_started`, and `on_work_finished` on these types shall exit via an exception.
 
-3 The executor copy constructor, comparison operators, and other member functions defined in these requirements shall not introduce data races as a result of concurrent calls to those functions from different threads. The member function `dispatch` does not resume `h` directly; the caller is responsible for using the returned handle for symmetric transfer.
+3 The executor copy constructor, comparison operators, and other member functions defined in these requirements shall not introduce data races as a result of concurrent calls to those functions from different threads. The member function `dispatch` does not resume `c.h` directly; the caller is responsible for using the returned handle for symmetric transfer.
 
 4 Let `ctx` be the execution context returned by the executor's `context()` member function. An executor becomes invalid when the first call to `ctx.shutdown()` returns. The effect of calling `on_work_started`, `on_work_finished`, `dispatch`, or `post` on an invalid executor is undefined. [ *Note:* The copy constructor, comparison operators, and `context()` member function continue to remain valid until `ctx` is destroyed. *- end note* ]
 
-5 In Table 3, `x1` and `x2` denote (possibly const) values of type `E`, `mx1` denotes an xvalue of type `E`, `h` denotes a value of type `coroutine_handle<>`, and `u` denotes an identifier.
+5 In Table 3, `x1` and `x2` denote (possibly const) values of type `E`, `mx1` denotes an xvalue of type `E`, `c` denotes an lvalue of type `continuation`, and `u` denotes an identifier.
 
 **Table 3  - executor requirements**
 
-| expression | return type | assertion/note pre/post-conditions |
-|------------|-------------|-----------------------------------|
-| `E u(x1);` | | Shall not exit via an exception. *Postconditions:* `u == x1` and `addressof(u.context()) == addressof(x1.context())`. |
-| `E u(mx1);` | | Shall not exit via an exception. *Postconditions:* `u` equals the prior value of `mx1` and `addressof(u.context())` equals the prior value of `addressof(mx1.context())`. |
-| `x1 == x2` | `bool` | *Returns:* `true` only if `x1` and `x2` can be interchanged with identical effects in any of the expressions defined in these type requirements. [ *Note:* Returning `false` does not necessarily imply that the effects are not identical. *- end note* ] `operator==` shall be reflexive, symmetric, and transitive, and shall not exit via an exception. |
-| `x1 != x2` | `bool` | Same as `!(x1 == x2)`. |
-| `x1.context()` | `execution_context&`, or `C&` where `C` is publicly derived from `execution_context` | Shall not exit via an exception. The comparison operators and member functions defined in these requirements shall not alter the reference returned by this function. |
-| `x1.on_work_started()` | `void` | Shall not exit via an exception. |
-| `x1.on_work_finished()` | `void` | Shall not exit via an exception. *Preconditions:* A preceding call `x2.on_work_started()` where `x1 == x2`. |
-| `x1.dispatch(h)` | `coroutine_handle<>` | *Returns:* A handle suitable for symmetric transfer. If the caller is already in the executor's context and inline execution is safe, returns `h` directly. Otherwise, queues `h` for later execution and returns `noop_coroutine()`. The caller must use the returned handle for symmetric transfer (e.g., return it from `await_suspend`). *Synchronization:* The invocation of `dispatch` synchronizes with the resumption of `h`. |
-| `x1.post(h)` | `void` | *Effects:* Queues `h` for later execution. The executor shall not block forward progress of the caller pending resumption of `h`. The executor shall not resume `h` before the call to `post` returns. *Synchronization:* The invocation of `post` synchronizes with the resumption of `h`. |
+| expression      | return type                                                                          | assertion/note pre/post-conditions                                                                                                                                                                                                                                                                                                                                          |
+|-----------------|--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `E u(x1);`     |                                                                                      | Shall not exit via an exception. *Postconditions:* `u == x1` and `addressof(u.context()) == addressof(x1.context())`.                                                                                                                                                                                                                                                       |
+| `E u(mx1);`    |                                                                                      | Shall not exit via an exception. *Postconditions:* `u` equals the prior value of `mx1` and `addressof(u.context())` equals the prior value of `addressof(mx1.context())`.                                                                                                                                                                                                   |
+| `x1 == x2`     | `bool`                                                                               | *Returns:* `true` only if `x1` and `x2` can be interchanged with identical effects in any of the expressions defined in these type requirements. [ *Note:* Returning `false` does not necessarily imply that the effects are not identical. *- end note* ] `operator==` shall be reflexive, symmetric, and transitive, and shall not exit via an exception.                     |
+| `x1 != x2`     | `bool`                                                                               | Same as `!(x1 == x2)`.                                                                                                                                                                                                                                                                                                                                                     |
+| `x1.context()`  | `execution_context&`, or `C&` where `C` is publicly derived from `execution_context` | Shall not exit via an exception. The comparison operators and member functions defined in these requirements shall not alter the reference returned by this function.                                                                                                                                                                                                         |
+| `x1.on_work_started()`  | `void`                                                                       | Shall not exit via an exception.                                                                                                                                                                                                                                                                                                                                            |
+| `x1.on_work_finished()` | `void`                                                                       | Shall not exit via an exception. *Preconditions:* A preceding call `x2.on_work_started()` where `x1 == x2`.                                                                                                                                                                                                                                                                |
+| `x1.dispatch(c)` | `coroutine_handle<>`                                                               | *Returns:* A handle suitable for symmetric transfer. If the caller is already in the executor's context and inline execution is safe, returns `c.h` directly. Otherwise, queues `c` for later execution via its intrusive `next_` pointer and returns `noop_coroutine()`. The caller must use the returned handle for symmetric transfer (e.g., return it from `await_suspend`). *Preconditions:* `c` has a stable address that remains valid until the continuation is dequeued and resumed. *Synchronization:* The invocation of `dispatch` synchronizes with the resumption of `c.h`. |
+| `x1.post(c)`   | `void`                                                                               | *Effects:* Queues `c` for later execution via its intrusive `next_` pointer. The executor shall not block forward progress of the caller pending resumption of `c.h`. The executor shall not resume `c.h` before the call to `post` returns. *Preconditions:* `c` has a stable address that remains valid until the continuation is dequeued and resumed. *Synchronization:* The invocation of `post` synchronizes with the resumption of `c.h`. |
 
-6 [ *Note:* Unlike the Networking TS executor requirements, this concept operates on `coroutine_handle<>` rather than arbitrary function objects. This restriction enables zero-allocation dispatch in the common case and leverages the structural type erasure that coroutines already provide. The `dispatch` operation returns a `coroutine_handle<>` to enable symmetric transfer: the caller returns the handle from `await_suspend`, avoiding stack buildup. When the executor can run inline, it returns the handle directly; otherwise it posts to a queue and returns `noop_coroutine()`. *- end note* ]
+6 [ *Note:* Unlike the Networking TS executor requirements, this concept operates on `continuation&` rather than arbitrary function objects. The `continuation` struct embeds an intrusive list pointer, enabling executors to queue work without per-post heap allocation. The `dispatch` operation returns a `coroutine_handle<>` to enable symmetric transfer: the caller returns the handle from `await_suspend`, avoiding stack buildup. When the executor can run inline, it returns `c.h` directly; otherwise it queues the continuation and returns `noop_coroutine()`. *- end note* ]
+
+7 [ *Note:* When an execution context's event loop dequeues a `coroutine_handle<>` for resumption, it should save the thread-local frame allocator before calling `h.resume()` and restore it afterward. This ensures that a resumed coroutine cannot spoil the frame allocator of the coroutine that was executing on the same thread before the event loop iteration. A convenience function `safe_resume` encapsulates this protocol (Section 5.4). Failure to save and restore does not cause memory corruption - `operator delete` reads the frame allocator from the frame footer - but can cause frames to be allocated from the wrong memory resource. *- end note* ]
 
 #### 10.3.4 Concept `ExecutionContext` [ioawait.concepts.execctx]
 
@@ -1392,8 +1477,8 @@ namespace std {
     execution_context& context() const noexcept;
     void on_work_started() const noexcept;
     void on_work_finished() const noexcept;
-    coroutine_handle<> dispatch(coroutine_handle<> h) const;
-    void post(coroutine_handle<> h) const;
+    coroutine_handle<> dispatch(continuation& c) const;
+    void post(continuation& c) const;
 
     template<executor E> E const* target() const noexcept;
     template<executor E> E* target() noexcept;
@@ -1464,24 +1549,24 @@ void on_work_finished() const noexcept;
 6 *Effects:* Equivalent to `e.on_work_finished()` where `e` is the referenced executor.
 
 ```cpp
-coroutine_handle<> dispatch(coroutine_handle<> h) const;
+coroutine_handle<> dispatch(continuation& c) const;
 ```
 
-7 *Preconditions:* `bool(*this) == true`. `h` is a valid, suspended coroutine handle.
+7 *Preconditions:* `bool(*this) == true`. `c.h` is a valid, suspended coroutine handle. `c` has a stable address that remains valid until the continuation is dequeued and resumed.
 
-8 *Effects:* Equivalent to `e.dispatch(h)` where `e` is the referenced executor.
+8 *Effects:* Equivalent to `e.dispatch(c)` where `e` is the referenced executor.
 
-9 *Synchronization:* The invocation of `dispatch` synchronizes with the resumption of `h`.
+9 *Synchronization:* The invocation of `dispatch` synchronizes with the resumption of `c.h`.
 
 ```cpp
-void post(coroutine_handle<> h) const;
+void post(continuation& c) const;
 ```
 
-10 *Preconditions:* `bool(*this) == true`. `h` is a valid, suspended coroutine handle.
+10 *Preconditions:* `bool(*this) == true`. `c.h` is a valid, suspended coroutine handle. `c` has a stable address that remains valid until the continuation is dequeued and resumed.
 
-11 *Effects:* Equivalent to `e.post(h)` where `e` is the referenced executor.
+11 *Effects:* Equivalent to `e.post(c)` where `e` is the referenced executor.
 
-12 *Synchronization:* The invocation of `post` synchronizes with the resumption of `h`.
+12 *Synchronization:* The invocation of `post` synchronizes with the resumption of `c.h`.
 
 #### 10.4.4 `executor_ref` target access [ioawait.execref.target]
 
@@ -1831,7 +1916,7 @@ task<void> cancellable_work() {
 
 3 Synchronization between asynchronous operations follows the "synchronizes with" relationship defined in [intro.multithread]:
 
-  - (3.1) A call to `executor::dispatch` or `executor::post` synchronizes with the resumption of the submitted coroutine handle.
+  - (3.1) A call to `executor::dispatch` or `executor::post` synchronizes with the resumption of the submitted continuation's coroutine handle.
   - (3.2) The suspension of a coroutine at a `co_await` expression synchronizes with the resumption of that coroutine.
   - (3.3) The completion of a child coroutine (at final suspension) synchronizes with the resumption of the parent coroutine.
 
@@ -2231,7 +2316,7 @@ This document is written in Markdown and depends on the extensions in
 [`mermaid`](https://github.com/mermaid-js/mermaid), and we would like to
 thank the authors of those extensions and associated libraries.
 
-The authors would like to thank Chris Kohlhoff for Boost.Asio and Lewis Baker for his foundational work on C++ coroutines - their contributions shaped the landscape upon which this paper builds. We also thank Peter Dimov and Mateusz Pusz for their valuable feedback, as well as Mohammad Nejati, Michael Vandeberg, and Klemens Morgenstern for their assistance with the implementation.
+The authors would like to thank Chris Kohlhoff for Boost.Asio and Lewis Baker for his foundational work on C++ coroutines - their contributions shaped the landscape upon which this paper builds. We also thank Peter Dimov and Mateusz Pusz for their valuable feedback, as well as Mohammad Nejati, Michael Vandeberg, and Klemens Morgenstern for their assistance with the implementation. We thank [TODO: reviewer names] for independently identifying the TLS spoilage gap in frame allocator propagation, which led to the `safe_resume` protocol described in Section 5.4.
 
 ---
 
