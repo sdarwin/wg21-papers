@@ -189,6 +189,18 @@ set_current_frame_allocator(std::pmr::memory_resource* mr) noexcept
 }
 
 // ============================================================
+// safe_resume — save/restore TLS frame allocator around resume
+// ============================================================
+
+inline void
+safe_resume(std::coroutine_handle<> h) noexcept
+{
+    auto* saved = get_current_frame_allocator();
+    h.resume();
+    set_current_frame_allocator(saved);
+}
+
+// ============================================================
 // IoAwaitable concept
 // ============================================================
 
@@ -570,7 +582,7 @@ struct inline_executor
 
     void post(std::coroutine_handle<> h) const
     {
-        h.resume();
+        safe_resume(h);
     }
 
     bool operator==(inline_executor const& other) const noexcept

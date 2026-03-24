@@ -1,7 +1,7 @@
 ---
 title: "Coroutines for I/O"
-document: D4003R1
-date: 2026-02-22
+document: D4003R2
+date: 2026-03-24
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
   - "Steve Gerbino <steve@gerbino.co>"
@@ -18,6 +18,17 @@ We used C++20 coroutines directly for I/O - timers, sockets, DNS, TLS, HTTP - an
 ---
 
 ## Revision History
+
+### R2: March 2026 
+
+* Closed TLS spoilage gap in Section 5.4: intervening code between resume and child creation can overwrite the thread-local frame allocator. Introduced `safe_resume` save/restore protocol
+* Added non-normative note to executor concept (Section 10.3.3) requiring event loop pump sites to save and restore TLS around `.resume()` calls
+
+### R1: March 2026 (pre-Croydon mailing)
+
+* Editorial: fixed list formatting, code line wrapping, acknowledgements
+* Expanded sequence diagram with explicit `set_environment`, `set_continuation`, and `handle.resume()` steps
+* Renamed "Boost.Http" to "Http" in body and references
 
 ### R0: March 2026 (pre-Croydon mailing)
 
@@ -518,7 +529,7 @@ This structural erasure is often lamented as overhead, but it is an opportunity.
 
 Every coroutine resumption must go through either symmetric transfer or the scheduler queue - never through an inline `resume()` or `dispatch()` that creates a frame below the resumed coroutine.
 
-`dispatch` returns a `std::coroutine_handle<>` for symmetric transfer. If the caller is already in the executor's context, `dispatch` returns the handle directly. Otherwise, the handle is posted to the scheduler queue and `std::noop_coroutine()` is returned. The caller never calls `resume()` on the handle inside `dispatch` - the returned handle is used by the caller for symmetric transfer from `await_suspend`, or called with `.resume()` at the event loop pump level.
+`dispatch` returns a `std::coroutine_handle<>` for symmetric transfer. If the caller is already in the executor's context, `dispatch` returns the handle directly. Otherwise, the handle is posted to the scheduler queue and `std::noop_coroutine()` is returned. The caller never calls `resume()` on the handle inside `dispatch` - the returned handle is used by the caller for symmetric transfer from `await_suspend`, or called with `safe_resume()` at the event loop pump level (Section 5.4), which saves and restores the thread-local frame allocator around the `.resume()` call.
 
 Unlike general-purpose executors that accept templated callables, `dispatch` takes only `std::coroutine_handle<>` - this is a coroutine-only model. A coroutine handle is a simple pointer: no allocation, no type erasure overhead, no virtual dispatch.
 
@@ -905,10 +916,48 @@ flowchart TD
 This is safe because:
 
 - TLS is only read in `operator new` - no other code path inspects the thread-local frame allocator
-- TLS is written by the currently-running coroutine before any child is created, and restored from the heap-stable `io_env` on every resume via `await_resume`
+- TLS is written by the currently-running coroutine before any child is created, and restored from the heap-stable `io_env` on every resume via `await_resume`. Executor event loops preserve this invariant by saving and restoring TLS around each `.resume()` call (see "Intervening Code and TLS Spoilage" below)
 - Thread migration is handled: when a coroutine suspends on thread A and resumes on thread B, the `await_resume` path writes the correct frame allocator into thread B's TLS before the coroutine body continues. TLS is never *read* on a thread unless the coroutine that wrote it is actively executing on that thread
 - No dangling: the coroutine that set TLS is still on the call stack when `operator new` reads it
 - Deallocation is thread-independent: `operator delete` reads the frame allocator from a pointer embedded in the frame footer, not from TLS. A frame can be destroyed on any thread
+
+#### Intervening Code and TLS Spoilage
+
+The analysis above covers the direct case: `co_await child()` is the first expression after resume. Consider instead:
+
+```cpp
+task<void> parent()
+{
+    foo();
+    co_await child();
+}
+```
+
+Between `await_resume` (which sets TLS) and `child()`'s `operator new` (which reads TLS), `foo()` executes. If `foo()` resumes a coroutine from a different chain on this thread - by pumping a dispatch queue, running nested event loop work, or calling `.resume()` on a foreign handle - that coroutine's `await_resume` overwrites TLS with its own frame allocator. When `foo()` returns and `child()` is called, `operator new` reads the wrong value.
+
+The consequence is not memory corruption. `operator delete` reads the frame allocator from the frame footer, not from TLS. A frame allocated from the wrong resource is deallocated from the correct one. The program produces correct results with the wrong allocation strategy for some frames. But a user who passes a `monotonic_buffer_resource` to `run_async` expects every frame in that chain to use it. Silent allocation from a different resource violates that expectation.
+
+The fix is a save/restore protocol at every `.resume()` call site:
+
+```cpp
+inline void
+safe_resume(std::coroutine_handle<> h) noexcept
+{
+    auto* saved = get_current_frame_allocator();
+    h.resume();
+    set_current_frame_allocator(saved);
+}
+```
+
+Every executor event loop and strand dispatch loop saves TLS before resuming a coroutine handle and restores it after the coroutine suspends and `.resume()` returns. TLS now behaves like a stack: each nested resume pushes a frame allocator; when `.resume()` returns, the previous value is restored. The cost is one pointer save and one pointer restore per `.resume()` call - two TLS accesses, negligible compared to the cost of resuming a coroutine.
+
+Two `.resume()` sites intentionally do not use `safe_resume`:
+
+1. **Symmetric transfer workarounds.** When a coroutine calls `.resume()` as a substitute for symmetric transfer (to work around compiler codegen bugs), the calling coroutine is about to suspend unconditionally. When it later resumes, `await_resume` restores TLS from the promise's stored environment. Save/restore here would add overhead on every suspension with no benefit.
+
+2. **Launch function wrappers.** `run_async`'s internal wrapper saves TLS in its constructor and restores it in its destructor, bracketing the entire task lifetime. The `.resume()` inside the wrapper occurs within this bracket.
+
+The burden falls on executor and strand authors - the same people who write promise types, `await_transform`, and `operator new` overloads. They write `safe_resume` once, and every application developer who writes a coroutine body benefits without knowing it exists.
 
 ### 5.5 Addressing TLS Concerns
 
@@ -918,7 +967,7 @@ Thread-local storage has a well-deserved reputation for creating hidden coupling
 
 TLS has earned its bad name: a global variable by another name. Functions behave differently depending on who called them last. The objection is sound in the general case.
 
-This is not the general case. The thread-local here is a **write-through cache** with exactly one purpose: deliver a `memory_resource*` to `operator new`. It is written before every coroutine invocation and read in exactly one place. The canonical value lives in `io_env`, heap-stable and owned by the launch function, repopulated on every resume. No algorithm inspects it. No behavior changes based on its contents. It controls where memory comes from, not what the program does.
+This is not the general case. The thread-local here is a **write-through cache** with exactly one purpose: deliver a `memory_resource*` to `operator new`. It is written before every coroutine invocation - by `await_resume` from the coroutine side, and preserved by `safe_resume` from the event loop side - and read in exactly one place. The canonical value lives in `io_env`, heap-stable and owned by the launch function, repopulated on every resume. No algorithm inspects it. No behavior changes based on its contents. It controls where memory comes from, not what the program does.
 
 The reason TLS is involved at all is `operator new`'s fixed signature. The frame allocator cannot arrive as a parameter without polluting every coroutine signature with `allocator_arg_t` (Section 5.2). The standard library already accepted this tradeoff: `std::pmr::get_default_resource()` is a process-wide thread-local allocator channel, adopted in C++17. Ours is the same principle, scoped per-chain instead of per-process.
 
@@ -1340,6 +1389,8 @@ concept executor =
 | `x1.post(h)` | `void` | *Effects:* Queues `h` for later execution. The executor shall not block forward progress of the caller pending resumption of `h`. The executor shall not resume `h` before the call to `post` returns. *Synchronization:* The invocation of `post` synchronizes with the resumption of `h`. |
 
 6 [ *Note:* Unlike the Networking TS executor requirements, this concept operates on `coroutine_handle<>` rather than arbitrary function objects. This restriction enables zero-allocation dispatch in the common case and leverages the structural type erasure that coroutines already provide. The `dispatch` operation returns a `coroutine_handle<>` to enable symmetric transfer: the caller returns the handle from `await_suspend`, avoiding stack buildup. When the executor can run inline, it returns the handle directly; otherwise it posts to a queue and returns `noop_coroutine()`. *- end note* ]
+
+7 [ *Note:* When an execution context's event loop dequeues a `coroutine_handle<>` for resumption, it should save the thread-local frame allocator before calling `h.resume()` and restore it afterward. This ensures that a resumed coroutine cannot spoil the frame allocator of the coroutine that was executing on the same thread before the event loop iteration. A convenience function `safe_resume` encapsulates this protocol (Section 5.4). Failure to save and restore does not cause memory corruption - `operator delete` reads the frame allocator from the frame footer - but can cause frames to be allocated from the wrong memory resource. *- end note* ]
 
 #### 10.3.4 Concept `ExecutionContext` [ioawait.concepts.execctx]
 
@@ -2231,7 +2282,7 @@ This document is written in Markdown and depends on the extensions in
 [`mermaid`](https://github.com/mermaid-js/mermaid), and we would like to
 thank the authors of those extensions and associated libraries.
 
-The authors would like to thank Chris Kohlhoff for Boost.Asio and Lewis Baker for his foundational work on C++ coroutines - their contributions shaped the landscape upon which this paper builds. We also thank Peter Dimov and Mateusz Pusz for their valuable feedback, as well as Mohammad Nejati, Michael Vandeberg, and Klemens Morgenstern for their assistance with the implementation.
+The authors would like to thank Chris Kohlhoff for Boost.Asio and Lewis Baker for his foundational work on C++ coroutines - their contributions shaped the landscape upon which this paper builds. We also thank Peter Dimov and Mateusz Pusz for their valuable feedback, as well as Mohammad Nejati, Michael Vandeberg, and Klemens Morgenstern for their assistance with the implementation. We thank [TODO: reviewer names] for independently identifying the TLS spoilage gap in frame allocator propagation, which led to the `safe_resume` protocol described in Section 5.4.
 
 ---
 
