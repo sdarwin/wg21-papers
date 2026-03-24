@@ -39,6 +39,16 @@ public:
 };
 
 // ============================================================
+// continuation — schedulable unit for executor dispatch/post
+// ============================================================
+
+struct continuation
+{
+    std::coroutine_handle<> h;
+    continuation* next_ = nullptr;
+};
+
+// ============================================================
 // Executor concept
 // ============================================================
 
@@ -46,7 +56,7 @@ template<class E>
 concept Executor =
     std::is_nothrow_copy_constructible_v<E> &&
     std::is_nothrow_move_constructible_v<E> &&
-    requires(E& e, E const& ce, E const& ce2, std::coroutine_handle<> h) {
+    requires(E& e, E const& ce, E const& ce2, continuation c) {
         { ce == ce2 } noexcept -> std::convertible_to<bool>;
         { ce.context() } noexcept;
         requires std::is_lvalue_reference_v<decltype(ce.context())> &&
@@ -55,8 +65,8 @@ concept Executor =
                 execution_context>;
         { ce.on_work_started() } noexcept;
         { ce.on_work_finished() } noexcept;
-        { ce.dispatch(h) } -> std::same_as<std::coroutine_handle<>>;
-        { ce.post(h) };
+        { ce.dispatch(c) } -> std::same_as<std::coroutine_handle<>>;
+        { ce.post(c) };
     };
 
 // ============================================================
@@ -70,8 +80,8 @@ struct executor_vtable
     execution_context& (*context)(void const*) noexcept;
     void (*on_work_started)(void const*) noexcept;
     void (*on_work_finished)(void const*) noexcept;
-    void (*post)(void const*, std::coroutine_handle<>);
-    std::coroutine_handle<> (*dispatch)(void const*, std::coroutine_handle<>);
+    void (*post)(void const*, continuation&);
+    std::coroutine_handle<> (*dispatch)(void const*, continuation&);
     bool (*equals)(void const*, void const*) noexcept;
 };
 
@@ -86,11 +96,11 @@ inline constexpr executor_vtable vtable_for = {
     [](void const* p) noexcept {
         const_cast<Ex*>(static_cast<Ex const*>(p))->on_work_finished();
     },
-    [](void const* p, std::coroutine_handle<> h) {
-        static_cast<Ex const*>(p)->post(h);
+    [](void const* p, continuation& c) {
+        static_cast<Ex const*>(p)->post(c);
     },
-    [](void const* p, std::coroutine_handle<> h) -> std::coroutine_handle<> {
-        return static_cast<Ex const*>(p)->dispatch(h);
+    [](void const* p, continuation& c) -> std::coroutine_handle<> {
+        return static_cast<Ex const*>(p)->dispatch(c);
     },
     [](void const* a, void const* b) noexcept -> bool {
         return *static_cast<Ex const*>(a) == *static_cast<Ex const*>(b);
@@ -122,8 +132,8 @@ public:
     execution_context& context() const noexcept { return vt_->context(ex_); }
     void on_work_started() const noexcept { vt_->on_work_started(ex_); }
     void on_work_finished() const noexcept { vt_->on_work_finished(ex_); }
-    std::coroutine_handle<> dispatch(std::coroutine_handle<> h) const { return vt_->dispatch(ex_, h); }
-    void post(std::coroutine_handle<> h) const { vt_->post(ex_, h); }
+    std::coroutine_handle<> dispatch(continuation& c) const { return vt_->dispatch(ex_, c); }
+    void post(continuation& c) const { vt_->post(ex_, c); }
 
     bool operator==(executor_ref const& other) const noexcept
     {
@@ -575,14 +585,14 @@ struct inline_executor
     void on_work_started() const noexcept {}
     void on_work_finished() const noexcept {}
 
-    std::coroutine_handle<> dispatch(std::coroutine_handle<> h) const
+    std::coroutine_handle<> dispatch(continuation& c) const
     {
-        return h;
+        return c.h;
     }
 
-    void post(std::coroutine_handle<> h) const
+    void post(continuation& c) const
     {
-        safe_resume(h);
+        safe_resume(c.h);
     }
 
     bool operator==(inline_executor const& other) const noexcept
