@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>D4003R2: Coroutines for I/O</title>
+  <title>D4003R1: Coroutines for I/O</title>
   <style type="text/css">
 
 @font-face {
@@ -846,7 +846,7 @@ outline: none;
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> D4003R2</p>
+  <p><strong>Document Number:</strong> D4003R1</p>
   <p><strong>Date:</strong> 2026-03-24</p>
   <p><strong>Audience:</strong> LEWG</p>
   <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a><br><strong></strong> Steve
@@ -861,8 +861,6 @@ Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a><br>
   <li><a href="#revision-history" id="toc-revision-history">Revision
   History</a>
   <ul>
-  <li><a href="#r2-march-2026" id="toc-r2-march-2026">R2: March
-  2026</a></li>
   <li><a href="#r1-march-2026-pre-croydon-mailing" id="toc-r1-march-2026-pre-croydon-mailing">R1: March 2026 (pre-Croydon
   mailing)</a></li>
   <li><a href="#r0-march-2026-pre-croydon-mailing" id="toc-r0-march-2026-pre-croydon-mailing">R0: March 2026 (pre-Croydon
@@ -873,6 +871,8 @@ Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a><br>
   <li><a href="#priorities" id="toc-priorities">Priorities</a></li>
   <li><a href="#what-matters" id="toc-what-matters">What
   Matters</a></li>
+  <li><a href="#why-standardize" id="toc-why-standardize">Why
+  Standardize</a></li>
   </ul></li>
   <li><a href="#networkings-essentials" id="toc-networkings-essentials">2. Networking’s Essentials</a>
   <ul>
@@ -932,28 +932,44 @@ Gerbino <a href="mailto:steve@gerbino.co" class="email">steve@gerbino.co</a><br>
   <li><a href="#the-io_awaitable_promise_base-mixin" id="toc-the-io_awaitable_promise_base-mixin">7. The
   <code>io_awaitable_promise_base</code> Mixin</a></li>
   <li><a href="#conclusion" id="toc-conclusion">8. Conclusion</a></li>
-  <li><a href="#suggested-straw-polls" id="toc-suggested-straw-polls">9.
-  Suggested Straw Polls</a></li>
-  <li><a href="#thoughts-on-wording" id="toc-thoughts-on-wording">10.
+  <li><a href="#evidence-framework" id="toc-evidence-framework">9.
+  Evidence Framework</a>
+  <ul>
+  <li><a href="#competing-designs" id="toc-competing-designs">9.1
+  Competing Designs</a></li>
+  <li><a href="#case-against-standardization" id="toc-case-against-standardization">9.2 Case Against
+  Standardization</a></li>
+  <li><a href="#decision-record" id="toc-decision-record">9.3 Decision
+  Record</a></li>
+  <li><a href="#domain-coverage" id="toc-domain-coverage">9.4 Domain
+  Coverage</a></li>
+  <li><a href="#post-adoption-metrics" id="toc-post-adoption-metrics">9.5 Post-Adoption Metrics</a></li>
+  <li><a href="#retrospective-commitment" id="toc-retrospective-commitment">9.6 Retrospective
+  Commitment</a></li>
+  <li><a href="#prediction-registry" id="toc-prediction-registry">9.7
+  Prediction Registry</a></li>
+  </ul></li>
+  <li><a href="#suggested-straw-polls" id="toc-suggested-straw-polls">10. Suggested Straw Polls</a></li>
+  <li><a href="#thoughts-on-wording" id="toc-thoughts-on-wording">11.
   Thoughts on Wording</a>
   <ul>
-  <li><a href="#header-io_awaitable-synopsis-ioawait.syn" id="toc-header-io_awaitable-synopsis-ioawait.syn">10.1 Header
+  <li><a href="#header-io_awaitable-synopsis-ioawait.syn" id="toc-header-io_awaitable-synopsis-ioawait.syn">11.1 Header
   <code>&lt;io_awaitable&gt;</code> synopsis [ioawait.syn]</a></li>
-  <li><a href="#struct-io_env-ioawait.env" id="toc-struct-io_env-ioawait.env">10.2 Struct <code>io_env</code>
+  <li><a href="#struct-io_env-ioawait.env" id="toc-struct-io_env-ioawait.env">11.2 Struct <code>io_env</code>
   [ioawait.env]</a></li>
-  <li><a href="#a-struct-continuation-ioawait.cont" id="toc-a-struct-continuation-ioawait.cont">10.2a Struct
+  <li><a href="#a-struct-continuation-ioawait.cont" id="toc-a-struct-continuation-ioawait.cont">11.2a Struct
   <code>continuation</code> [ioawait.cont]</a></li>
-  <li><a href="#concepts-ioawait.concepts" id="toc-concepts-ioawait.concepts">10.3 Concepts
+  <li><a href="#concepts-ioawait.concepts" id="toc-concepts-ioawait.concepts">11.3 Concepts
   [ioawait.concepts]</a></li>
-  <li><a href="#class-executor_ref-ioawait.execref" id="toc-class-executor_ref-ioawait.execref">10.4 Class
+  <li><a href="#class-executor_ref-ioawait.execref" id="toc-class-executor_ref-ioawait.execref">11.4 Class
   <code>executor_ref</code> [ioawait.execref]</a></li>
-  <li><a href="#class-execution_context-ioawait.execctx" id="toc-class-execution_context-ioawait.execctx">10.5 Class
+  <li><a href="#class-execution_context-ioawait.execctx" id="toc-class-execution_context-ioawait.execctx">11.5 Class
   <code>execution_context</code> [ioawait.execctx]</a></li>
-  <li><a href="#launch-functions-ioawait.launch" id="toc-launch-functions-ioawait.launch">10.6 Launch functions
+  <li><a href="#launch-functions-ioawait.launch" id="toc-launch-functions-ioawait.launch">11.6 Launch functions
   [ioawait.launch]</a></li>
-  <li><a href="#namespace-this_coro-ioawait.thiscoro" id="toc-namespace-this_coro-ioawait.thiscoro">10.7 Namespace
+  <li><a href="#namespace-this_coro-ioawait.thiscoro" id="toc-namespace-this_coro-ioawait.thiscoro">11.7 Namespace
   <code>this_coro</code> [ioawait.thiscoro]</a></li>
-  <li><a href="#threading-and-synchronization-ioawait.sync" id="toc-threading-and-synchronization-ioawait.sync">10.8 Threading and
+  <li><a href="#threading-and-synchronization-ioawait.sync" id="toc-threading-and-synchronization-ioawait.sync">11.8 Threading and
   synchronization [ioawait.sync]</a></li>
   </ul></li>
   <li><a href="#appendix-a-understanding-asynchronous-io" id="toc-appendix-a-understanding-asynchronous-io">Appendix A:
@@ -1004,13 +1020,27 @@ chain to the operating system API boundary where asynchronous operations
 are performed.</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
-<h3 id="r2-march-2026">R2: March 2026</h3>
+<h3 id="r1-march-2026-pre-croydon-mailing">R1: March 2026 (pre-Croydon
+mailing)</h3>
 <ul>
+<li>Added “Why Standardize” subsection to Section 1: committee record,
+tower of abstraction argument, P4133 cost/benefit analysis.</li>
+<li>Expanded implementation evidence in Section 3.</li>
+<li>Added Section 9 “Evidence Framework” addressing P4133 requirements:
+competing designs, case against standardization, decision record, domain
+coverage, post-adoption metrics, retrospective commitment, prediction
+registry.</li>
+<li>Editorial: fixed list formatting, code line wrapping,
+acknowledgements</li>
+<li>Expanded sequence diagram with explicit
+<code>set_environment</code>, <code>set_continuation</code>, and
+<code>handle.resume()</code> steps</li>
+<li>Renamed “Boost.Http” to “Http” in body and references</li>
 <li>Closed TLS spoilage gap in Section 5.4: intervening code between
 resume and child creation can overwrite the thread-local frame
 allocator. Introduced <code>safe_resume</code> save/restore
 protocol</li>
-<li>Added non-normative note to executor concept (Section 10.3.3)
+<li>Added non-normative note to executor concept (Section 11.3.3)
 requiring event loop pump sites to save and restore TLS around
 <code>.resume()</code> calls</li>
 <li>Replaced <code>std::coroutine_handle&lt;&gt;</code> with
@@ -1018,16 +1048,6 @@ requiring event loop pump sites to save and restore TLS around
 <code>continuation</code> struct embeds an intrusive list pointer,
 eliminating per-post heap allocation - the last steady-state allocation
 in the hot path</li>
-</ul>
-<h3 id="r1-march-2026-pre-croydon-mailing">R1: March 2026 (pre-Croydon
-mailing)</h3>
-<ul>
-<li>Editorial: fixed list formatting, code line wrapping,
-acknowledgements</li>
-<li>Expanded sequence diagram with explicit
-<code>set_environment</code>, <code>set_continuation</code>, and
-<code>handle.resume()</code> steps</li>
-<li>Renamed “Boost.Http” to “Http” in body and references</li>
 </ul>
 <h3 id="r0-march-2026-pre-croydon-mailing">R0: March 2026 (pre-Croydon
 mailing)</h3>
@@ -1077,6 +1097,79 @@ operation.</p></li>
 <li><p><strong>The execution context owns its I/O objects.</strong> A
 socket knows its event loop. The call site does not.</p></li>
 </ol>
+<h3 id="why-standardize">Why Standardize</h3>
+<p>Networking has been a stated committee priority for nearly a decade.
+<a href="https://wg21.link/p0592r5">P0592R0</a> (2017)<sup>[13]</sup>
+listed networking as one of four primary C++20 priorities. <a href="https://wg21.link/p0592r5">P0592R2</a><sup>[13]</sup> elevated it
+to a “must-work-on-first” item for C++23. The 2021 LEWG
+polls<sup>[14]</sup><sup>[15]</sup> found weak consensus against the
+Networking TS async model as a general-purpose basis (5 SF, 10 WF, 6 N,
+14 WA, 18 SA) and weak consensus that networking should be based on
+sender/receiver (17-11-10-4-6). <a href="https://wg21.link/p0592r5">P0592R5</a><sup>[13]</sup> dropped
+networking from C++26 priorities entirely: “The earlier
+direction/approach for Networking didn’t have consensus.” SG4 at Kona
+(November 2023) reached consensus that networking should use only a
+sender/receiver model. By 2025, SG4 declared the Networking TS “no
+longer relevant.” <a href="https://wg21.link/p3185r0">P3185R0</a><sup>[17]</sup> and <a href="https://wg21.link/p3482r0">P3482R0</a><sup>[18]</sup> proposed a
+TAPS-based direction that remains under review.</p>
+<p>The committee is not asking whether to standardize networking. It has
+answered that question repeatedly, across three standard cycles, and the
+answer is yes. The open question is how. The coroutine-native approach
+described in this paper was not among the alternatives considered at the
+time of the Kona poll.</p>
+<p>Every mature language ecosystem has a tower of networking
+abstractions. Python has Django and Flask. Go has <code>net/http</code>
+and everything built on it. Rust has tokio, hyper, and axum. JavaScript
+has Express and Next.js. These towers exist because each language has a
+standard or de facto standard networking foundation that every library
+builds upon.</p>
+<p>C++ does not have this tower - and the ecosystem has had twenty years
+to build it. <a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a><sup>[3]</sup>
+has been available since 2003. In over twenty years, the ecosystem has
+not produced a standard HTTP framework, a standard WebSocket library, or
+a web application framework. The <code>vcpkg</code> and Conan catalogs
+do not approach the depth of npm or pip for networking applications. The
+reason is not that C++ developers do not want these things. The reason
+is that there is no standard foundation to build them on. Every async
+I/O library invents its own model. An HTTP library built on one model
+cannot compose with a database library built on another. The tower
+cannot be built from incompatible foundations - and twenty years of
+evidence proves it.</p>
+<p>Networking is where the tower starts. Sockets, DNS, TLS - these are
+the base layer. On top of them you build HTTP. On top of HTTP you build
+WebSocket, REST APIs, JSON-RPC. On top of those you build web
+frameworks, application servers, microservice toolkits. Each layer
+depends on the one below. Without a standard base layer, none of the
+layers above can be standard either.</p>
+<p>The wrong foundation would be worse than none. Alternative coroutine
+task designs propagate the frame allocator through
+<code>allocator_arg_t</code> in every function signature (Section 5.2
+demonstrates the damage). If such a design were standardized, every
+public interface of every library across the C++ ecosystem would carry
+allocator parameters unrelated to the library’s purpose. That pollution
+would be permanent - standardized interfaces cannot be un-standardized.
+The <em>IoAwaitable</em> protocol solves this with thread-local
+propagation: the frame allocator is invisible to every coroutine except
+the launch site. Getting this right in the standard matters because
+getting it wrong in the standard is irreversible.</p>
+<p>Performance requires the frame allocator; ergonomics require TLS. The
+benchmarks in Section 2.3 show a 3.1x speedup over
+<code>std::allocator</code> and 1.28x over mimalloc. This performance is
+necessary for C++ to remain competitive with other language ecosystems
+for I/O workloads. But the performance is worthless if every route
+handler, every query function, every application-level coroutine must
+thread the allocator through its signature. The TLS mechanism delivers
+the performance without the ergonomic cost. Both parts - the frame
+allocator and the propagation mechanism - must be standardized
+together.</p>
+<p>The specification is small: two concepts, one struct, one type-erased
+executor, two launch functions. This is the minimum a library needs to
+participate in the ecosystem. The implementer burden is proportionate.
+The cost of continued inaction is measured in standard cycles - three so
+far, each naming networking as a priority and each failing to deliver.
+Once this vocabulary is standard, any HTTP library, any WebSocket
+library, any database driver that satisfies the protocol can compose
+with any other. The tower becomes buildable.</p>
 <hr />
 <h2 id="networkings-essentials">2. Networking’s Essentials</h2>
 <p>A socket read has <strong>one implementation per platform</strong>.
@@ -1188,8 +1281,15 @@ retrieve their bound context without suspending.</p>
 <p><a href="https://github.com/cppalliance/capy">Capy</a><sup>[5]</sup>
 implements the <em>IoAwaitable</em> protocol. <a href="https://github.com/cppalliance/corosio">Corosio</a><sup>[6]</sup>,
 built on Capy, provides sockets, timers, TLS, and DNS resolution on
-multiple platforms. Both libraries are in active use. The code examples
-in this paper are drawn from them.</p>
+multiple platforms. Both libraries are in active use and include unit
+tests covering protocol conformance, frame allocation, cancellation
+propagation, and cross-platform behavior. Corosio has been benchmarked
+on Linux (epoll, io_uring), Windows (IOCP), and macOS (kqueue). <a href="https://github.com/cppalliance/http">Http</a><sup>[8]</sup>, an
+HTTP library built on Capy, ships as a compiled library with stable ABI,
+demonstrating that the single template parameter on
+<code>task&lt;T&gt;</code> enables separate compilation in practice. All
+three libraries are open-source, buildable with CMake, and available on
+GitHub. The code examples in this paper are drawn from them.</p>
 <h3 id="ioawaitable">3.1 <em>IoAwaitable</em></h3>
 <p>The <em>IoAwaitable</em> concept propagates execution context
 <strong>forward</strong> from caller to callee at every suspension
@@ -2569,7 +2669,340 @@ solution. Standards should follow implementations, not the reverse. The
 theoretical construct, but as a distillation of patterns proven in
 practice.</p>
 <hr />
-<h2 id="suggested-straw-polls">9. Suggested Straw Polls</h2>
+<h2 id="evidence-framework">9. Evidence Framework</h2>
+<p>This section addresses the structured evidence requirements described
+in <a href="https://isocpp.org/files/papers/P4133R0.pdf">P4133R0</a>
+“What Every Proposal Must Contain”<sup>[11]</sup>.</p>
+<p>The protocol described in this paper was not designed top-down from
+theory. It was discovered bottom-up from working code. We started from
+an empty directory - an empty <code>.cpp</code> file, an empty
+<code>.hpp</code> file - with nothing inherited and no existing
+framework assumed. We added one thing at a time: a coroutine, then an
+executor, then a stop token, then a frame allocator. At each step we
+added exactly what the next use case demanded and nothing more. The
+result is the smallest abstraction from which nothing can be removed and
+still remain functional. Every design decision recorded below was forced
+by this process - not chosen from a menu of options but discovered as
+the only thing that worked. The evidence is the code itself.</p>
+<h3 id="competing-designs">9.1 Competing Designs</h3>
+<p>Four alternative approaches address the same problem space. Each has
+genuine advantages. We present each at its strongest before explaining
+why <em>IoAwaitable</em> is preferred for I/O.</p>
+<p><strong>Sender/receiver (<a href="https://wg21.link/p2300r10">P2300R10</a><sup>[12]</sup>).</strong>
+The committee-adopted framework for structured asynchronous execution.
+Its advantages are real: generality across I/O, GPU, and parallel
+workloads; a formal algebra of sender composition; strong
+structured-concurrency guarantees; and significant investment from
+NVIDIA, Meta, and Bloomberg. For domains that require DAG-shaped
+execution graphs - GPU kernel fusion, heterogeneous compute pipelines,
+complex parallel algorithms - sender/receiver provides machinery that
+<em>IoAwaitable</em> does not attempt. Where sender/receiver is weakest
+is in the I/O-specific properties that drive this paper: it requires a
+second template parameter on the task type (making separate compilation
+and ABI stability difficult), it does not define a frame allocator
+propagation mechanism, and the sender composition algebra adds
+conceptual weight that I/O coroutines - which are sequential by nature -
+do not use. <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[1]</sup> and <a href="https://wg21.link/p4014r0">P4014R0</a><sup>[2]</sup> examine this
+relationship in detail.</p>
+<p><strong>Boost.Asio completion handlers (<a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a><sup>[3]</sup>).</strong>
+The most widely deployed C++ async I/O model, with over twenty years of
+production use. Its advantages are maturity, extensive documentation,
+and a large existing codebase. It supports coroutines through completion
+tokens. The 2021 LEWG polls<sup>[15]</sup> found weak consensus against
+the Networking TS async model as a general-purpose basis (5 SF, 10 WF, 6
+N, 14 WA, 18 SA), primarily due to concerns about composability, error
+handling between work submission and continuation
+invocation<sup>[16]</sup>, and unsuitability for GPU workloads. For I/O
+specifically, the Asio model remains capable, but the completion-token
+mechanism requires each call site to specify how it will be consumed,
+and the absence of a standard frame allocator propagation mechanism
+forces either <code>allocator_arg_t</code> signature pollution or
+reliance on <code>shared_ptr</code> for lifetime management.</p>
+<p><strong>Pure coroutine libraries (cppcoro, libcoro).</strong> These
+provide coroutine task types and synchronization primitives without a
+formal protocol. Their advantage is simplicity - a task type, a
+scheduler, and nothing else. The limitation is that each library defines
+its own model. An HTTP library built on cppcoro cannot compose with a
+database driver built on libcoro. Without a shared protocol, each
+library is an island.</p>
+<p><strong>Do nothing.</strong> Leave coroutine I/O execution models to
+the ecosystem. The advantage is zero standardization cost and maximum
+freedom for library authors. The disadvantage is twenty years of
+evidence: <a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio.html">Boost.Asio</a><sup>[3]</sup>
+has been available since 2003. In that time, the ecosystem has not
+produced a standard HTTP framework, a standard WebSocket library, or a
+web application framework comparable to what other language ecosystems
+provide. Each C++ networking library builds on a different async model.
+The higher layers of the abstraction tower - the layers that application
+developers need - have not emerged because the foundation is not
+shared.</p>
+<h3 id="case-against-standardization">9.2 Case Against
+Standardization</h3>
+<p>The strongest argument against standardization: Capy, Corosio, and
+Http already exist as open-source libraries. Any project that needs
+<em>IoAwaitable</em> can depend on them directly. The protocol relies on
+thread-local storage, which may not be available or performant on all
+target platforms. The two-call launch syntax
+(<code>run_async(ex)(task())</code>) is a workaround for a language
+limitation in <code>operator new</code> timing. The design is young -
+the first implementation is months old, not years.</p>
+<p>Each point deserves a direct response.</p>
+<p><strong>“The ecosystem can deliver this.”</strong> It has not.
+Boost.Asio has been available for over twenty years. In that time, the
+C++ ecosystem has not produced the tower of abstractions that every
+other major language ecosystem enjoys. There is no Django of C++. There
+is no standard HTTP framework. The <code>vcpkg</code> and Conan catalogs
+do not approach the depth of npm or pip for networking applications. The
+reason is that every C++ networking library is an island - each builds
+on a different async model, so they cannot compose. The ecosystem cannot
+converge on a common vocabulary without standardization, because the
+entire point of a vocabulary is that everyone can depend on it being
+there. Twenty years of evidence is sufficient to conclude that the
+ecosystem alone will not produce a shared foundation.</p>
+<p><strong>“Thread-local storage is problematic.”</strong> Section 5.5
+addresses the TLS concerns directly. The thread-local here is a
+write-through cache with exactly one purpose: deliver a
+<code>memory_resource*</code> to <code>operator new</code>. It is
+written before every coroutine invocation and read in exactly one place.
+Thread migration is handled: every resume path restores TLS from the
+heap-stable <code>io_env</code> before the coroutine body continues. The
+standard library already accepted this approach:
+<code>std::pmr::get_default_resource()</code> is a process-wide
+thread-local allocator channel, adopted in C++17. For platforms without
+thread-local storage, implementations may use whatever mechanism is
+available - the interface is two free functions, not a language
+feature.</p>
+<p><strong>“The two-call syntax is a workaround.”</strong> It is. The
+syntax exists because <code>operator new</code> executes before the
+coroutine body, and no mechanism exists to inject the frame allocator
+after invocation. A future language change could eliminate the need. But
+the alternative - threading <code>allocator_arg_t</code> through every
+coroutine signature in every library across the ecosystem - is worse,
+and that damage would be permanent if standardized. The two-call syntax
+is localized to launch sites. Application-level coroutines never see
+it.</p>
+<p><strong>“The design is young.”</strong> The protocol is young. The
+patterns it captures are not. Type-erased executors, stop-token
+cancellation, and per-chain frame allocation have been refined across
+years of networking library development. The protocol is small because
+it was distilled from experience, not because it is incomplete. What
+matters is whether the protocol is correct - and three deployed
+libraries across multiple platforms provide that evidence.</p>
+<h3 id="decision-record">9.3 Decision Record</h3>
+<p>Each major design decision was forced by the bottom-up development
+process described above. This section consolidates the rationale,
+documents trade-offs, and states conditions for revisiting.</p>
+<p><strong>Two-argument
+<code>await_suspend(coroutine_handle&lt;&gt;, io_env const*)</code></strong>
+(Section 3.1). The only signature that makes protocol violations a
+compile error. A non-compliant awaitable produces a compile-time failure
+when a compliant coroutine’s <code>await_transform</code> calls the
+two-argument form. The alternative - templating on the promise type -
+compiles silently when mismatched and produces runtime errors.
+<em>Trade-off:</em> the signature is non-standard; existing awaitables
+must be adapted. <em>Revisit if:</em> the language gains a mechanism for
+statically verifying awaitable-promise compatibility without a custom
+<code>await_suspend</code> signature.</p>
+<p><strong>Thread-local frame allocator propagation</strong> (Sections
+5.2-5.5). The only mechanism that respects <code>operator new</code>
+timing without polluting coroutine signatures with
+<code>allocator_arg_t</code>. The frame allocator must be available
+before the coroutine frame exists. Standard approaches (parameter
+threading, post-construction injection) arrive too late.
+<em>Trade-off:</em> relies on thread-local storage; introduces a
+non-obvious propagation path. <em>Revisit if:</em> the language gains a
+mechanism to inject allocator context into <code>operator new</code>
+without function parameters.</p>
+<p><strong>Type-erased <code>executor_ref</code></strong> (Section 3.3).
+The only way to keep <code>task&lt;T&gt;</code> at one template
+parameter. Alternatives that preserve the executor type in the task type
+produce <code>task&lt;T, Executor&gt;</code>, which prevents separate
+compilation and ABI stability. The vtable cost is one pointer
+indirection - roughly 1-2 nanoseconds - negligible for I/O operations.
+<em>Trade-off:</em> type information is lost behind the erasure
+boundary. <em>Revisit if:</em> the overhead proves measurable relative
+to I/O latency in a validated benchmark.</p>
+<p><strong><code>io_env</code> passed by pointer</strong> (Section 3.1).
+The launch function owns the <code>io_env</code>. Every coroutine in the
+chain borrows it. Pointer semantics make this ownership model explicit
+and make accidental copies difficult. <em>Trade-off:</em> nullable
+pointer; requires documentation of lifetime invariant. <em>Revisit
+if:</em> a reference-based alternative can enforce the same ownership
+semantics without adding a nullable state.</p>
+<p><strong><code>execution_context</code> as a base class</strong>
+(Section 4.3). I/O objects need the platform reactor, not the executor.
+A socket registers with epoll, IOCP, or kqueue through the execution
+context, not through the executor. The executor is a lightweight handle;
+the context owns the reactor and its services. <em>Trade-off:</em>
+virtual <code>shutdown()</code> in the service base class; runtime
+polymorphism in the service registry. <em>Revisit if:</em> a
+compile-time service mechanism can provide the same ordered-shutdown
+guarantees.</p>
+<h3 id="domain-coverage">9.4 Domain Coverage</h3>
+<p>The <em>IoAwaitable</em> protocol has been validated in the following
+I/O domains through deployed implementations:</p>
+<table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 30%" />
+<col style="width: 46%" />
+</colgroup>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Implementation</th>
+<th>Platform coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP/UDP sockets</td>
+<td>Corosio<sup>[6]</sup></td>
+<td>Linux (epoll, io_uring), Windows (IOCP), macOS (kqueue)</td>
+</tr>
+<tr>
+<td>TLS</td>
+<td>Corosio<sup>[6]</sup></td>
+<td>All supported platforms via OpenSSL</td>
+</tr>
+<tr>
+<td>DNS resolution</td>
+<td>Corosio<sup>[6]</sup></td>
+<td>All supported platforms</td>
+</tr>
+<tr>
+<td>HTTP/1.1</td>
+<td>Http<sup>[8]</sup></td>
+<td>All supported platforms</td>
+</tr>
+<tr>
+<td>Timers</td>
+<td>Corosio<sup>[6]</sup></td>
+<td>All supported platforms</td>
+</tr>
+</tbody>
+</table>
+<p>Domains not yet validated:</p>
+<ul>
+<li><strong>Embedded/real-time</strong> - thread-local storage may be
+unavailable or expensive; bounded-memory frame allocators need
+testing</li>
+<li><strong>File I/O</strong> - completion patterns differ from socket
+I/O; the protocol should apply but has not been demonstrated</li>
+<li><strong>Database I/O</strong> - query-response patterns differ from
+byte-stream I/O</li>
+<li><strong>Game engines</strong> - custom job systems with different
+scheduling constraints</li>
+<li><strong>GPU compute</strong> - explicitly deferred to
+sender/receiver; see <a href="https://wg21.link/p4007r0">P4007R0</a><sup>[1]</sup></li>
+</ul>
+<h3 id="post-adoption-metrics">9.5 Post-Adoption Metrics</h3>
+<p>The following measurable criteria define successful adoption:</p>
+<ol type="1">
+<li><strong>Implementation breadth.</strong> At least two major standard
+library implementations (libstdc++, libc++, or MSVC STL) ship a
+conforming <em>IoAwaitable</em> implementation within two releases of
+the standard that adopts it.</li>
+<li><strong>Library adoption.</strong> At least three independently
+developed I/O libraries adopt the <em>IoAwaitable</em> protocol within
+five years of standardization.</li>
+<li><strong>Interoperability.</strong> At least one demonstrated case of
+two independently developed libraries (e.g., an HTTP library and a
+database driver) composing through the protocol without glue code.</li>
+<li><strong>Frame allocator robustness.</strong> The thread-local frame
+allocator mechanism produces correct behavior on all three major
+platforms without platform-specific workarounds.</li>
+<li><strong>Developer comprehension.</strong> Developer surveys or
+conference feedback show that the two-call launch syntax and the TLS
+propagation mechanism are understood by a majority of C++ developers who
+use coroutines for I/O.</li>
+</ol>
+<h3 id="retrospective-commitment">9.6 Retrospective Commitment</h3>
+<p>We commit to a retrospective at two standard releases or six years
+after standardization, whichever comes first. The retrospective must
+answer:</p>
+<ol type="1">
+<li>Did major implementations ship? If not, what blocked them?</li>
+<li>Did independent libraries adopt the protocol? If not, what prevented
+interoperability?</li>
+<li>Did the thread-local frame allocator mechanism prove robust across
+platforms?</li>
+<li>Did the two-call launch syntax prove acceptable to users, or did
+workarounds proliferate?</li>
+<li>Did the single template parameter on <code>task&lt;T&gt;</code>
+remain sufficient as the ecosystem grew?</li>
+<li>Did the vtable overhead of <code>executor_ref</code> remain
+negligible relative to I/O latency?</li>
+<li>What design limitations emerged in practice that were not
+anticipated?</li>
+</ol>
+<h3 id="prediction-registry">9.7 Prediction Registry</h3>
+<table>
+<colgroup>
+<col style="width: 1%" />
+<col style="width: 46%" />
+<col style="width: 45%" />
+<col style="width: 6%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Prediction</th>
+<th>Criterion</th>
+<th>Revisit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>The <em>IoAwaitable</em> protocol is sufficient for all
+byte-oriented I/O domains</td>
+<td>Implementation attempts in file I/O, database I/O, and IPC succeed
+without protocol extensions</td>
+<td>+3 years</td>
+</tr>
+<tr>
+<td>2</td>
+<td>The thread-local frame allocator achieves within 10% of benchmarked
+performance on all platforms</td>
+<td>Benchmark comparison on libstdc++, libc++, MSVC STL</td>
+<td>+2 releases</td>
+</tr>
+<tr>
+<td>3</td>
+<td>The two-call launch syntax does not become a barrier to
+adoption</td>
+<td>Developer survey shows &gt;60% find it acceptable or
+transparent</td>
+<td>+3 years</td>
+</tr>
+<tr>
+<td>4</td>
+<td>The vtable overhead of <code>executor_ref</code> remains below 5% of
+total I/O operation cost</td>
+<td>Microbenchmark on representative workloads across platforms</td>
+<td>+2 releases</td>
+</tr>
+<tr>
+<td>5</td>
+<td>The single template parameter on <code>task&lt;T&gt;</code> remains
+sufficient for the ecosystem</td>
+<td>No widely adopted library requires a second template parameter for
+environment or executor type</td>
+<td>+5 years</td>
+</tr>
+<tr>
+<td>6</td>
+<td>At least three independent libraries adopt the protocol within five
+years</td>
+<td>Count of libraries on vcpkg/Conan that declare <em>IoAwaitable</em>
+conformance</td>
+<td>+5 years</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="suggested-straw-polls">10. Suggested Straw Polls</h2>
 <p>SG4 polled at Kona (November 2023) on <a href="https://wg21.link/p2762r2">P2762R2</a> “Sender/Receiver Interface
 For Networking”<sup>[9]</sup>:</p>
 <blockquote>
@@ -2607,7 +3040,7 @@ sender/receiver model.</p>
 <p><strong>Poll 2.</strong> New research into coroutine-native I/O, not
 available at the time of the Kona poll, warrants consideration.</p>
 <hr />
-<h2 id="thoughts-on-wording">10. Thoughts on Wording</h2>
+<h2 id="thoughts-on-wording">11. Thoughts on Wording</h2>
 <blockquote>
 <p><strong>Non-normative note.</strong> The wording below is not
 primarily intended for standardization. Its purpose is to demonstrate
@@ -2615,7 +3048,7 @@ how a use-case-first design produces a lean specification footprint, and
 to show how compact an execution model becomes when designed
 specifically for I/O workloads.</p>
 </blockquote>
-<h3 id="header-io_awaitable-synopsis-ioawait.syn">10.1 Header
+<h3 id="header-io_awaitable-synopsis-ioawait.syn">11.1 Header
 <code>&lt;io_awaitable&gt;</code> synopsis [ioawait.syn]</h3>
 <div class="sourceCode" id="cb40"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> std <span class="op">{</span></span>
 <span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// [ioawait.env], struct io_env</span></span>
@@ -2652,7 +3085,7 @@ specifically for I/O workloads.</p>
 <span id="cb40-33"><a href="#cb40-33" aria-hidden="true" tabindex="-1"></a>    <span class="kw">inline</span> <span class="kw">constexpr</span> environment_tag environment<span class="op">{};</span></span>
 <span id="cb40-34"><a href="#cb40-34" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
 <span id="cb40-35"><a href="#cb40-35" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="struct-io_env-ioawait.env">10.2 Struct <code>io_env</code>
+<h3 id="struct-io_env-ioawait.env">11.2 Struct <code>io_env</code>
 [ioawait.env]</h3>
 <div class="sourceCode" id="cb41"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> std <span class="op">{</span></span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">struct</span> io_env <span class="op">{</span></span>
@@ -2677,7 +3110,7 @@ support cooperative cancellation.</p>
 the memory resource used for coroutine frame allocation in the chain. A
 null value indicates that no frame allocator was specified at the launch
 site; the implementation is free to use any allocation strategy.</p>
-<h3 id="a-struct-continuation-ioawait.cont">10.2a Struct
+<h3 id="a-struct-continuation-ioawait.cont">11.2a Struct
 <code>continuation</code> [ioawait.cont]</h3>
 <div class="sourceCode" id="cb42"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> std <span class="op">{</span></span>
 <span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">struct</span> continuation <span class="op">{</span></span>
@@ -2700,8 +3133,8 @@ they manage. <em>- end note</em> ]</p>
 <p>3 Both members are public. The <code>h</code> member holds the
 coroutine handle to resume. The <code>next_</code> member is used by
 executor implementations for intrusive queue linkage.</p>
-<h3 id="concepts-ioawait.concepts">10.3 Concepts [ioawait.concepts]</h3>
-<h4 id="concept-io_awaitable-ioawait.concepts.awaitable">10.3.1 Concept
+<h3 id="concepts-ioawait.concepts">11.3 Concepts [ioawait.concepts]</h3>
+<h4 id="concept-io_awaitable-ioawait.concepts.awaitable">11.3.1 Concept
 <code>io_awaitable</code> [ioawait.concepts.awaitable]</h4>
 <div class="sourceCode" id="cb43"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> A<span class="op">&gt;</span></span>
 <span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> io_awaitable <span class="op">=</span></span>
@@ -2754,7 +3187,7 @@ signature distinguishes <code>io_awaitable</code> types from standard
 awaitables. A compliant coroutine’s <code>await_transform</code> calls
 this signature, enabling static detection of protocol mismatches at
 compile time. <em>- end note</em> ]</p>
-<h4 id="concept-io_runnable-ioawait.concepts.runnable">10.3.2 Concept
+<h4 id="concept-io_runnable-ioawait.concepts.runnable">11.3.2 Concept
 <code>io_runnable</code> [ioawait.concepts.runnable]</h4>
 <div class="sourceCode" id="cb44"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> T<span class="op">&gt;</span></span>
 <span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> io_runnable <span class="op">=</span></span>
@@ -2847,7 +3280,7 @@ exception). <em>Remarks:</em> This expression is only required when
 lifetime directly. After <code>release()</code>, the launch function
 assumes responsibility for destroying the coroutine frame. <em>- end
 note</em> ]</p>
-<h4 id="concept-executor-ioawait.concepts.executor">10.3.3 Concept
+<h4 id="concept-executor-ioawait.concepts.executor">11.3.3 Concept
 <code>executor</code> [ioawait.concepts.executor]</h4>
 <div class="sourceCode" id="cb45"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> E<span class="op">&gt;</span></span>
 <span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> executor <span class="op">=</span></span>
@@ -3003,7 +3436,7 @@ Failure to save and restore does not cause memory corruption -
 <code>operator delete</code> reads the frame allocator from the frame
 footer - but can cause frames to be allocated from the wrong memory
 resource. <em>- end note</em> ]</p>
-<h4 id="concept-executioncontext-ioawait.concepts.execctx">10.3.4
+<h4 id="concept-executioncontext-ioawait.concepts.execctx">11.3.4
 Concept <code>ExecutionContext</code> [ioawait.concepts.execctx]</h4>
 <div class="sourceCode" id="cb46"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> X<span class="op">&gt;</span></span>
 <span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> ExecutionContext <span class="op">=</span></span>
@@ -3058,7 +3491,7 @@ context.</td>
 - work queued but not yet executed does not leak or outlive its context.
 Types such as <code>io_context</code> and <code>thread_pool</code>
 satisfy this concept. <em>- end note</em> ]</p>
-<h3 id="class-executor_ref-ioawait.execref">10.4 Class
+<h3 id="class-executor_ref-ioawait.execref">11.4 Class
 <code>executor_ref</code> [ioawait.execref]</h3>
 <p>1 Class <code>executor_ref</code> is a type-erasing wrapper for
 executors satisfying the <code>executor</code> concept. It provides a
@@ -3098,7 +3531,7 @@ is designed for efficient propagation through coroutine chains. The
 <code>dispatch</code> member returns a
 <code>coroutine_handle&lt;&gt;</code> for symmetric transfer, enabling
 zero-overhead resumption when executors match. <em>- end note</em> ]</p>
-<h4 id="executor_ref-constructors-ioawait.execref.cons">10.4.1
+<h4 id="executor_ref-constructors-ioawait.execref.cons">11.4.1
 <code>executor_ref</code> constructors [ioawait.execref.cons]</h4>
 <div class="sourceCode" id="cb48"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>executor_ref<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span></code></pre></div>
 <p>1 <em>Postconditions:</em> <code>bool(*this) == false</code>.</p>
@@ -3115,7 +3548,7 @@ destroyed or becomes invalid while <code>*this</code> or any copy of
 referenced executor is stored in a launch function’s frame or a
 coroutine promise, which outlives all <code>executor_ref</code> copies
 propagated through the coroutine chain. <em>- end note</em> ]</p>
-<h4 id="executor_ref-observers-ioawait.execref.obs">10.4.2
+<h4 id="executor_ref-observers-ioawait.execref.obs">11.4.2
 <code>executor_ref</code> observers [ioawait.execref.obs]</h4>
 <div class="sourceCode" id="cb50"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="kw">explicit</span> <span class="kw">operator</span> <span class="dt">bool</span><span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
 <p>1 <em>Returns:</em> <code>true</code> if <code>*this</code> refers to
@@ -3126,7 +3559,7 @@ an executor, otherwise <code>false</code>.</p>
 or if both are empty. If both refer to executors of the same type,
 returns the result of the underlying executor’s <code>operator==</code>.
 Otherwise <code>false</code>.</p>
-<h4 id="executor_ref-operations-ioawait.execref.ops">10.4.3
+<h4 id="executor_ref-operations-ioawait.execref.ops">11.4.3
 <code>executor_ref</code> operations [ioawait.execref.ops]</h4>
 <div class="sourceCode" id="cb52"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>execution_context<span class="op">&amp;</span> context<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
 <p>1 <em>Preconditions:</em> <code>bool(*this) == true</code>.</p>
@@ -3162,7 +3595,7 @@ dequeued and resumed.</p>
 <code>e</code> is the referenced executor.</p>
 <p>12 <em>Synchronization:</em> The invocation of <code>post</code>
 synchronizes with the resumption of <code>c.h</code>.</p>
-<h4 id="executor_ref-target-access-ioawait.execref.target">10.4.4
+<h4 id="executor_ref-target-access-ioawait.execref.target">11.4.4
 <code>executor_ref</code> target access [ioawait.execref.target]</h4>
 <div class="sourceCode" id="cb57"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>executor E<span class="op">&gt;</span> E <span class="at">const</span><span class="op">*</span> target<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span>
 <span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>executor E<span class="op">&gt;</span> E<span class="op">*</span> target<span class="op">()</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
@@ -3171,7 +3604,7 @@ executor of type <code>E</code>, a pointer to the stored executor.
 Otherwise, <code>nullptr</code>.</p>
 <p>2 <em>Remarks:</em> The returned pointer is invalidated when
 <code>*this</code> is destroyed or assigned to.</p>
-<h3 id="class-execution_context-ioawait.execctx">10.5 Class
+<h3 id="class-execution_context-ioawait.execctx">11.5 Class
 <code>execution_context</code> [ioawait.execctx]</h3>
 <p>1 Class <code>execution_context</code> is the base class for objects
 that manage a set of services and provide an execution environment for
@@ -3235,7 +3668,7 @@ present, <code>make_service</code> throws an exception.</p>
 <p>6 The functions <code>use_service</code>, <code>make_service</code>,
 <code>find_service</code>, and <code>has_service</code> do not introduce
 data races as a result of concurrent calls from different threads.</p>
-<h4 id="execution_context-constructors-and-destructor-ioawait.execctx.cons">10.5.1
+<h4 id="execution_context-constructors-and-destructor-ioawait.execctx.cons">11.5.1
 <code>execution_context</code> constructors and destructor
 [ioawait.execctx.cons]</h4>
 <div class="sourceCode" id="cb59"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>execution_context<span class="op">();</span></span></code></pre></div>
@@ -3247,7 +3680,7 @@ service types for its own use. <em>- end note</em> ]</p>
 <p>2 <em>Effects:</em> Destroys an object of class
 <code>execution_context</code>. Performs <code>shutdown()</code>
 followed by <code>destroy()</code>.</p>
-<h4 id="execution_context-protected-operations-ioawait.execctx.protected">10.5.2
+<h4 id="execution_context-protected-operations-ioawait.execctx.protected">11.5.2
 <code>execution_context</code> protected operations
 [ioawait.execctx.protected]</h4>
 <div class="sourceCode" id="cb61"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> shutdown<span class="op">()</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
@@ -3261,7 +3694,7 @@ the number of calls to <code>shutdown</code> on the
 <p>2 <em>Effects:</em> Destroys each service object in the
 <code>execution_context</code> set, and removes it from the set, in
 reverse order of addition to the set.</p>
-<h4 id="execution_context-service-access-ioawait.execctx.services">10.5.3
+<h4 id="execution_context-service-access-ioawait.execctx.services">11.5.3
 <code>execution_context</code> service access
 [ioawait.execctx.services]</h4>
 <div class="sourceCode" id="cb63"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> Service<span class="op">&gt;</span> <span class="dt">bool</span> has_service<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
@@ -3301,7 +3734,7 @@ to the <code>execution_context</code> set.</p>
 with the same key is already present in the set.</p>
 <p>10 <em>Remarks:</em> The reference returned remains valid until a
 call to <code>destroy()</code>.</p>
-<h4 id="execution_context-frame-allocator-ioawait.execctx.alloc">10.5.4
+<h4 id="execution_context-frame-allocator-ioawait.execctx.alloc">11.5.4
 <code>execution_context</code> frame allocator
 [ioawait.execctx.alloc]</h4>
 <div class="sourceCode" id="cb67"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a>pmr<span class="op">::</span>memory_resource<span class="op">*</span> get_frame_allocator<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
@@ -3338,7 +3771,7 @@ frame allocator mechanism is provided to enable performance
 optimizations such as thread-local recycling pools or bounded allocation
 strategies, but correct program behavior must not depend on a specific
 frame allocation strategy being used. <em>- end note</em> ]</p>
-<h4 id="execution_context-target-access-ioawait.execctx.target">10.5.5
+<h4 id="execution_context-target-access-ioawait.execctx.target">11.5.5
 <code>execution_context</code> target access
 [ioawait.execctx.target]</h4>
 <div class="sourceCode" id="cb70"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> X<span class="op">&gt;</span> X <span class="at">const</span><span class="op">*</span> target<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span><span class="op">;</span></span>
@@ -3349,7 +3782,7 @@ pointer to <code>*this</code> cast to <code>X</code>. Otherwise,
 <code>nullptr</code>.</p>
 <p>2 <em>Remarks:</em> <code>X</code> shall be publicly and
 unambiguously derived from <code>execution_context</code>.</p>
-<h4 id="class-execution_contextservice-ioawait.execctx.service">10.5.6
+<h4 id="class-execution_contextservice-ioawait.execctx.service">11.5.6
 Class <code>execution_context::service</code>
 [ioawait.execctx.service]</h4>
 <div class="sourceCode" id="cb71"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> execution_context<span class="op">::</span>service <span class="op">{</span></span>
@@ -3363,12 +3796,12 @@ Class <code>execution_context::service</code>
 from <code>execution_context::service</code>.</p>
 <p>2 A service’s <code>shutdown</code> member function shall destroy all
 copies of function objects that are held by the service.</p>
-<h3 id="launch-functions-ioawait.launch">10.6 Launch functions
+<h3 id="launch-functions-ioawait.launch">11.6 Launch functions
 [ioawait.launch]</h3>
 <p>1 Launch functions bootstrap execution context into a coroutine
 chain. They are the bridge between non-coroutine code and the
 <code>io_awaitable</code> protocol.</p>
-<h4 id="function-template-run_async-ioawait.launch.async">10.6.1
+<h4 id="function-template-run_async-ioawait.launch.async">11.6.1
 Function template <code>run_async</code> [ioawait.launch.async]</h4>
 <div class="sourceCode" id="cb72"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>executor Ex<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
 <span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a>  unspecified run_async<span class="op">(</span>Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">);</span></span></code></pre></div>
@@ -3435,7 +3868,7 @@ note</em> ]</p>
 <span id="cb73-10"><a href="#cb73-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span>exception_ptr ep<span class="op">)</span> <span class="op">{</span> <span class="co">/* handle error */</span> <span class="op">}</span></span>
 <span id="cb73-11"><a href="#cb73-11" aria-hidden="true" tabindex="-1"></a><span class="op">)(</span>compute_value<span class="op">());</span></span></code></pre></div>
 <p><em>- end example</em> ]</p>
-<h4 id="function-template-run-ioawait.launch.run">10.6.2 Function
+<h4 id="function-template-run-ioawait.launch.run">11.6.2 Function
 template <code>run</code> [ioawait.launch.run]</h4>
 <div class="sourceCode" id="cb74"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span>executor Ex<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
 <span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>  unspecified run<span class="op">(</span>Ex ex<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">);</span></span>
@@ -3502,7 +3935,7 @@ allocation ordering. <em>- end note</em> ]</p>
 <span id="cb75-10"><a href="#cb75-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">co_await</span> run<span class="op">(</span>source<span class="op">.</span>get_token<span class="op">())(</span>cancellable_work<span class="op">());</span></span>
 <span id="cb75-11"><a href="#cb75-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p><em>- end example</em> ]</p>
-<h3 id="namespace-this_coro-ioawait.thiscoro">10.7 Namespace
+<h3 id="namespace-this_coro-ioawait.thiscoro">11.7 Namespace
 <code>this_coro</code> [ioawait.thiscoro]</h3>
 <div class="sourceCode" id="cb76"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> <span class="bu">std::</span>this_coro <span class="op">{</span></span>
 <span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">struct</span> environment_tag <span class="op">{};</span></span>
@@ -3511,7 +3944,7 @@ allocation ordering. <em>- end note</em> ]</p>
 <p>1 The <code>this_coro</code> namespace provides tag objects that can
 be awaited within a coroutine to retrieve execution context information
 without suspension.</p>
-<h4 id="this_coroenvironment-ioawait.thiscoro.environment">10.7.1
+<h4 id="this_coroenvironment-ioawait.thiscoro.environment">11.7.1
 <code>this_coro::environment</code> [ioawait.thiscoro.environment]</h4>
 <div class="sourceCode" id="cb77"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> environment_tag environment<span class="op">;</span></span></code></pre></div>
 <p>1 When awaited via <code>co_await this_coro::environment</code>
@@ -3537,7 +3970,7 @@ called on the promise.</p>
 <span id="cb78-8"><a href="#cb78-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb78-9"><a href="#cb78-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p><em>- end example</em> ]</p>
-<h3 id="threading-and-synchronization-ioawait.sync">10.8 Threading and
+<h3 id="threading-and-synchronization-ioawait.sync">11.8 Threading and
 synchronization [ioawait.sync]</h3>
 <p>1 Unless otherwise specified, it is safe to call <code>const</code>
 member functions of the classes defined in this clause concurrently from
@@ -4042,6 +4475,30 @@ https://wg21.link/p2762r2</li>
 <li><a href="https://godbolt.org/z/Wzrb7McrT">Compiler Explorer</a> -
 Self-contained IoAwaitable demonstration.
 https://godbolt.org/z/Wzrb7McrT</li>
+<li><a href="https://isocpp.org/files/papers/P4133R0.pdf">P4133R0</a> -
+“What Every Proposal Must Contain” (Vinnie Falco, Mungo Gill).
+https://isocpp.org/files/papers/P4133R0.pdf</li>
+<li><a href="https://wg21.link/p2300r10">P2300R10</a> -
+“<code>std::execution</code>” (Dominiak, Baker, Howes, Shoop, Garland,
+Niebler, Lelbach, 2024). https://wg21.link/p2300r10</li>
+<li><a href="https://wg21.link/p0592r5">P0592R5</a> - “To boldly suggest
+an overall plan for C++26” (Ville Voutilainen, 2022).
+https://wg21.link/p0592r5</li>
+<li><a href="https://wg21.link/p2452r0">P2452R0</a> - “2021 October
+Library Evolution Polls on Networking and Executors” (Lelbach, Fracassi,
+Craig). https://wg21.link/p2452r0</li>
+<li><a href="https://wg21.link/p2453r0">P2453R0</a> - “2021 October
+Library Evolution Poll Outcomes” (Lelbach, Fracassi, Craig, 2022).
+https://wg21.link/p2453r0</li>
+<li><a href="https://wg21.link/p2464r0">P2464R0</a> - “Ruminations on
+networking and executors” (Ville Voutilainen, 2021).
+https://wg21.link/p2464r0</li>
+<li><a href="https://wg21.link/p3185r0">P3185R0</a> - “A proposed
+direction for C++ Standard Networking based on IETF TAPS” (Thomas
+Rodgers, 2024). https://wg21.link/p3185r0</li>
+<li><a href="https://wg21.link/p3482r0">P3482R0</a> - “Design for C++
+networking based on IETF TAPS” (Thomas Rodgers, Dietmar Kühl, 2024).
+https://wg21.link/p3482r0</li>
 </ol>
 
 </body>
