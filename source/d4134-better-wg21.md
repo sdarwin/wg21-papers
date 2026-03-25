@@ -11,7 +11,7 @@ audience: WG21
 
 Five papers examined five facets of the same system. None of them broke it. All of them documented it.
 
-[P4050R0](https://wg21.link/p4050r0)<sup>[1]</sup> extracted fourteen failure modes from the executor and networking arc and proposed proportional deliberation. [P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup> surveyed the published poll record and documented six observable patterns in WG21 voting. [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> traced the structural powers of the convenership across a twenty-two-year tenure. [P4131R0](https://wg21.link/p4131r0)<sup>[4]</sup> tested the train model's claims against the published record for each release from C++14 through C++26. [P4133R0](https://wg21.link/p4133r0)<sup>[5]</sup> defined what a healthy feedback loop would contain and found ten of twelve elements absent. This paper shows how those five facets interlock into a single reinforcing system and presents nine directions for reform. Each direction is a suggestion. The committee is sovereign.
+[P4050R0](https://wg21.link/p4050r0)<sup>[1]</sup> extracted fourteen failure modes from the executor and networking arc and proposed proportional deliberation. [P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup> surveyed the published poll record and documented six observable patterns in WG21 voting. [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> documented the structural powers of the convenership and the institutional wisdom of senior committee members on how those powers operate in practice. [P4131R0](https://wg21.link/p4131r0)<sup>[4]</sup> tested the train model's claims against the published record for each release from C++14 through C++26. [P4133R0](https://wg21.link/p4133r0)<sup>[5]</sup> defined what a healthy feedback loop would contain and found ten of twelve elements absent. This paper shows how those five facets interlock into a single reinforcing system and presents nine directions for reform. Each direction is a suggestion. The committee is sovereign.
 
 ---
 
@@ -49,9 +49,9 @@ The structural property: WG21 has no proportional-deliberation requirement. A de
 
 The structural property: the poll result is a function of three inputs the chair controls - the question asked, the interpretation of the answer, and the scheduling that determines who is in the room - in addition to the votes themselves.
 
-### 2.3 The Convenership (P4130R0)
+### 2.3 Appointment Is Policy (P4130R0)
 
-[P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> traced the documented powers of the WG21 convenership as exercised from 2002 through 2025: appointment of all subgroup chairs, creation and disbandment of study groups, control of plenary, and the meeting schedule. It documented the interlocking board memberships between the Standard C++ Foundation, the Boost Foundation, and the WG21 Direction Group, and the corporate affiliations of appointed chairs.
+[P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> documented the structural powers of the WG21 convenership - appointment of all subgroup chairs, creation and disbandment of study groups, control of plenary, and the meeting schedule - and presented on-camera testimony from senior committee members describing how those powers operate in practice. It presented the 2026 convenership transition as an opportunity for visible fairness, and identified five directions the new convener can take using powers the role already holds.
 
 The structural property: the convener appoints every chair. The chairs control every schedule. The schedule determines what ships. No open competition exists for any of these positions.
 
@@ -79,9 +79,9 @@ Taken together, they describe a system.
 
 The five facets connect into a single cycle:
 
-1. The convener appoints all chairs ([P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Section 2). No open competition. No term limits. Chairs serve until they choose to stop.
+1. The convener appoints all chairs ([P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Section 3). No open competition. No term limits. Chairs serve until they choose to stop.
 
-2. The chairs control scheduling and poll wording ([P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup> Section 2.2; [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Section 11.4). Scheduling determines who is in the room. Poll wording shapes the vote distribution. Different framings of the same question produce different outcomes.
+2. The chairs control scheduling and poll wording ([P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup> Section 2.2; [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Section 4.2). Scheduling determines who is in the room. Poll wording shapes the vote distribution. Different framings of the same question produce different outcomes.
 
 3. Scheduling determines what reaches the train ([P4131R0](https://wg21.link/p4131r0)<sup>[4]</sup> Section 7.1). The three-year cadence creates real urgency. Features that miss the deadline wait three years. The pressure to ship is structural.
 
@@ -204,7 +204,7 @@ Apply the same standard of evidence to the incumbent and the challenger. [P4133R
 Replace appointment-without-competition with a structured selection process.
 
 - **What it changes.** Subgroup chairs and study group chairs are selected through a process that includes: a public call for candidates, a statement of qualifications from each candidate, and a selection mechanism (appointment by the convener from the candidate pool, or election by the subgroup). Term limits ensure rotation. The convener retains the appointment power but exercises it from a candidate pool rather than by sole discretion.
-- **Failure modes addressed.** The structural concentration documented in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Sections 2-5, 10-11.
+- **Failure modes addressed.** The structural concentration documented in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Sections 3-6.
 - **What it preserves.** The convener's authority. The chair's powers within the subgroup. The volunteer structure.
 - **What it costs.** A selection process that runs once per term. Administrative overhead measured in hours, not days.
 
@@ -213,7 +213,7 @@ Replace appointment-without-competition with a structured selection process.
 Separate the convenership from foundation leadership and active paper authorship.
 
 - **What it changes.** The convener does not simultaneously serve as chairman of the Standard C++ Foundation or as an active paper author on proposals under committee consideration. The separation is a norm, not a rule - the committee establishes the expectation and the convener honors it.
-- **Failure modes addressed.** The interlocking roles documented in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Sections 3-8.
+- **Failure modes addressed.** The role concentration documented in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup> Sections 3-6.
 - **What it preserves.** The convener's formal powers. The Foundation's mission. The individual's right to participate.
 - **What it costs.** The convener forgoes two roles. The Foundation elects a different chairman. The cost falls on one person's portfolio, not on the committee's structure.
 
@@ -240,8 +240,8 @@ Each direction addresses specific failure modes. The following table maps the ni
 | D         | A4, E2                                | 5 (post-adoption), 6 (retrospective), 9 (registry)  |
 | E         | A1, C2                                | 2 (implementation)                                   |
 | F         | A4, E2                                | 10 (symmetric evidence bar)                          |
-| G         | (P4130 structural concentration)      | (governance, not in D4132 scorecard)                 |
-| H         | (P4130 interlocking roles)            | (governance, not in D4132 scorecard)                 |
+| G         | (P4130 structural patterns)           | (governance, not in D4132 scorecard)                 |
+| H         | (P4130 structural patterns)           | (governance, not in D4132 scorecard)                 |
 | I         | (P4131 implementation gap)            | 12 (outcome tracking)                                |
 
 No single direction addresses every failure mode. The directions are designed to compose. A committee that adopts A, B, C, and D has addressed fifteen of seventeen D4050 checklist items and ten of twelve D4132 scorecard items. A committee that adopts all nine has addressed every documented failure mode.
@@ -282,7 +282,7 @@ The conclusions are the reader's.
 
 ## Acknowledgements
 
-The author thanks Joaqu&iacute;n M L&oacute;pez Mu&ntilde;oz and Peter Dimov for their critique of [P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup>, which forced the removal of theoretical frameworks that did not survive peer review and produced a stronger paper. The author thanks Nina Ranns and the seventeen co-authors of [P3962R0](https://wg21.link/p3962r0)<sup>[10]</sup> for documenting the implementers' assessment in a public paper - the most important single exhibit in the companion papers. The author thanks Jens Maurer, John Spicer, and Daisy Hollman for their candor on camera in the Boost documentary interviews cited in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup>. The author thanks Herb Sutter for documenting the train model's rationale and claims in [P1000R2](https://wg21.link/p1000r2)<sup>[19]</sup> through [P1000R6](https://wg21.link/p1000r6)<sup>[20]</sup>, providing the baseline against which the record can be examined. The author thanks Steve Gerbino for feedback on the directions.
+The author thanks Joaqu&iacute;n M L&oacute;pez Mu&ntilde;oz and Peter Dimov for their critique of [P4129R1](https://wg21.link/p4129r1)<sup>[2]</sup>, which forced the removal of theoretical frameworks that did not survive peer review and produced a stronger paper. The author thanks Nina Ranns and the seventeen co-authors of [P3962R0](https://wg21.link/p3962r0)<sup>[10]</sup> for documenting the implementers' assessment in a public paper - the most important single exhibit in the companion papers. The author thanks Jens Maurer and John Spicer for their candor on camera in the Boost documentary interviews cited in [P4130R0](https://wg21.link/p4130r0)<sup>[3]</sup>, and Daisy Hollman for her participation in the same interviews. The author thanks Herb Sutter for documenting the train model's rationale and claims in [P1000R2](https://wg21.link/p1000r2)<sup>[19]</sup> through [P1000R6](https://wg21.link/p1000r6)<sup>[20]</sup>, providing the baseline against which the record can be examined. The author thanks Steve Gerbino for feedback on the directions.
 
 ---
 
@@ -290,7 +290,7 @@ The author thanks Joaqu&iacute;n M L&oacute;pez Mu&ntilde;oz and Peter Dimov for
 
 - [1] [P4050R0](https://wg21.link/p4050r0): "Failure Modes in Large-Scale Standardization." Falco. https://wg21.link/p4050r0
 - [2] [P4129R1](https://wg21.link/p4129r1): "The Dynamics of Voting in WG21." Falco. https://wg21.link/p4129r1
-- [3] [P4130R0](https://wg21.link/p4130r0): "The Convenership's Structural Influence Over WG21." Falco. https://wg21.link/p4130r0
+- [3] [P4130R0](https://wg21.link/p4130r0): "Appointment Is Policy." Falco. https://wg21.link/p4130r0
 - [4] [P4131R0](https://wg21.link/p4131r0): "Retrospective: Effects of the WG21 Train Model." Falco. https://wg21.link/p4131r0
 - [5] [P4133R0](https://wg21.link/p4133r0): "The Missing Feedback Loop." Falco. https://wg21.link/p4133r0
 - [6] Corosio: https://github.com/cppalliance/corosio
