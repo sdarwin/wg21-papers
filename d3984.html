@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>D4035R0: The Need for Escape Hatches</title>
+  <title>P3984R0: A type-safety profile</title>
   <style type="text/css">
 
 @font-face {
@@ -842,14 +842,14 @@ outline: none;
   <div class="header-text">WG21 Proposal</div>
 </header>
 
-<h1>The Need for Escape Hatches</h1>
+<h1>A type-safety profile</h1>
 
 <!-- Document Metadata -->
 <div class="document-info">
-  <p><strong>Document Number:</strong> D4035R0</p>
-  <p><strong>Date:</strong> 2026-02-25</p>
-  <p><strong>Audience:</strong> LEWG</p>
-  <p><strong>Reply-to:</strong> Vinnie Falco <a href="mailto:vinnie.falco@gmail.com" class="email">vinnie.falco@gmail.com</a></p>
+  <p><strong>Document Number:</strong> P3984R0</p>
+  <p><strong>Date:</strong> 2026-02-22</p>
+  <p><strong>Audience:</strong> EWG, SG12, SG20, SG23</p>
+  <p><strong>Reply-to:</strong> Bjarne Stroustrup <a href="mailto:bjarne@stroustrup.com" class="email">bjarne@stroustrup.com</a></p>
 </div>
 
 <!-- Table of Contents -->
@@ -860,349 +860,582 @@ outline: none;
   <li><a href="#revision-history" id="toc-revision-history">Revision
   History</a>
   <ul>
-  <li><a href="#r0-february-2026-post-croydon-mailing" id="toc-r0-february-2026-post-croydon-mailing">R0: February 2026
-  (post-Croydon mailing)</a></li>
+  <li><a href="#r0-february-2026" id="toc-r0-february-2026">R0: February
+  2026</a></li>
   </ul></li>
-  <li><a href="#the-need-for-escape-hatches" id="toc-the-need-for-escape-hatches">1. The Need for Escape
-  Hatches</a></li>
-  <li><a href="#standard-precedent" id="toc-standard-precedent">2.
-  Standard Precedent</a></li>
-  <li><a href="#established-practice" id="toc-established-practice">3.
-  Established Practice</a></li>
-  <li><a href="#application-level" id="toc-application-level">4.
-  Application Level</a></li>
-  <li><a href="#structured-concurrency" id="toc-structured-concurrency">5. Structured Concurrency</a></li>
-  <li><a href="#cstring_view-constructors" id="toc-cstring_view-constructors">6. <code>cstring_view</code>
-  Constructors</a></li>
-  <li><a href="#the-implicit-constructor" id="toc-the-implicit-constructor">7. The Implicit Constructor</a></li>
-  <li><a href="#conclusion" id="toc-conclusion">8. Conclusion</a></li>
+  <li><a href="#introduction" id="toc-introduction">1. Introduction</a>
+  <ul>
+  <li><a href="#alternatives-to-profiles" id="toc-alternatives-to-profiles">1.1 Alternatives to
+  Profiles</a></li>
+  </ul></li>
+  <li><a href="#specification" id="toc-specification">2.
+  Specification</a>
+  <ul>
+  <li><a href="#object" id="toc-object">2.1 Object</a></li>
+  <li><a href="#resource" id="toc-resource">2.2 Resource</a></li>
+  <li><a href="#constructorsdestructors" id="toc-constructorsdestructors">2.3 Constructors/Destructors</a></li>
+  <li><a href="#copies-and-moves" id="toc-copies-and-moves">2.4 Copies
+  and Moves</a></li>
+  <li><a href="#ranges-and-nullptr" id="toc-ranges-and-nullptr">2.5
+  Ranges and <code>nullptr</code></a></li>
+  <li><a href="#invalidation" id="toc-invalidation">2.6
+  Invalidation</a></li>
+  </ul></li>
+  <li><a href="#the-profiles-framework" id="toc-the-profiles-framework">3. The Profiles Framework</a></li>
+  <li><a href="#other-profiles" id="toc-other-profiles">4. Other
+  Profiles</a></li>
+  <li><a href="#what-needs-to-be-done-soon" id="toc-what-needs-to-be-done-soon">5. What Needs to Be Done
+  Soon</a></li>
   <li><a href="#acknowledgements" id="toc-acknowledgements">Acknowledgements</a></li>
   <li><a href="#references" id="toc-references">References</a></li>
   </ul>
 </nav>
 
 <h2 id="abstract">Abstract</h2>
-<p>“C++ should make the safe thing easy, and the unsafe thing
-possible.”</p>
+<p>Two profiles can guarantee type safety and resource safety for C++
+application code without abandoning compatibility or the zero-overhead
+principle.</p>
+<p>The concept of and rationale for Profiles<sup>[1, 2, 3]</sup> are
+summarized and some suggested alternatives are mentioned. The
+type-safety and resource-safety profiles are presented in some detail as
+an example to illustrate the specification and implementation
+requirements of two of the most essential and difficult profiles.</p>
+<p>This is a description of Profiles in general terms aimed at
+understanding, not a standards text aimed at standards experts only.
+However, it is sufficiently detailed to be translated in “standardese”
+with relatively few technical changes. What is described has been
+prototyped<sup>[4, 5, 6]</sup> and some parts used in the form of
+guidelines.</p>
+<p>A plan for progress is outlined (Section 5).</p>
 <hr />
 <h2 id="revision-history">Revision History</h2>
-<h3 id="r0-february-2026-post-croydon-mailing">R0: February 2026
-(post-Croydon mailing)</h3>
+<h3 id="r0-february-2026">R0: February 2026</h3>
 <ul>
 <li>Initial version.</li>
 </ul>
 <hr />
-<h2 id="the-need-for-escape-hatches">1. The Need for Escape Hatches</h2>
-<p>Safe interfaces should be the default. They should validate input,
-maintain invariants, and protect users from misuse. However, C++ also
-needs an explicit path for trusted data - when the precondition is
-already satisfied at a boundary and re-validation is pure overhead.</p>
-<p>This pattern appears in the standard library, in production Boost
-libraries, in the current <code>cstring_view</code> proposal, and in
-coroutine-based concurrency libraries. Four independent examples follow.
-A fifth section applies the pattern to <code>cstring_view</code>
-constructor design. A sixth examines what happens when the pattern is
-applied to the implicit <code>char const*</code> constructor.</p>
-<h2 id="standard-precedent">2. Standard Precedent</h2>
-<p>The standard library provides <a href="https://eel.is/c++draft/thread.condition.condvar"><code>std::condition_variable</code></a><sup>[1]</sup>,
-which requires <code>std::unique_lock&lt;std::mutex&gt;</code>. This
-constraint enables optimizations. When the constraint is too narrow -
-when the user holds a different lock type - <a href="https://eel.is/c++draft/thread.condition.condvarany"><code>std::condition_variable_any</code></a><sup>[1]</sup>
-provides the explicit broader path:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>mutex mtx<span class="op">;</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>shared_mutex smtx<span class="op">;</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe default: constrained to unique_lock&lt;mutex&gt;.</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>condition_variable cv<span class="op">;</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>unique_lock<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lk<span class="op">(</span>mtx<span class="op">);</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>cv<span class="op">.</span>wait<span class="op">(</span>lk<span class="op">);</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: works with any lockable.</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>condition_variable_any cv_any<span class="op">;</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>shared_lock<span class="op">&lt;</span><span class="bu">std::</span>shared_mutex<span class="op">&gt;</span> slk<span class="op">(</span>smtx<span class="op">);</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>cv_any<span class="op">.</span>wait<span class="op">(</span>slk<span class="op">);</span></span></code></pre></div>
-<p>The constrained interface is the default. The broader interface is
-explicit and named. Both exist in the standard.</p>
-<h2 id="established-practice">3. Established Practice</h2>
-<p><a href="https://github.com/boostorg/url">Boost.URL</a><sup>[2]</sup>
-provides <code>pct_string_view</code>, a non-owning reference to a valid
-percent-encoded string. Construction from untrusted input validates the
-encoding and throws on failure:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe default: validates percent-encoding.</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>pct_string_view s<span class="op">(</span><span class="st">&quot;Program</span><span class="sc">%20F</span><span class="st">iles&quot;</span><span class="op">);</span>    <span class="co">// OK</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>pct_string_view bad<span class="op">(</span><span class="st">&quot;100</span><span class="sc">%p</span><span class="st">ure&quot;</span><span class="op">);</span>         <span class="co">// throws</span></span></code></pre></div>
-<p>Internally, the library’s own parser has already validated the
-encoding before extracting URL components. Repeating that validation
-would be redundant. A separate function bypasses it at the trusted
-boundary:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: precondition already satisfied by the parser.</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>pct_string_view s <span class="op">=</span> make_pct_string_view_unsafe<span class="op">(</span>data<span class="op">,</span> size<span class="op">,</span> decoded_size<span class="op">);</span></span></code></pre></div>
-<p>This pattern was adopted independently by three Boost libraries:
-Boost.URL (<a href="https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp"><code>make_pct_string_view_unsafe</code></a><sup>[3]</sup>),
-Boost.Process (<a href="https://github.com/boostorg/process/blob/develop/include/boost/process/v2/cstring_ref.hpp"><code>basic_cstring_ref</code></a><sup>[4]</sup>),
-and Boost.SQLite (<a href="https://github.com/klemens-morgenstern/sqlite/blob/develop/include/boost/sqlite/cstring_ref.hpp"><code>cstring_ref</code></a><sup>[5]</sup>).
-Three independent libraries arriving at the same design is not
-coincidence. It is convergence on a structural need.</p>
-<h2 id="application-level">4. Application Level</h2>
-<p>On BSD-derived systems, directory iteration exposes a filename
-pointer and a filename length via <code>dirent</code>
-(<code>d_name</code> and <code>d_namlen</code>) <a href="https://man.freebsd.org/cgi/man.cgi?query=readdir&amp;sektion=3">FreeBSD
-<code>readdir(3)</code></a><sup>[6]</sup> and <a href="https://cgit.freebsd.org/src/tree/sys/sys/dirent.h">FreeBSD
-<code>dirent.h</code></a><sup>[7]</sup>. POSIX requires that path
-components are null-terminated and contain no embedded null bytes <a href="https://pubs.opengroup.org/onlinepubs/9799919799/">POSIX Base
-Definitions</a><sup>[8]</sup>. Rescanning each name in a validating
-constructor repeats work the operating system already did.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> visit_directory<span class="op">(</span>DIR<span class="op">*</span> dir<span class="op">)</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>dirent<span class="op">*</span> de <span class="op">=</span> <span class="op">::</span>readdir<span class="op">(</span>dir<span class="op">))</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> p <span class="op">=</span> de<span class="op">-&gt;</span>d_name<span class="op">;</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>size_t n <span class="op">=</span> de<span class="op">-&gt;</span>d_namlen<span class="op">;</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Trusted boundary: OS already satisfied the precondition.</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        cstring_view name <span class="op">=</span> cstring_view<span class="op">::</span>unsafe<span class="op">(</span>p<span class="op">,</span> n<span class="op">);</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        consume<span class="op">(</span>name<span class="op">);</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The safe path remains the default for untrusted input. The unsafe
-path exists for proven preconditions and zero additional runtime
-cost.</p>
-<h2 id="structured-concurrency">5. Structured Concurrency</h2>
-<p>Structured concurrency enforces the same discipline for asynchronous
-lifetimes that structured control flow enforces for execution order:
-activations nest, scopes nest, a parent outlives its children, and RAII
-works. <a href="https://github.com/cppalliance/capy">Capy</a><sup>[9]</sup>
-provides <code>run</code> as the structured default and
-<code>run_async</code> as the explicit escape hatch:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>recycling_frame_allocator alloc<span class="op">;</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe default: structured, caller suspends until child completes.</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> run<span class="op">(</span>ex<span class="op">,</span> alloc<span class="op">)(</span>my_coro<span class="op">());</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: fire-and-forget, caller continues immediately.</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>run_async<span class="op">(</span>ex<span class="op">,</span> alloc<span class="op">,</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">[]()</span> <span class="op">{</span> <span class="co">/* Result handler. */</span> <span class="op">},</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="bu">std::</span>exception_ptr<span class="op">)</span> <span class="op">{</span> <span class="co">/* Error handler. */</span> <span class="op">}</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="op">)(</span>my_coro<span class="op">());</span></span></code></pre></div>
-<p>The structured path is the default. The unstructured path requires a
-longer name and explicit handlers - the caller must decide up front how
-results and errors are delivered. The escape hatch still provides
-guardrails: a work guard keeps the execution context alive, a stop token
-enables cooperative cancellation, and typed handlers prevent silent
-result loss.</p>
-<p>The consequences of misuse are higher in concurrency than in data
-validation - a wrong <code>pct_string_view</code> produces garbage data,
-while a wrong detached task produces data races. That severity is
-precisely why the escape hatch must be designed rather than left to raw
-<code>std::thread</code> or <code>std::async</code>, which offer none of
-these guardrails. Eliminating the escape hatch does not eliminate
-unstructured concurrency; it pushes programmers toward worse tools.</p>
-<h2 id="cstring_view-constructors">6. <code>cstring_view</code>
-Constructors</h2>
-<p><a href="https://wg21.link/p3655r3">P3655R3</a><sup>[10]</sup>
-(“cstring_view”) proposes <code>std::cstring_view</code>, a non-owning
-view guaranteed to be null-terminated. The type fills a real gap:
-<code>std::string</code> owns and null-terminates,
-<code>std::string_view</code> does not own and does not null-terminate,
-and <code>cstring_view</code> does not own but does null-terminate. Over
-2,100 independent implementations on GitHub confirm the demand. The
-<code>substr</code> split - one-argument returning
-<code>cstring_view</code>, two-argument returning
-<code>string_view</code> - and the deletion of
-<code>remove_suffix</code> show careful attention to the
-null-termination invariant.</p>
-<p><a href="https://wg21.link/p3566r2">P3566R2</a><sup>[11]</sup> (“You
-shall not pass <code>char*</code>”) independently arrives at the same
-pattern for <code>string</code> and <code>string_view</code>: deprecate
-the <code>char const*</code> constructor as an unbounded-range
-operation, add a bounded <code>char[N]</code> constructor for arrays,
-and provide an explicitly tagged <code>unsafe_length_t</code>
-replacement for the deprecated path. The escape-hatch structure - safe
-default, explicit opt-in - is identical to the pattern documented in
-Sections 2-5.</p>
-<p>The escape-hatch pattern from Sections 2-5 applies directly to the
-constructor set. P3655R3’s pointer-and-length constructor has a narrow
-contract:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> basic_cstring_view<span class="op">(</span><span class="at">const</span> charT<span class="op">*</span> str<span class="op">,</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_type</span> len<span class="op">);</span>   <span class="co">// Precondition: str[len] == &#39;\0&#39;.</span></span></code></pre></div>
-<p>Violating the precondition is undefined behavior. The design
-purchases O(1) construction for callers who already hold null-terminated
-data. Completely reasonable when the data is trusted.</p>
-<p>LEWG designs are evaluated in a climate where safety is a first-order
-concern. A constructor whose public interface admits undefined behavior
-when a caller provides unterminated data will face scrutiny that a
-constructor with well-defined behavior for all inputs does not. This is
-an observable condition the design operates in.</p>
-<p>Two callers illustrate the tension:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> caller_a<span class="op">(</span>DIR<span class="op">*</span> dir<span class="op">)</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    dirent<span class="op">*</span> de <span class="op">=</span> <span class="op">::</span>readdir<span class="op">(</span>dir<span class="op">);</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> p <span class="op">=</span> de<span class="op">-&gt;</span>d_name<span class="op">;</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t n <span class="op">=</span> de<span class="op">-&gt;</span>d_namlen<span class="op">;</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// OS guarantees null-termination. O(1) desired.</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    cstring_view name<span class="op">(</span>p<span class="op">,</span> n<span class="op">);</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    consume<span class="op">(</span>name<span class="op">);</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> caller_b<span class="op">(</span><span class="bu">std::</span>span<span class="op">&lt;</span><span class="at">const</span> <span class="dt">char</span><span class="op">&gt;</span> buffer<span class="op">)</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> p <span class="op">=</span> buffer<span class="op">.</span>data<span class="op">();</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t n <span class="op">=</span> buffer<span class="op">.</span>size<span class="op">();</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Data origin unknown. Null-termination not guaranteed.</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    cstring_view name<span class="op">(</span>p<span class="op">,</span> n<span class="op">);</span>  <span class="co">// UB if not null-terminated.</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    consume<span class="op">(</span>name<span class="op">);</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Caller A holds trusted data and wants zero-cost construction. Caller
-B holds untrusted data and needs validation. One constructor cannot
-serve both safely. The escape-hatch pattern resolves this:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe: scans [str, str+len] for the first null.</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Postcondition: data()[size()] == &#39;\0&#39;,</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">//   no interior nulls.</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> cstring_view<span class="op">(</span><span class="at">const</span> charT<span class="op">*</span> str<span class="op">,</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_type</span> len<span class="op">);</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Escape hatch: O(1), no scan.</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Precondition: str[len] == &#39;\0&#39;, no interior nulls.</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="kw">constexpr</span> cstring_view unsafe<span class="op">(</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> charT<span class="op">*</span> str<span class="op">,</span> <span class="dt">size_type</span> len<span class="op">)</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
-<p>The safe constructor scans. The cost is O(n). The <code>unsafe</code>
-factory trusts the caller and pays nothing. This is the same pattern as
-<code>pct_string_view</code> and
-<code>make_pct_string_view_unsafe</code> from Section 3 - safe by
-default, explicit opt-in at trusted boundaries.</p>
-<p>C++ earns its reputation as a zero-cost abstraction language by
-letting programmers pay only for what they use. A type that validates on
-every construction - with no way to bypass validation at a trusted
-boundary - imposes cost the programmer cannot eliminate. The
-<code>unsafe</code> factory preserves this principle.</p>
-<p>The choice of the name <code>unsafe</code> is deliberate. It mirrors
-the Rust keyword, where <code>unsafe</code> marks the boundary at which
-the programmer takes responsibility for invariants the language normally
-enforces. <code>cstring_view::unsafe</code> marks the same kind of
-boundary: the caller asserts null-termination that the constructor
-normally verifies. The cross-language resonance makes the API legible to
-developers familiar with either language.</p>
-<p>P3655R3 also provides a templated constructor from an iterator
-pair:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span> It<span class="op">,</span> <span class="kw">class</span> End<span class="op">&gt;</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> basic_cstring_view<span class="op">(</span>It begin<span class="op">,</span> End end<span class="op">);</span></span></code></pre></div>
-<p>The contract requires <code>*(begin + (end - begin)) == &#39;\0&#39;</code> -
-the iterator at position <code>end</code> must be dereferenceable. This
-breaks the standard C++ convention that <code>end</code> is past-the-end
-and not dereferenceable. Under a wide-contract model, three options
-present themselves:</p>
+<h2 id="introduction">1. Introduction</h2>
+<p>My initial motivation to develop C++ was to combine the best of C and
+Simula:</p>
 <ul>
-<li><strong>A.</strong> Require <code>[begin, end]</code> readable
-(inclusive), scan for the first null. Same model as the
-pointer-and-length constructor.</li>
-<li><strong>B.</strong> Require only <code>[begin, end)</code> readable,
-scan the half-open range for the first null.</li>
-<li><strong>C.</strong> Remove the constructor. No demonstrated use case
-requires it that the pointer-and-length constructor does not already
-serve. Real-world <code>cstring_view</code> usage originates from
-<code>const char*</code> (C APIs, OS calls, string literals) or from
-<code>std::string</code> (implicit conversion). Ship the type without
-this constructor; add it later when evidence of need emerges.</li>
+<li>C’s ability to access hardware and manipulate data without
+overhead.</li>
+<li>Simula’s ability to organize programs and guarantee type
+safety.</li>
 </ul>
-<h2 id="the-implicit-constructor">7. The Implicit Constructor</h2>
-<p>P3566R2’s <code>char[N]</code> constructor is a genuine improvement.
-It captures bounds at compile time, eliminates <code>strlen</code> for
-string literals, and provides bounded safety for array sources.</p>
-<p>The <code>char const*</code> constructor that P3566R2 deprecates is
-implicit. That property is load-bearing. Every function that accepts
-<code>string_view</code> or <code>cstring_view</code> today silently
-accepts <code>char const*</code> at the call site - no tag, no cast, no
-ceremony. Deprecating the implicit constructor does not degrade one API.
-It degrades every call site where a <code>char const*</code> crosses
-into a function taking a view type.</p>
-<p>The standard library’s own error-reporting interface returns
-<code>char const*</code>:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> log_error<span class="op">(</span><span class="bu">std::</span>string_view msg<span class="op">);</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">}</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">catch</span> <span class="op">(</span><span class="bu">std::</span>exception <span class="at">const</span><span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    log_error<span class="op">(</span>e<span class="op">.</span>what<span class="op">());</span>              <span class="co">// today</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    log_error<span class="op">(</span><span class="bu">std::</span>string_view<span class="op">(</span>       <span class="co">// under P3566</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        unsafe_length<span class="op">,</span> e<span class="op">.</span>what<span class="op">()));</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>C library functions exhibit the same pattern.
-<code>std::getenv()</code>, <code>std::strerror()</code>, and
-<code>std::setlocale()</code> return <code>char const*</code> and always
-will:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> configure<span class="op">(</span>cstring_view path<span class="op">);</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>configure<span class="op">(</span><span class="bu">std::</span>getenv<span class="op">(</span><span class="st">&quot;HOME&quot;</span><span class="op">));</span>       <span class="co">// today</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>configure<span class="op">(</span>cstring_view<span class="op">(</span>               <span class="co">// under P3566</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    unsafe_length<span class="op">,</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>getenv<span class="op">(</span><span class="st">&quot;HOME&quot;</span><span class="op">)));</span></span></code></pre></div>
-<p>P3566R2 documents that certain language constructs force
-array-to-pointer decay - notably, the ternary operator and initializer
-lists<sup>[11]</sup>. Both operands in
-<code>cond ? &quot;first&quot; : &quot;second&quot;</code> are string literals. Both are
-arrays. The language decays them to <code>char*</code> before overload
-resolution. The <code>char[N]</code> constructor cannot intercept:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> f<span class="op">(</span><span class="bu">std::</span>string_view s<span class="op">);</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>f<span class="op">(</span>cond <span class="op">?</span> <span class="st">&quot;first&quot;</span> <span class="op">:</span> <span class="st">&quot;second&quot;</span><span class="op">);</span>         <span class="co">// today</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>f<span class="op">(</span>cond <span class="op">?</span> <span class="st">&quot;first&quot;</span><span class="bu">sv</span> <span class="op">:</span> <span class="st">&quot;second&quot;</span><span class="bu">sv</span><span class="op">);</span>     <span class="co">// under P3566</span></span></code></pre></div>
-<p>P3566R2’s own migration data quantifies the scope. The Qt experiment
-reports that “all of Qt’s runtime reflection APIs yield
-<code>const char*</code>, causing many warnings that one is unable to
-quickly address”<sup>[11]</sup>. The NVIDIA Omniverse migration required
-codebase-wide search and replace of <code>const char* x = &quot;...&quot;</code>
-declarations to
-<code>constexpr char x[] = &quot;...&quot;</code><sup>[11]</sup>.</p>
-<p>The <code>char[N]</code> constructor adds a bounded path for
-literals. The <code>char const*</code> constructor is the only implicit
-path for runtime string sources - <code>std::exception::what()</code>,
-<code>std::getenv()</code>, <code>std::strerror()</code>, stored
-<code>c_str()</code> results, ternary expressions. Adding a path is not
-the same as closing one.</p>
-<h2 id="conclusion">8. Conclusion</h2>
-<p>The standard library already provides constrained defaults with
-explicit broader counterparts. Production libraries independently
-converge on the same pattern for trusted boundaries. The same principle
-governs concurrency structure. The evidence documents a recurring design
-value: safe by default, with explicit escape hatches where zero-cost
-composition requires them.</p>
-<p>How explicit escape hatches interact with Hardening, Contracts, and
-Erroneous Behavior is a related question that deserves separate
-treatment.</p>
+<p>To this, I immediately added</p>
+<ul>
+<li>constructors and destructors to provide the ability to eliminate
+resource leaks and uninitialized objects.</li>
+<li>uniform treatment of built-in types and user-defined types to lay
+the foundation of generic programming.</li>
+</ul>
+<p>C compatibility concerns and the zero overhead principle prevented me
+(and later the C++ standards committee) from enforcing complete type and
+resource safety. I (still) consider compatibility/stability and the
+zero-overhead principle essential for the evolution of C++ and its
+foundational libraries. Where this is not adhered to, problems
+emerge.</p>
+<p>However, not everybody needs every old feature and not everybody
+needs ultimate performance. In fact, many (probably most) C++ users
+don’t need all of the constraints and facilities needed to conform to
+either or both compatibility and performance ideals. Also, they often
+have other concerns, as do I for various projects. This is the
+motivation for all coding guidelines and for the (still evolving)
+Profiles design<sup>[3, 7, 6]</sup>. In particular, we can design a
+Profile to guarantee type safety and resource safety (the absence of
+resource leaks) without imposing inessential overheads.</p>
+<p>These guarantees are the ones I want for most application code:</p>
+<ul>
+<li><strong>Type safety</strong>: Every object is used exclusively
+according to its definition.</li>
+<li><strong>Resource safety</strong>: No resource is leaked.</li>
+</ul>
+<p>We can achieve that by careful use of contemporary C++, but I want a
+Profile to guarantee it, as do important C++ users. Otherwise, the
+approach won’t scale. This implies that code that needs to violate that
+guarantee or can’t be proven not to must be isolated. Examples of such
+necessary code include the implementation of key abstractions (e.g.,
+<code>vector</code>). It also implies that the guarantee must be opt-in
+because essentially no existing code consistently meets the requirements
+needed to provide this guarantee (even correct code because “correct”
+doesn’t mean “provably correct”).</p>
+<p>The fundamental assumptions behind the Profiles design are</p>
+<ul>
+<li>Some people need guaranteed properties of their code.</li>
+<li>Not everybody has the same needs.</li>
+<li>It is impossible to prove an arbitrary program safe for any
+reasonable definition of “safe” in a language able to manipulate
+hardware and implement fundamental abstractions.</li>
+<li>A guarantee must be validated by software, not just by a review by
+developers.</li>
+<li>A desired guarantee must be explicitly requested in code.</li>
+</ul>
+<p>This implies that we need a framework that allows programmers to
+request a variety of guarantees and prevent the use of features deemed
+unsafe for the requested guarantees.</p>
+<p>The fundamental technique for implementing a profile is to subset a
+superset of ISO standard C++<sup>[8, 9]</sup>:</p>
+<ul>
+<li><strong>Superset</strong>: Extend the C++ to be used with the
+abstractions needed to conveniently express what needs to be expressed
+for a given application area.</li>
+<li><strong>Subset</strong>: Restrict the set of facilities to be used
+in application code to what can be used while maintaining the desired
+guarantee (leaving “unsafe” uses to the implementation of the
+abstractions).</li>
+</ul>
+<p>Supersetting is done by adding libraries and eliminating undefined
+behavior (supported by run-time checks where necessary). Subsetting is
+done through static analysis (ideally by the compiler).</p>
+<p>Subsetting alone cannot deliver many of the most desired guarantees
+because the implementation of the abstractions requires use of
+techniques that cannot be verified (e.g., pointer arithmetic and linked
+structures).</p>
+<p>Supersetting alone can’t deliver many of the most desired guarantees
+because the low-level features would still be available to break
+them.</p>
+<p>By supersetting, we create a language that’s easier for analyzers
+(e.g., compilers) to understand. Use of banned features outside
+explicitly trusted sections of code is simply considered errors. This
+solves the problem that large chunks of C++ (especially old-style code)
+are too complex to analyze efficiently relative to a requested
+guarantee.</p>
+<p>By specifying requirements as enforceable profiles, we avoid having
+to rely on developers following guidelines and sprinkling annotations
+all over the code. That approach is labor intensive, error prone, and
+basically not feasible at scale. It doesn’t provide the guarantees
+required by many user organizations.</p>
+<p>Profiles do not interfere with traditional C++ design and
+implementation techniques (e.g., OO, GP, and functional styles) except
+when we define a profile to do so and explicitly require that profile.
+Rather, a good profile eliminates misuses of those techniques.</p>
+<p>The result of compiling a TU using profiles is ISO standard C++ that
+can be linked with other TUs<sup>[6]</sup>.</p>
+<p>A profile cannot change the semantics of a program beyond defining
+the meaning of some forms of undefined behavior. For example, signed
+arithmetic overflow is UB so a profile can define it to be wraparound
+like unsigned arithmetic (though I wouldn’t do that), to be saturated
+arithmetic, or to throw an exception. However, wraparound of unsigned
+arithmetic is well-defined so a profile cannot define it to be anything
+else. This implies that a program without UB will behave identically
+when compiled with or without a profile enforced. The aim of key
+profiles is to insert run-time checks to ensure that an error action is
+triggered rather than reaching the point of UB.</p>
+<p>If a profile needs a language change (e.g., the addition of a new
+standard attribute), then that change must be done to the language
+rather than just to the profile.</p>
+<p>Profiles are not just about “safety” (for a variety of kinds of
+safety). They address the widespread need for support of a better style
+of code (for a variety of definitions of “better”) from both developers
+and educators.</p>
+<p>Some, but not all, profiles will be part of the standard. Profiles is
+an open framework so that profiles serving specific needs can be added
+“locally.” One limiting factor here will be the lack of a standard
+internal representation of C++ (e.g., IPR<sup>[10, 11]</sup>, Clang
+AST<sup>[12]</sup>).</p>
+<h3 id="alternatives-to-profiles">1.1 Alternatives to Profiles</h3>
+<p>Why do we need a framework? After all, people can and do address
+problems with libraries, static analysis, compiler options, pragmas,
+etc. That variety is the problem. These features tend to address limited
+problems, be platform specific, be incompatible, require detailed
+understanding of compilation and build systems, be poorly specified, be
+non-portable, require consistent use of coding guidelines, be
+non-standard, and the like. The variety of genuinely helpful facilities
+that differ in their style of invocation is a recipe for chaos. For the
+key facilities that we want to be part of the standard, we need a
+standard way to specify them and document their use in the code. For all
+facilities that are not simply sets of libraries, we need a standard way
+of requesting their use.</p>
+<p>Offering long lists of specific tests and restrictions for developers
+to select from are ever-popular among people who desire maximal freedom
+of choice. However, having hundreds of thousands of developers choosing
+from a set of (say) 70 options leads to unreadable code, incompatible
+code, and sets of options that do not add up to a guarantee that can be
+understood, named, and remembered. Languages, libraries, and systems
+have failed, being rejected in favor of simpler alternatives. Part of
+the aim of profiles is to reduce the set of alternatives to something
+manageable; to move management of complexity from implementation details
+to language and library design.</p>
+<p>By defining sets of optional libraries, tests, and implementation
+alternatives, rather than defining guarantees as language features, we
+could not just avoid making potentially erroneous design decisions, we
+could also avoid problems of evolving guarantees. If we in the future
+find a profile needs changing (as we surely will), we have exactly the
+same options as when we find that a language feature or a standard
+library needs a change:</p>
+<ul>
+<li>Vote in a change, trying to minimize impact on existing code (e.g.,
+making it a pure extension).</li>
+<li>Make a new profile with a new name and potentially deprecate the old
+one (as we did when replacing <code>auto_ptr</code> with
+<code>unique_ptr</code>).</li>
+</ul>
+<p>Evolution is difficult, but none of the problems are unique to
+profiles. Making design decisions is a key part of language design.</p>
 <hr />
-<h1 id="acknowledgements">Acknowledgements</h1>
-<p>The author thanks Jonathan Wakely, Jan Schultke, Pablo Halpern, and
-Nevin Liber for discussion and feedback on safe and unsafe construction
-paths. The author thanks Peter Bindels, Hana Dusikova, Jeremy Rifkin,
-Marco Foco, and Alexey Shevlyakov for their work on
-<code>cstring_view</code>. The author thanks Giuseppe D’Angelo and
-Joshua Kriegshauser for the migration data cited in Section 7.</p>
+<h2 id="specification">2. Specification</h2>
+<p>As an example, consider</p>
+<ul>
+<li><strong>Type safety</strong>: Every object is used exclusively
+according to its definition.</li>
+<li><strong>Resource safety</strong>: No resource is leaked.</li>
+</ul>
+<p>That’s the definition of two profiles. In principle, from these
+simple definitions, we could implement Profiles to enforce these
+requirements just as we write compilers and libraries to implement
+specifications. That is, the detailed requirements can in most cases be
+deduced from the general requirements. However, it is not fair, safe, or
+manageable to leave the interpretation of these requirements to
+implementers. In particular, we need a clear definition of “object” and
+“resource.” Beyond that, we need detailed implementation guidance to
+avoid implementers (possibly ourselves) having to repeatedly reinvent
+techniques and rediscover problem areas.</p>
+<p>The border between what should be specified in the standards document
+and what should be in an implementation guide is not trivial to define.
+Different profiles will require different degrees of detail.</p>
+<p>That’s not a new problem. However, not everybody - not even in WG21 -
+is used to thinking about this in the context of defining a language
+feature or a library component.</p>
+<p>Code examples can be found in the references.</p>
+<h3 id="object">2.1 Object</h3>
+<p>An object is a region of memory that has been given a type and been
+initialized according to the definition of that type.</p>
+<p>Accessing an object exclusively according to its definition implies
+that we must not access</p>
+<ul>
+<li>an area of memory as an object before its
+initialization/construction has completed (except from within its
+constructor). That is, before it becomes an object.</li>
+<li>an object after its destruction has started (except from within its
+destructor). That is, after it ceases to be an object.</li>
+<li>an area of memory that has not been initialized/constructed
+according to the type we use to access it. That is, where it might not
+be an object, or it might be an object of a different type.</li>
+</ul>
+<p>That last point implies that we must eliminate range errors and
+access through dangling pointers.</p>
+<h3 id="resource">2.2 Resource</h3>
+<p>A resource is an entity that must be acquired before use and released
+after its last use.</p>
+<p>That’s a very broad definition that cannot be directly translated
+into a verifiable rule. For example, a <code>FILE</code> (a C stream) is
+a resource because it needs to be opened before use and closed (possibly
+implicitly at the end of a program). Even an <code>int</code> can be a
+resource. For example, it could be required that it be increased when a
+scope is entered and decreased as that scope is exited.</p>
+<p>To achieve this in a reasonably simple way, we must require that to
+be considered a resource an entity must have a constructor and a
+destructor that manages it. That is, an entity that requires explicit
+acquisition and/or explicit release is simply not considered a resource
+until it has been encapsulated in a type with a constructor/destructor
+pair.</p>
+<h3 id="constructorsdestructors">2.3 Constructors/Destructors</h3>
+<p>A constructor is supposed to correctly initialize an object, and a
+destructor is supposed to release every resource. To what extent are we
+willing to trust that?</p>
+<p>We can ensure that every member is initialized in a constructor
+(except members explicitly marked to remain uninitialized). There should
+be a separate profile to guarantee initialization for people who cannot
+adopt the complete type-and-resource profile. That initialization
+profile should then be used as part of the type-and-resource
+profile.</p>
+<p>The easiest way of ensuring that a destructor matches a constructor
+is to use only resources managed by constructor/destructor pairs. That
+is, have only members of types that do not require explicit destruction.
+For example, using a <code>vector</code> or a <code>unique_ptr</code>
+rather than a (pointer, size) pair to represent owned memory. However,
+that solution doesn’t cover every case, e.g., <code>unique_ptr</code>’s
+constructors and destructors.</p>
+<p>We can</p>
+<ul>
+<li>Trust the definition of constructors and destructors to be correct
+(e.g., not leak).</li>
+<li>Require non-trivial constructor/destructor pairs to use explicitly
+unverified code.</li>
+</ul>
+<p>The latter is the most theoretically correct solution. The former
+would be manageable.</p>
+<p>How do we handle errors in destructors caused by an inability to
+release a resource? For example, a socket that can’t be closed because
+the other end of a communication channel won’t cooperate. We can handle
+that with the techniques we do today, such as transferring the
+obligation to close an uncooperative socket to some other code, e.g., by
+putting it on a to-be-handled-later error list.</p>
+<h3 id="copies-and-moves">2.4 Copies and Moves</h3>
+<p>To be handled similar to constructors and destructors.</p>
+<h3 id="ranges-and-nullptr">2.5 Ranges and <code>nullptr</code></h3>
+<p>The two obvious ways of avoiding accessing an object that is not of
+the right type (or no type at all) is to prevent</p>
+<ul>
+<li>Range errors</li>
+<li>Access through <code>nullptr</code></li>
+</ul>
+<p>This is (relatively) easily done by using hardened libraries doing
+range checking for types for which the number of elements is known
+(e.g., <code>vector</code> and <code>span</code><sup>[13]</sup>) and a
+pointer type that is checked for <code>nullptr</code> (e.g.,
+<code>gsl::not_null</code><sup>[5]</sup>).</p>
+<p>That solves half of the problem. The other half is to ensure that
+unsafe operations are not used (e.g., subscripting a pointer for which
+the number of elements pointed to is unknown). For that, we need simple
+static analysis (e.g., the compiler) to ban or restrict</p>
+<ul>
+<li>Pointer arithmetic</li>
+<li>Subscripting raw pointers</li>
+</ul>
+<p>Together, these two approaches are a classical example of the
+subset-of-superset technique. Without the hardened library, we couldn’t
+ban those basic uses of raw pointers and without the ban of those basic
+uses of raw pointers we couldn’t guarantee the absence of range errors
+and <code>nullptr</code> violations.</p>
+<h3 id="invalidation">2.6 Invalidation</h3>
+<p>There is a nasty third way that we might access an object of the
+wrong type (or no type at all):</p>
+<ul>
+<li>access through an invalidated pointer; that is, a pointer to an
+object that had been deleted or gone out of scope</li>
+</ul>
+<p>That’s also known as the dangling pointer problem. Preventing
+invalidation by run-time measures implies complications and overheads
+(e.g., garbage collection). However, it is possible to eliminate access
+through invalid pointers through static analysis<sup>[14, 15, 5]</sup>.
+That technique has been prototyped and is currently used as a guideline
+(at best partly enforced).</p>
+<p>Here is an example that must be rejected because it invalidates:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> f<span class="op">(</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&amp;</span> v<span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    v<span class="op">.</span>push_back<span class="op">(</span><span class="dv">7</span><span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> g<span class="op">()</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> v <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> p <span class="op">=</span> <span class="op">&amp;</span>v<span class="op">[</span><span class="dv">1</span><span class="op">];</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    f<span class="op">(</span>v<span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>p <span class="op">=</span> <span class="dv">3</span><span class="op">;</span>    <span class="co">// must be prevented</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The problem/error occurs because an alias (<code>p</code> for
+<code>&amp;v[1]</code>) is used after the object it referred to has been
+moved. The basic solution is relatively simple and completely compile
+time.</p>
+<p>When analyzing a function:</p>
+<ul>
+<li>Don’t access through an invalid pointer.</li>
+<li>Don’t let a pointer to a deleted object or to an object that is
+about to be destroyed out of the function.</li>
+<li>If an alias to an object has been taken, don’t call a function that
+can invalidate it.</li>
+<li>Return only pointers that are known to:
+<ul>
+<li>Have been received as arguments</li>
+<li>Point to something static</li>
+<li>Point to something on the free store</li>
+</ul></li>
+</ul>
+<p>By “pointer”, we include anything that refers to an object (e.g.,
+references and lambda captures). By “return”, we include any way of
+passing a pointer out of a scope (e.g., assigning to a static
+object).</p>
+<p>When analyzing a set of functions:</p>
+<ul>
+<li>Assume that a non-<code>const</code> function and a function
+accessing an object through a non-<code>const</code> pointer argument
+invalidates.</li>
+<li>Assume that a <code>const</code> function and a function accessing
+an object through a <code>const</code> pointer argument doesn’t
+invalidate.</li>
+<li>Add a <code>[[not_invalidating]]</code> attribute to be used to
+speed up analysis by marking non-<code>const</code> functions and
+functions that take non-<code>const</code> pointer arguments that don’t
+invalidate (e.g.,
+<code>vector&lt;T&gt;::size()</code>)<sup>[16]</sup>.</li>
+</ul>
+<p>Note that a <code>[[not_invalidating]]</code> attribute can be
+verified when the function definition is compiled. It is not an
+annotation that relies on programmers using it correctly, just an
+optimization to save work for the compiler.</p>
+<p>The implementation problem here is that what is returned from a
+function and what has been deleted can be flow-dependent. So, we must
+accept only code that’s not too complex to analyze.</p>
+<ul>
+<li>Some examples are fundamentally impossible to statically
+analyze.</li>
+<li>Some examples are so complex that a static analyzer would slow down
+compilation to an unacceptable degree.</li>
+</ul>
+<p>An example of code that is fundamentally too complex to accept:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> glob <span class="op">=</span> <span class="dv">7</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">*</span> f<span class="op">(</span><span class="dt">int</span> i<span class="op">)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span><span class="dv">0</span> <span class="op">&lt;</span> i<span class="op">)</span> <span class="op">?</span> <span class="op">&amp;</span>glob <span class="op">:</span> <span class="op">&amp;</span>x<span class="op">;</span>  <span class="co">// might return pointer</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>                                   <span class="co">// to destroyed object</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>We need implementer input to choose what limitation is practical. In
+particular, to preserve portability, we need a definition of “too
+complex” so that all compilers agree on what to reject. I suggest:</p>
+<ul>
+<li>If a condition cannot be evaluated at compile time, whatever is
+guarded by that condition is assumed to be executed.</li>
+</ul>
+<p>That is, conditional use of some constructs is treated as
+unconditional:</p>
+<ul>
+<li>creation of an alias,</li>
+<li>the return of an invalid pointer,</li>
+<li>the invalidation of a pointer,</li>
+<li>the call of an invalidating function, or</li>
+<li>the use of an invalid pointer.</li>
+</ul>
+<p>In older code and code written in older styles, this limitation will
+be a burden, but encouraging the use of simpler code is beneficial in
+its own right.</p>
 <hr />
-<h1 id="references">References</h1>
-<p>[1] C++ Working Draft, <code>condition_variable</code>
-https://eel.is/c++draft/thread.condition.condvar,
-<code>condition_variable_any</code>
-https://eel.is/c++draft/thread.condition.condvarany</p>
-<p>[2] Boost.URL, https://github.com/boostorg/url</p>
-<p>[3] Boost.URL, <code>pct_string_view.hpp</code>,
-https://github.com/boostorg/url/blob/develop/include/boost/url/pct_string_view.hpp</p>
-<p>[4] Boost.Process, <code>cstring_ref.hpp</code>,
-https://github.com/boostorg/process/blob/develop/include/boost/process/v2/cstring_ref.hpp</p>
-<p>[5] Boost.SQLite, <code>cstring_ref.hpp</code>,
-https://github.com/klemens-morgenstern/sqlite/blob/develop/include/boost/sqlite/cstring_ref.hpp</p>
-<p>[6] FreeBSD <code>readdir(3)</code>,
-https://man.freebsd.org/cgi/man.cgi?query=readdir&amp;sektion=3</p>
-<p>[7] FreeBSD source, <code>sys/sys/dirent.h</code>,
-https://cgit.freebsd.org/src/tree/sys/sys/dirent.h</p>
-<p>[8] The Open Group Base Specifications Issue 8,
-https://pubs.opengroup.org/onlinepubs/9799919799/</p>
-<p>[9] Capy, https://github.com/cppalliance/capy</p>
-<p>[10] P3655R3, “cstring_view,” Peter Bindels, Hana Dusikova, Jeremy
-Rifkin, Marco Foco, Alexey Shevlyakov, https://wg21.link/p3655r3</p>
-<p>[11] P3566R2, “You shall not pass <code>char*</code>,” Marco Foco,
-Joshua Kriegshauser, Alexey Shevlyakov, Giuseppe D’Angelo,
-https://wg21.link/p3566r2</p>
+<h2 id="the-profiles-framework">3. The Profiles Framework</h2>
+<p>The Profiles framework (based on the subset-of-superset strategy
+described in Section 1<sup>[8, 9]</sup>) has been developed over several
+years to cover a wide range of requests involving a variety of notions
+of safety and style involving combinations of compile-time and run-time
+techniques<sup>[17]</sup>. The Framework, complete with syntax and
+working paper wording, is described in detail in <a href="https://wg21.link/p3589r2">P3589R2</a><sup>[6]</sup>. In
+particular, it introduces notation for enforcing, requiring, and
+suppressing profiles.</p>
+<p>The framework is to be common to all profiles and independent of any
+particular profile.</p>
+<hr />
+<h2 id="other-profiles">4. Other Profiles</h2>
+<p>To be complete the type-and-resource profile will depend on other
+profiles. To allow gradual adoption of profiles, such profiles should be
+independently defined so that they can be used on their
+own<sup>[18]</sup>. Examples of possible standard profiles are:</p>
+<ul>
+<li><strong>initialization</strong>: every object is properly
+constructed/initialized (or explicitly declared not to be).</li>
+<li><strong>casting</strong>: no old-style non-verifiable casts.</li>
+<li><strong>union</strong>: no union use.</li>
+<li><strong>ranges</strong>: all pointer arithmetic and all subscripting
+are checked for range errors.</li>
+</ul>
+<p>Obviously, when some construct is banned (outside unverified/trusted
+code), alternatives must be provided, e.g., <code>variant</code>s
+instead of <code>union</code>s. The profiles listed above are relatively
+easy to specify and thus good candidates for early implementation.</p>
+<p>Most likely separate from the type-and-resource profile, but related,
+we need:</p>
+<ul>
+<li><strong>arithmetic</strong>: eliminate implicit narrowing
+conversions, overflow, and underflow.</li>
+<li><strong>algorithms</strong>: use only ranges (rather than iterator
+pairs) and prevent dereferencing of <code>end()</code> iterators.</li>
+<li><strong>concurrency</strong>: The type-and-resource profile assumes
+that there are no data races. To ensure that, a separate concurrency
+profile is needed. Specifying that is non-trivial and beyond the scope
+of this paper. There must eventually be a concurrency profile and part
+of that will undoubtedly be ways of minimizing
+sharing<sup>[5]</sup>.</li>
+</ul>
+<p>These profiles are important, but harder to specify. Note that
+libraries for checking arithmetic exist (e.g.<sup>[19, 20]</sup>).</p>
+<hr />
+<h2 id="what-needs-to-be-done-soon">5. What Needs to Be Done Soon</h2>
+<p>To make progress, we need to specify, implement, and try out a few
+simple profiles to gain experience. To avoid chaos, we urgently need the
+framework to be approved<sup>[21]</sup>. Many ideas that are part of
+profiles have been prototyped and/or used, but to make progress we must
+build on the proposed Profiles framework <a href="https://wg21.link/p3589r2">P3589R2</a><sup>[6]</sup> and start
+experimenting with specific profiles within that framework.</p>
+<p>For that to happen, we need the framework available and accessible on
+one or more C++ implementations, ideally on all major implementations.
+Otherwise, using different initial/experimental profiles will require
+too much boilerplate code and different interfaces to different tool
+chains (e.g., in-code annotations, compiler options, and build-system
+settings). That will impede portability and possibly introduce
+incompatibilities that will be hard to root out in the future.
+Currently, there is - to the best of my knowledge - a
+specification<sup>[6]</sup> and an experimental implementation is being
+conducted in a major C++ compiler. Also, an implementation guide is
+being written. We encourage implementers to coordinate and if possible,
+collaborate to avoid inessential incompatibilities<sup>[21]</sup>.</p>
+<p>Beyond the framework implementation(s), we need to design and
+precisely specify a few initial profiles. We need a reasonable common
+style of Profile descriptions. That - and bringing the older documents
+in line with the C++26 specification - is a necessary first step on the
+way to standardization. A start is made in <a href="https://wg21.link/p3274r0">P3274R0</a><sup>[7]</sup>.</p>
+<hr />
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>Thanks to Howard Hinnant and Joshua Berne for constructive comments
+on drafts of this paper.</p>
+<hr />
+<h2 id="references">References</h2>
+<ol type="1">
+<li><p><a href="https://wg21.link/p3704r0">P3704R0</a> - “What are
+profiles?” (Bjarne Stroustrup, 2025). https://wg21.link/p3704r0</p></li>
+<li><p><a href="https://wg21.link/p2687r0">P2687R0</a> - “Design
+Alternatives for Type-and-Resource Safe C++” (Bjarne Stroustrup, Gabriel
+Dos Reis, 2022). https://wg21.link/p2687r0</p></li>
+<li><p><a href="https://wg21.link/p2816r0">P2816R0</a> - “Safety
+Profiles: Type-and-resource Safe programming in ISO Standard C++”
+(Bjarne Stroustrup, Gabriel Dos Reis, 2023).
+https://wg21.link/p2816r0</p></li>
+<li><p>H. Sutter. Lifetime safety prototype implementation.
+2021.</p></li>
+<li><p><a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines">C++
+Core Guidelines</a>.
+https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines</p></li>
+<li><p><a href="https://wg21.link/p3589r2">P3589R2</a> - “C++ Profiles:
+The Framework” (Gabriel Dos Reis, 2025).
+https://wg21.link/p3589r2</p></li>
+<li><p><a href="https://wg21.link/p3274r0">P3274R0</a> - “A framework
+for Profiles development” (Bjarne Stroustrup, 2024).
+https://wg21.link/p3274r0</p></li>
+<li><p>B. Stroustrup. “A rationale for semantically enhanced library
+languages.” 2005.</p></li>
+<li><p>B. Stroustrup and G. Dos Reis. “Supporting SELL for
+High-Performance Computing.” LCPC05. October 2005.</p></li>
+<li><p>G. Dos Reis and B. Stroustrup. “A Principled, Complete, and
+Efficient Representation of C++.” Journal of Mathematics in Computer
+Science, Volume 5, Issue 3 (2011).</p></li>
+<li><p>G. Dos Reis. “In-memory and Persistent Representations of C++.”
+CppCon 2021.</p></li>
+<li><p>M. Klimek. “The Clang AST - a Tutorial.” LLVM Euro 2013.</p></li>
+<li><p><a href="https://wg21.link/p3471r4">P3471R4</a> - “Standard
+library hardening” (Konstantin Varlamov, Louis Dionne, 2025).
+https://wg21.link/p3471r4</p></li>
+<li><p><a href="https://wg21.link/p1179r1">P1179R1</a> - “Lifetime
+safety: Preventing common dangling” (Herb Sutter, 2019).
+https://wg21.link/p1179r1</p></li>
+<li><p>B. Stroustrup. “Type-and-resource safety in modern C++.”
+2021.</p></li>
+<li><p><a href="https://wg21.link/p3346r0">P3346R0</a> - “Profile
+invalidation - eliminating dangling pointers” (Bjarne Stroustrup, 2024).
+https://wg21.link/p3346r0</p></li>
+<li><p><a href="https://wg21.link/p3651r0">P3651R0</a> - “Dealing with
+pointer errors: Separating static and dynamic checking” (Bjarne
+Stroustrup, 2025). https://wg21.link/p3651r0</p></li>
+<li><p><a href="https://wg21.link/p3447r0">P3447R0</a> - “Profiles
+syntax” (Bjarne Stroustrup, 2024). https://wg21.link/p3447r0</p></li>
+<li><p>B. Stroustrup. “Concept-Based Generic Programming in C++.”
+2025.</p></li>
+<li><p>H. Hinnant. “Better Behaved Integers (bbi).” 2025.</p></li>
+<li><p><a href="https://wg21.link/p3970r0">P3970R0</a> - “Profiles and
+Safety: a call to action” (Daveed Vandevoorde, Jody Garland, Paul E.
+McKenney, Roger Orr, Bjarne Stroustrup, Michael Wong, 2026).
+https://wg21.link/p3970r0</p></li>
+<li><p><a href="https://wg21.link/p3038r0">P3038R0</a> - “Concrete
+suggestions for initial Profiles” (Bjarne Stroustrup, 2023).
+https://wg21.link/p3038r0</p></li>
+<li><p><a href="https://wg21.link/p3650r0">P3650R0</a> - “21st Century
+C++” (Bjarne Stroustrup, 2025). https://wg21.link/p3650r0</p></li>
+<li><p><a href="https://wg21.link/p3402r3">P3402R3</a> - “A Safety
+Profile Verifying Initialization” (Marc Laverdière, Cody Lapkowski,
+Christof Gros, 2025). https://wg21.link/p3402r3</p></li>
+<li><p>B. Stroustrup. “A Tour of C++ (3rd Edition).” Addison-Wesley.
+2022. ISBN 978-0136816485.</p></li>
+<li><p>B. Stroustrup. “Programming: Principle and Practice using C++.”
+Addison-Wesley. 2024. ISBN 978-0-13-830868-1.</p></li>
+</ol>
 
 </body>
 </html>
