@@ -1,6 +1,6 @@
 ---
 title: "The Sender Sub-Language"
-document: D4014R2
+document: D4014R1
 date: 2026-03-28
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
@@ -20,16 +20,12 @@ The evidence is public. The conclusions are the reader's.
 
 ## Revision History
 
-### R2: March 2026
+### R1: March 2026
 
 - Complete rewrite as a progressive tutorial.
 - Covers all thirty sender algorithms in the C++26 working draft.
 - Adds coverage of `task` and sender-coroutine composition.
-- Replaces the advocacy framing of R0/R1 with an inform-paper structure.
-
-### R1: March 2026 (pre-Croydon mailing)
-
-- Added trade-off analysis, nvexec precedent, concurrent selection gap, and timeline.
+- Adds trade-off analysis, nvexec precedent, and concurrent selection gap from R0 draft.
 
 ### R0: March 2026 (pre-Croydon mailing)
 
@@ -91,11 +87,13 @@ The simplest sender algorithms lift values into the sender context. They create 
 
 ### 3.1 `just`
 
-`just(vs...)` creates a sender that completes immediately with the given values on the value channel.
+`just(vs...)` creates a sender that completes immediately with the given values on the value channel, where `vs...` are the values to carry forward.
 
 ```cpp
 auto sndr = just(42);
 ```
+
+Put values into the pipeline. Nothing happens to them - they are simply there for the next step. The reader will appreciate the elegance: one value, placed into the sender context, ready to go.
 
 This is monadic return - the `pure` operation that lifts a value into the sender context. The sender completes synchronously, inline, with no allocation and no scheduling. It is the entry point into every pipeline.
 
@@ -105,12 +103,14 @@ int v = 42;
 
 ### 3.2 `just_error`
 
-`just_error(e)` creates a sender that completes immediately with the given error on the error channel.
+`just_error(e)` creates a sender that completes immediately with the error `e` on the error channel.
 
 ```cpp
 auto sndr = just_error(
     make_error_code(errc::invalid_argument));
 ```
+
+Signal that something went wrong. The error travels down the pipeline until something handles it. Equally natural - when an error needs to enter the pipeline, `just_error` provides it cleanly and without ceremony.
 
 `just_error` lifts an error into the sender context the way `just` lifts a value. The error is delivered to the first error handler downstream - an `upon_error` or `let_error` in the pipeline.
 
@@ -121,47 +121,43 @@ throw system_error(
 
 ### 3.3 `just_stopped`
 
-`just_stopped()` creates a sender that completes immediately on the stopped channel. No value is produced and no error is reported. The operation was cancelled.
+`just_stopped()` creates a sender that completes immediately on the stopped channel. It takes no arguments. No value is produced and no error is reported. The operation was cancelled.
 
 ```cpp
 auto sndr = just_stopped();
 ```
 
-The stopped channel is the third path in the sender completion algebra - distinct from both success and failure. It represents cancellation as a first-class concept. Regular C++ has no dedicated cancellation channel; the three-channel model is one of the properties the Sub-Language adds.
+Signal that the operation was cancelled. This is how the programmer says "never mind" in a sender pipeline. The third channel completes the picture - a dedicated path for a dedicated intent.
 
----
+The stopped channel is the third path in the sender completion algebra - distinct from both success and failure. It represents cancellation as a first-class concept. The reader will find this a natural extension of the two-channel error model - a dedicated path for a dedicated intent. Regular C++ has no dedicated cancellation channel; the three-channel model is one of the properties the Sub-Language adds.
 
-## 4. Consuming a Pipeline
+### 3.4 `sync_wait`
 
-### 4.1 `sync_wait`
-
-`sync_wait(sndr)` blocks the current thread until the sender completes, then returns the result as an `optional<tuple<...>>`.
+`sync_wait(sndr)` blocks the current thread until the sender completes, then returns the result as an `optional<tuple<...>>`. The argument `sndr` is the sender to execute.
 
 ```cpp
-auto sndr = just(6, 7)
-          | then([](int a, int b) {
-                return a * b;
-            });
 auto [result] =
-    sync_wait(std::move(sndr)).value();
+    sync_wait(just(42)).value();
 // result == 42
 ```
 
-`sync_wait` is the bridge between the Sender Sub-Language and regular C++. It is the only sender consumer in the standard - the single point where a sender pipeline produces a value that ordinary code can hold. Everything upstream of `sync_wait` is lazy. Nothing executes until `sync_wait` drives the pipeline to completion.
+The reader has built a sender. Now they want the result. `sync_wait` is that moment - the point where the sender world opens and delivers its contents to regular C++ code. It is the only sender consumer in the standard, and nothing in the pipeline executes until `sync_wait` drives it to completion.
+
+`sync_wait` is the bridge between the Sender Sub-Language and regular C++. Everything upstream is lazy - a description of work, not the execution of it. `sync_wait` makes it real.
 
 ```cpp
-int result = 6 * 7;
+int result = 42;
 ```
 
 ---
 
-## 5. Transformation
+## 4. Transformation
 
 The transformation algorithms apply a function to a sender's completion and produce a new completion. The function returns a value, not a sender.
 
-### 5.1 `then`
+### 4.1 `then`
 
-`then(f)` applies `f` to the values produced by the predecessor sender. The return value of `f` becomes the new value completion.
+`then(f)` applies `f` to the values produced by the predecessor sender, where `f` is a callable that receives those values and returns a new value. The return value of `f` becomes the new value completion.
 
 ```cpp
 auto sndr = just(3, 4)
@@ -171,15 +167,17 @@ auto sndr = just(3, 4)
 // completes with set_value(25)
 ```
 
+The most natural operation in the Sub-Language: take what came before, apply a function, and carry the result forward. The reader will find this immediately familiar - it is function application, expressed as a pipeline stage.
+
 `then` is functor `fmap`. It transforms values without changing the structure of the pipeline - the sender still completes on the value channel, with a different value. Errors and stopped signals pass through untouched.
 
 ```cpp
 int result = 3 * 3 + 4 * 4;
 ```
 
-### 5.2 `upon_error`
+### 4.2 `upon_error`
 
-`upon_error(f)` applies `f` to the error produced by the predecessor sender. The return value of `f` becomes a value completion - the error is recovered.
+`upon_error(f)` applies `f` to the error produced by the predecessor sender, where `f` is a callable that receives the error value and returns a recovery value. The return value of `f` becomes a value completion.
 
 ```cpp
 auto sndr = just_error(
@@ -189,6 +187,8 @@ auto sndr = just_error(
         });
 // completes with set_value(-1)
 ```
+
+When something goes wrong, `upon_error` provides the recovery. The function receives the error and returns a fallback value. The error is handled; the pipeline continues as if nothing happened.
 
 `upon_error` is the error-channel counterpart of `then`. Where `then` transforms values, `upon_error` transforms errors into values - the result crosses channels, converting an error completion into a value completion. Values and stopped signals pass through untouched.
 
@@ -203,9 +203,9 @@ try {
 }
 ```
 
-### 5.3 `upon_stopped`
+### 4.3 `upon_stopped`
 
-`upon_stopped(f)` applies `f` when the predecessor sender is cancelled. The return value of `f` becomes a value completion.
+`upon_stopped(f)` applies `f` when the predecessor sender is cancelled, where `f` takes no arguments and returns a recovery value. The return value of `f` becomes a value completion.
 
 ```cpp
 auto sndr = just_stopped()
@@ -215,17 +215,19 @@ auto sndr = just_stopped()
 // completes with set_value(0)
 ```
 
+The cancellation counterpart. If the operation was stopped, provide a fallback value instead. The stopped signal is absorbed; the pipeline moves on.
+
 `upon_stopped` converts a cancellation into a value. It is used when a pipeline needs a fallback result in the event of cancellation rather than propagating the stopped signal.
 
 ---
 
-## 6. Monadic Composition
+## 5. Monadic Composition
 
 The `let_*` family is the complexity step. Where `then` applies a function that returns a value, `let_value` applies a function that returns a sender. The function constructs the next stage of the pipeline at runtime. This is monadic bind.
 
-### 6.1 `let_value`
+### 5.1 `let_value`
 
-`let_value(f)` applies `f` to the values produced by the predecessor. `f` returns a new sender, and that sender's completion becomes the completion of the composed pipeline.
+`let_value(f)` applies `f` to the values produced by the predecessor, where `f` is a callable that receives those values and returns a new sender. That sender's completion becomes the completion of the composed pipeline.
 
 ```cpp
 auto sndr = just(std::string("hello"))
@@ -238,7 +240,9 @@ auto sndr = just(std::string("hello"))
 // completes with set_value(11)
 ```
 
-`let_value` is monadic bind. The function receives the predecessor's values and returns an entirely new sender - which may itself be a multi-stage pipeline. The result is a sender whose completion type is determined by the inner sender, not by the function's return type directly. This is what makes `let_value` more powerful than `then`: the next stage of computation is itself a sender. The pattern is straightforward once the distinction between returning a value and returning a sender is clear.
+Here the Sub-Language reveals its expressive depth. Where `then` applies a function that returns a value, `let_value` applies a function that returns an entirely new sender - a new pipeline within the pipeline. The reader will find this a natural extension of the composition model.
+
+`let_value` is monadic bind. The function receives the predecessor's values and returns a sender which may itself be a multi-stage pipeline. The result is a sender whose completion type is determined by the inner sender, not by the function's return type directly. This is what makes `let_value` more powerful than `then`: the next stage of computation is itself a sender. The pattern is straightforward once the distinction between returning a value and returning a sender is clear.
 
 ```cpp
 std::string s = "hello";
@@ -246,9 +250,9 @@ s += " world";
 size_t result = s.size();
 ```
 
-### 6.2 `let_error`
+### 5.2 `let_error`
 
-`let_error(f)` applies `f` to the error produced by the predecessor. `f` returns a new sender. The error is recovered by routing into a new computation.
+`let_error(f)` applies `f` to the error produced by the predecessor, where `f` is a callable that receives the error and returns a new sender. The error is recovered by routing into a new computation.
 
 ```cpp
 auto sndr = just_error(
@@ -258,6 +262,8 @@ auto sndr = just_error(
         });
 // completes with set_value("timed out")
 ```
+
+The same principle, applied to errors. The recovery is itself an asynchronous operation - a pipeline that does real work to recover from the failure.
 
 `let_error` is the error-channel counterpart of `let_value`. Where `upon_error` transforms an error into a value, `let_error` transforms an error into a sender - enabling recovery paths that are themselves multi-stage pipelines.
 
@@ -271,9 +277,9 @@ try {
 }
 ```
 
-### 6.3 `let_stopped`
+### 5.3 `let_stopped`
 
-`let_stopped(f)` applies `f` when the predecessor is cancelled. `f` returns a new sender that replaces the cancellation.
+`let_stopped(f)` applies `f` when the predecessor is cancelled, where `f` takes no arguments and returns a new sender that replaces the cancellation.
 
 ```cpp
 auto sndr = just_stopped()
@@ -284,17 +290,19 @@ auto sndr = just_stopped()
 // completes with set_value("recovered")
 ```
 
+And for cancellation. The replacement for a stopped operation is itself a sender - a new computation that takes over where the cancelled one left off.
+
 `let_stopped` converts a cancellation into a new computation. The function receives no arguments - the stopped channel carries no data - and returns a sender whose completion replaces the stopped signal. The reader will recognize the pattern: each `let_*` variant handles one channel and routes its result into a new sender.
 
 ---
 
-## 7. Execution Contexts
+## 6. Execution Contexts
 
 The execution context algorithms control where work runs. A scheduler represents an execution resource - a thread pool, an I/O context, a GPU stream - and these algorithms move work between them.
 
-### 7.1 `schedule`
+### 6.1 `schedule`
 
-`schedule(sch)` produces a sender that, when started, completes on the specified scheduler's execution context.
+`schedule(sch)` produces a sender that, when started, completes on the execution context of `sch`, the specified scheduler.
 
 ```cpp
 auto sndr = schedule(pool.get_scheduler())
@@ -303,7 +311,9 @@ auto sndr = schedule(pool.get_scheduler())
             });
 ```
 
-`schedule` creates a sender from a scheduler. The sender completes with no values - it serves purely as a transition point. Work piped after `schedule` runs on the scheduler's context. This is how a pipeline enters a specific execution resource.
+The reader enters an execution context. `schedule` is the door - it produces a sender that, when started, transitions to the scheduler's context. Everything piped after it runs there.
+
+`schedule` creates a sender from a scheduler. The sender completes with no values - it serves purely as a transition point. Work piped after `schedule` runs on the scheduler's context.
 
 ```cpp
 pool.post([&] {
@@ -311,9 +321,9 @@ pool.post([&] {
 });
 ```
 
-### 7.2 `starts_on`
+### 6.2 `starts_on`
 
-`starts_on(sch, sndr)` arranges for the given sender to begin execution on the specified scheduler.
+`starts_on(sch, sndr)` arranges for `sndr` to begin execution on the scheduler `sch`.
 
 ```cpp
 auto sndr = starts_on(
@@ -323,7 +333,7 @@ auto sndr = starts_on(
     }));
 ```
 
-`starts_on` takes an existing sender and ensures it starts on a particular context. The sender's entire execution begins on the given scheduler.
+The reader has a sender and wants it to run somewhere specific. `starts_on` arranges the introduction - the sender begins its work on the chosen scheduler.
 
 ```cpp
 pool.post([&] {
@@ -331,9 +341,9 @@ pool.post([&] {
 });
 ```
 
-### 7.3 `continues_on`
+### 6.3 `continues_on`
 
-`continues_on(sch)` transitions execution to a different scheduler after the predecessor completes.
+`continues_on(sch)` transitions execution to the scheduler `sch` after the predecessor completes.
 
 ```cpp
 auto sndr =
@@ -345,7 +355,7 @@ auto sndr =
     });
 ```
 
-`continues_on` is the explicit context transition. When the predecessor completes, execution resumes on the specified scheduler. This is how a pipeline moves work between contexts - read on the I/O thread, parse on the thread pool.
+A graceful transition. When the previous step finishes on one context, `continues_on` moves execution to another. The data carries over; the thread changes. This is how a pipeline moves work between contexts - read on the I/O thread, parse on the thread pool.
 
 ```cpp
 auto data = read(socket);
@@ -354,9 +364,9 @@ pool.post([&] {
 });
 ```
 
-### 7.4 `on`
+### 6.4 `on`
 
-`on(sch, sndr)` runs the sender on the specified scheduler, then returns execution to the caller's context.
+`on(sch, sndr)` runs `sndr` on the scheduler `sch`, then returns execution to the caller's context.
 
 ```cpp
 auto sndr = on(
@@ -366,30 +376,32 @@ auto sndr = on(
     }));
 ```
 
-`on` is a round-trip. It transitions to the given scheduler, runs the sender, and transitions back. The caller does not need to track which context the work ran on - the result arrives on the original context.
+A round trip - work runs on another context and the result comes back. The reader does not need to manage the return; it is handled.
 
 ```cpp
 auto result = handle(request);
 ```
 
-### 7.5 `affine_on`
+### 6.5 `affine_on`
 
-`affine_on(sndr, sch)` adapts a sender to complete on the specified scheduler, skipping the transition if the sender already completes there.
+`affine_on(sndr, sch)` adapts `sndr` to complete on the scheduler `sch`, skipping the transition if the sender already completes there.
 
 ```cpp
 auto sndr = some_operation()
           | affine_on(pool.get_scheduler());
 ```
 
-`affine_on` was introduced by [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> as the scheduler affinity primitive. It behaves like `continues_on` but can avoid the scheduling overhead when the predecessor already completes on the target scheduler. This optimization is what makes scheduler affinity practical for coroutine `task` - the `await_transform` injects `affine_on` around every `co_await`ed sender, and when the sender completes on the correct scheduler, no rescheduling occurs. We will return to this in Section 12.
+The optimization the reader would hope for - if the sender already completes on the target scheduler, the transition is skipped entirely. No wasted work.
+
+`affine_on` was introduced by [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> as the scheduler affinity primitive. It behaves like `continues_on` but avoids the scheduling overhead when the predecessor already completes on the target scheduler. This is what makes scheduler affinity practical for coroutine `task` - the `await_transform` injects `affine_on` around every `co_await`ed sender. We will return to this in Section 11.
 
 ```cpp
 auto result = some_operation();
 ```
 
-### 7.6 `schedule_from`
+### 6.6 `schedule_from`
 
-`schedule_from(sch, sndr)` ensures that the sender's completion signals arrive on the specified scheduler.
+`schedule_from(sch, sndr)` ensures that all of `sndr`'s completion signals - value, error, and stopped - arrive on the scheduler `sch`.
 
 ```cpp
 auto sndr = schedule_from(
@@ -397,7 +409,7 @@ auto sndr = schedule_from(
     async_read(socket, buf));
 ```
 
-`schedule_from` is an implementer-facing algorithm. It guarantees that the completion - whether value, error, or stopped - is delivered on the given scheduler. Where `continues_on` transitions the value channel, `schedule_from` transitions all three channels. Most programmers will use `continues_on` or `on`; `schedule_from` exists for algorithm authors who need precise control over completion context.
+An implementer's tool. Most readers will not need this directly, but it is satisfying to know it exists - precise control over where all three completion channels arrive. Where `continues_on` transitions the value channel, `schedule_from` transitions all three.
 
 ```cpp
 auto data = read(socket);
@@ -405,13 +417,13 @@ auto data = read(socket);
 
 ---
 
-## 8. Environment
+## 7. Environment
 
 Senders execute within an environment - a queryable set of key-value pairs carried by the receiver. The environment provides context that the pipeline's algorithms can read: which scheduler to use, which allocator to use, whether cancellation has been requested. The following algorithms manipulate that environment.
 
-### 8.1 `read_env`
+### 7.1 `read_env`
 
-`read_env(query)` creates a sender that reads a value from the receiver's environment and completes with it on the value channel.
+`read_env(query)` creates a sender that reads the value associated with `query` from the receiver's environment and completes with it on the value channel.
 
 ```cpp
 auto sndr = read_env(get_scheduler)
@@ -423,15 +435,17 @@ auto sndr = read_env(get_scheduler)
             });
 ```
 
-`read_env` is the introspection primitive. The sender does not carry the environment value itself - it reads the value from the receiver at connection time, when the environment is known. This enables context-dependent behavior: the same pipeline can behave differently depending on which scheduler, allocator, or stop token the enclosing context provides. The composition reads naturally once the receiver's role as environment carrier is understood.
+The pipeline asks its context a question. What scheduler am I on? What allocator should I use? The environment carries these answers, and `read_env` retrieves them.
+
+`read_env` is the introspection primitive. The sender does not carry the environment value itself - it reads it from the receiver at connection time, when the environment is known. This enables context-dependent behavior: the same pipeline can behave differently depending on which scheduler, allocator, or stop token the enclosing context provides. The composition reads naturally once the receiver's role as environment carrier is understood.
 
 ```cpp
 auto config = load_config();
 ```
 
-### 8.2 `write_env`
+### 7.2 `write_env`
 
-`write_env(env, sndr)` wraps a sender so that downstream receivers see additional or overridden environment entries.
+`write_env(env, sndr)` wraps `sndr` so that downstream receivers see the additional or overridden entries in `env`.
 
 ```cpp
 auto sndr = write_env(
@@ -439,22 +453,24 @@ auto sndr = write_env(
     process_file(path));
 ```
 
+The reader can shape the environment for downstream operations. Override the allocator, substitute a scheduler, inject custom context - the downstream pipeline sees the modified environment without any change to its code.
+
 `write_env` overlays entries onto the receiver's environment. The wrapped sender and all of its children see the modified environment. This is how a pipeline provides a custom allocator, overrides a scheduler, or injects application-specific context without threading parameters through every function signature.
 
 ```cpp
 auto result = process_file(path);
 ```
 
-### 8.3 `unstoppable`
+### 7.3 `unstoppable`
 
-`unstoppable(sndr)` wraps a sender so that it does not receive stop requests from the parent context.
+`unstoppable(sndr)` wraps `sndr` so that it does not receive stop requests from the parent context.
 
 ```cpp
 auto sndr = unstoppable(
     commit_transaction(db, txn));
 ```
 
-`unstoppable` shields a sender from cancellation. The wrapped sender runs to completion regardless of whether the parent pipeline has been stopped. This is used for operations that must not be interrupted - transaction commits, resource cleanup, finalization steps.
+Some operations must not be interrupted. `unstoppable` shields a sender from cancellation - the operation runs to completion regardless of what the parent pipeline decides. Transaction commits, resource cleanup, finalization steps - these are the operations that earn this protection.
 
 ```cpp
 commit_transaction(db, txn);
@@ -462,11 +478,11 @@ commit_transaction(db, txn);
 
 ---
 
-## 9. Structured Concurrency
+## 8. Structured Concurrency
 
 The structured concurrency algorithms express fork-join parallelism and sender sharing. This is where the Sender Sub-Language provides something C++ statements alone do not: concurrent execution with structured lifetime guarantees.
 
-### 9.1 `when_all`
+### 8.1 `when_all`
 
 `when_all(sndrs...)` starts all of the given senders concurrently and completes when every sender has completed. The value completions are concatenated.
 
@@ -482,6 +498,8 @@ auto sndr = when_all(
     });
 ```
 
+The reader will recognize this immediately - run everything at once, wait for all of them. If any fails, cancel the rest. This is structured concurrency, and it is one of the genuine strengths of the sender model.
+
 `when_all` is genuine structured concurrency. All child senders start together, run concurrently, and the join point is the `when_all` sender's completion. If any child completes with an error or is stopped, the remaining children are cancelled. The lifetime guarantee is structural - no child outlives the join point. Once the programmer has internalized the pattern, the intent is clear: three fetches, run concurrently, results combined.
 
 ```cpp
@@ -492,7 +510,7 @@ auto profile =
     build_profile(user, orders, prefs);
 ```
 
-### 9.2 `when_all_with_variant`
+### 8.2 `when_all_with_variant`
 
 `when_all_with_variant(sndrs...)` is semantically equivalent to `when_all(into_variant(sndrs)...)`. It allows child senders with different value completion signatures.
 
@@ -505,6 +523,8 @@ auto sndr = when_all_with_variant(
     });
 ```
 
+The same structured concurrency, but the senders may produce different types. Each result is wrapped in a variant - a natural accommodation for heterogeneous work.
+
 `when_all` requires all children to have the same value completion signature. `when_all_with_variant` relaxes this constraint by wrapping each child's value completion in a `variant`. The result types are heterogeneous, and the programmer destructures the variants at the join point.
 
 ```cpp
@@ -513,7 +533,7 @@ auto binary = fetch_binary(url_b);
 auto result = combine(json, binary);
 ```
 
-### 9.3 `split`
+### 8.3 `split`
 
 `split(sndr)` converts a single-shot sender into a multi-shot sender. The result is shared: multiple downstream pipelines can consume the same sender's completion.
 
@@ -528,6 +548,8 @@ auto sndr = when_all(
     }));
 ```
 
+A sender's result, shared among multiple consumers. The sender runs once; everyone gets a copy. The reader will find this a natural way to express data sharing in a pipeline.
+
 `split` allocates shared state - the sender's result is stored once and distributed to all consumers. This is the sender equivalent of binding a value to a local variable and using it in multiple expressions. The allocation is the cost; the sharing is the benefit.
 
 ```cpp
@@ -538,11 +560,11 @@ auto archived = archive(data);
 
 ---
 
-## 10. Signal Adaptation and Data Parallelism
+## 9. Signal Adaptation and Data Parallelism
 
 The signal adaptation algorithms reshape completion signatures - converting between channels, wrapping values in standard library types, and collapsing multiple completion paths into one. The data parallelism algorithms fan work out across an index space. Together, they handle the batch-processing and data-transformation patterns that arise in database operations, ETL pipelines, and scientific computing.
 
-### 10.1 `into_variant`
+### 9.1 `into_variant`
 
 `into_variant` adapts a sender with multiple value completion signatures into one that completes with a single `variant` of `tuple`s.
 
@@ -556,13 +578,15 @@ auto sndr = query_database(stmt)
 //                   tuple<int>>)
 ```
 
+When a sender might produce different types of values, `into_variant` wraps them all into a single variant type - a unification step that lets the rest of the pipeline proceed with one type.
+
 `into_variant` collapses heterogeneous value completions into a single variant type. The result is a sender with exactly one value completion signature. This is used when a sender's multiple value paths must be unified - for example, before passing to `when_all`, which requires a single value completion signature from each child.
 
 ```cpp
 auto result = query_database(stmt);
 ```
 
-### 10.2 `stopped_as_optional`
+### 9.2 `stopped_as_optional`
 
 `stopped_as_optional` converts a sender's value completion into an `optional` and its stopped completion into an empty `optional`.
 
@@ -573,6 +597,8 @@ auto sndr = dequeue(work_queue)
 // stopped()     -> value(optional())
 ```
 
+Cancellation becomes an empty optional; values become engaged optionals. Both paths merge onto the value channel - the reader handles both cases with a single `if`.
+
 `stopped_as_optional` is the bridge between the stopped channel and ordinary value processing. A queue that reports "closed" via `set_stopped` becomes a sender that completes with an empty `optional` - the programmer handles both cases in the value channel with a single `if`.
 
 ```cpp
@@ -580,7 +606,7 @@ auto item = dequeue(work_queue);
 // returns optional<item_type>
 ```
 
-### 10.3 `stopped_as_error`
+### 9.3 `stopped_as_error`
 
 `stopped_as_error(e)` converts a sender's stopped completion into an error completion carrying `e`.
 
@@ -591,6 +617,8 @@ auto sndr = timed_operation(deadline)
                     errc::timed_out));
 ```
 
+Cancellation becomes an error. The two failure paths unify into one, and the downstream error handling takes over.
+
 `stopped_as_error` reclassifies cancellation as an error. The stopped channel is eliminated from the completion signatures and replaced by an error. This is used when the downstream pipeline handles errors but not cancellation - the reclassification unifies the two failure paths.
 
 ```cpp
@@ -600,9 +628,9 @@ if (timed_out)
         make_error_code(errc::timed_out));
 ```
 
-### 10.4 `bulk`
+### 9.4 `bulk`
 
-`bulk(policy, shape, f)` invokes `f(i, args...)` for each index `i` in the range `[0, shape)`, where `args` are the values produced by the predecessor sender.
+`bulk(policy, shape, f)` invokes `f(i, args...)` for each index `i` in the range `[0, shape)`, where `policy` is an execution policy (`std::par`, `std::seq`), `shape` is the number of invocations, and `args` are the values produced by the predecessor sender.
 
 ```cpp
 auto sndr = just(records)
@@ -613,7 +641,9 @@ auto sndr = just(records)
                 });
 ```
 
-`bulk` is the data-parallel primitive. The execution policy (`std::par`, `std::seq`) controls whether the invocations may run concurrently. The `parallel_scheduler` provides a customized implementation that executes the index space across the system thread pool. The design is remarkably expressive - a single algorithm covers sequential iteration, parallel map, and GPU-dispatched computation depending on the scheduler and policy.
+A parallel for-loop. The function runs once per index, and the execution policy controls whether the invocations overlap.
+
+`bulk` is the data-parallel primitive. The execution policy controls whether the invocations may run concurrently. The `parallel_scheduler` provides a customized implementation that executes the index space across the system thread pool. The design is remarkably expressive - a single algorithm covers sequential iteration, parallel map, and GPU-dispatched computation depending on the scheduler and policy.
 
 ```cpp
 std::for_each(std::execution::par,
@@ -623,9 +653,9 @@ std::for_each(std::execution::par,
     });
 ```
 
-### 10.5 `bulk_chunked`
+### 9.5 `bulk_chunked`
 
-`bulk_chunked(policy, shape, f)` partitions the index space into chunks and invokes `f` once per chunk with the chunk's index range.
+`bulk_chunked(policy, shape, f)` partitions the index space into chunks and invokes `f` once per chunk with the chunk's index range, where `policy` is the execution policy, `shape` is the total index count, and `f` receives a range of indices plus the predecessor's values.
 
 ```cpp
 auto sndr = just(data)
@@ -637,6 +667,8 @@ auto sndr = just(data)
                 });
 ```
 
+The same parallel work, but the implementation groups indices into chunks. Each invocation processes a range - ideal for cache-friendly access patterns and vectorization.
+
 `bulk_chunked` gives the implementation control over how the index space is divided. The `parallel_scheduler` uses this to distribute work across threads in chunks sized for the hardware. The callable receives a range of indices rather than a single index, enabling vectorization and cache-friendly access patterns within each chunk.
 
 ```cpp
@@ -645,9 +677,9 @@ std::for_each(std::execution::par,
     [](auto& x) { x = transform(x); });
 ```
 
-### 10.6 `bulk_unchunked`
+### 9.6 `bulk_unchunked`
 
-`bulk_unchunked(policy, shape, f)` invokes `f` once per index with no chunking guarantees.
+`bulk_unchunked(policy, shape, f)` invokes `f` once per index with no chunking guarantees, where `policy`, `shape`, and `f` have the same roles as in `bulk`.
 
 ```cpp
 auto sndr = just(pixels)
@@ -657,6 +689,8 @@ auto sndr = just(pixels)
                     px[i] = apply_filter(px[i]);
                 });
 ```
+
+One invocation per index, no chunking. The simplest mental model for parallel iteration.
 
 `bulk_unchunked` is the unchunked counterpart. The callable receives one index at a time. The implementation may still batch invocations internally, but the callable's interface is per-index. Each piece of the `bulk` family fits together with the precision one expects from a well-engineered system: `bulk` dispatches to `bulk_chunked` by default, which the scheduler can further specialize.
 
@@ -668,11 +702,11 @@ std::for_each(std::execution::par,
 
 ---
 
-## 11. Async Scopes
+## 10. Async Scopes
 
 The async scope algorithms manage the lifetime of dynamically spawned work. A `counting_scope` or `simple_counting_scope` tracks outstanding operations and provides a join point where the caller waits for all spawned work to complete. The scope token is the handle through which senders are associated with a scope.
 
-### 11.1 `associate`
+### 10.1 `associate`
 
 `associate(token, sndr)` ties a sender's lifetime to a scope. The scope will not complete its join until the associated sender has completed.
 
@@ -689,6 +723,8 @@ for (auto& conn : accepted_connections) {
 // scope.join() waits for all connections
 ```
 
+A sender's lifetime is tied to a scope. The scope does not shut down until the sender finishes - no dangling work, no orphaned operations.
+
 `associate` is the structured spawn. The sender runs independently - it is not piped into a continuation - but its lifetime is bounded by the scope. When the scope joins, all associated senders must have completed. This is how a server manages connection lifetimes: each connection is associated with the scope, and shutdown waits for all connections to drain.
 
 ```cpp
@@ -699,7 +735,7 @@ for (auto& conn : accepted_connections)
 pool.join();
 ```
 
-### 11.2 `spawn_future`
+### 10.2 `spawn_future`
 
 `spawn_future(token, sndr)` spawns a sender into a scope and returns a new sender that completes with the spawned sender's result.
 
@@ -712,6 +748,8 @@ auto sndr = spawn_future(token,
     });
 ```
 
+Start work in the background and keep a handle to the result. The work runs now; the result arrives when the reader asks for it.
+
 `spawn_future` is `associate` with a return channel. The spawned sender begins executing immediately, and the returned sender completes with the result when it is ready. This is the sender equivalent of `std::async` - fire off work, get a handle to the result, consume it later.
 
 ```cpp
@@ -723,11 +761,11 @@ auto result = process(future.get());
 
 ---
 
-## 12. The `task` Coroutine Type
+## 11. The `task` Coroutine Type
 
 [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> adds `execution::task<T, C>` to C++26 - a coroutine type that is also a sender. The `task` is the bridge between coroutine-style `co_await` and the sender pipeline model. The integration between the two worlds is seamless: a `task` can `co_await` any sender, and a `task` can be used as a sender in any pipeline.
 
-### 12.1 `task<T>`
+### 11.1 `task<T>`
 
 `task<T>` declares a coroutine that produces a value of type `T` on the value channel when it completes.
 
@@ -745,7 +783,7 @@ int main() {
 
 A `task` is lazy - the coroutine body does not execute until the task is connected to a receiver and started. It is a sender: it can be piped, composed, passed to `sync_wait`, or used as a child of `when_all`. The completion signatures are `set_value_t(T)`, `set_error_t(exception_ptr)`, and `set_stopped_t()`.
 
-### 12.2 `co_await` a Sender
+### 11.2 `co_await` a Sender
 
 Inside a `task`, any sender can be `co_await`ed. The sender is connected to an internal receiver, started, and the result is delivered as the value of the `co_await` expression.
 
@@ -758,7 +796,7 @@ task<int> add_one() {
 
 When the sender completes with `set_value(args...)`, the `co_await` expression produces the values. A single value is returned directly. Multiple values are returned as a `tuple`. A sender with no value arguments produces `void`. If the sender completes with `set_error`, the error is thrown as an exception. If it completes with `set_stopped`, the coroutine is cancelled without resuming.
 
-### 12.3 `task_scheduler`
+### 11.3 `task_scheduler`
 
 `task_scheduler` is a type-erased scheduler used by `task` for scheduler affinity. When a `task` is connected to a receiver, the scheduler is obtained from the receiver's environment via `get_scheduler(get_env(rcvr))` and stored in the `task_scheduler`.
 
@@ -776,7 +814,7 @@ sync_wait(
 
 The `task_scheduler` uses small-object optimization to avoid allocation for common scheduler types. The type erasure is the cost of not knowing the scheduler type at coroutine definition time. The programmer has everything they need: the scheduler is obtained automatically, the affinity is maintained transparently, and the type erasure overhead is minimal.
 
-### 12.4 `inline_scheduler`
+### 11.4 `inline_scheduler`
 
 `inline_scheduler` completes immediately on the calling thread. Using it as the task's scheduler type disables scheduler affinity.
 
@@ -794,7 +832,7 @@ task<void, no_affinity> fast_path() {
 
 Disabling affinity removes the rescheduling overhead at the cost of the guarantees affinity provides. The programmer who understands the implications is free to make this choice.
 
-### 12.5 Scheduler Affinity
+### 11.5 Scheduler Affinity
 
 The `task`'s promise type injects `affine_on` around every `co_await`ed sender via `await_transform`. The effect: after each `co_await`, execution resumes on the task's scheduler regardless of where the sender completed.
 
@@ -811,7 +849,7 @@ task<void> affine_demo() {
 
 Scheduler affinity means the programmer can reason about execution context the same way they reason about synchronous code - each line runs on the same context as the line before it. The `affine_on` insertion is invisible. The rescheduling happens only when necessary - if the sender already completes on the correct scheduler, `affine_on` skips the transition.
 
-### 12.6 Allocator Support
+### 11.6 Allocator Support
 
 The context parameter `C` configures allocator support. The allocator type is declared via `C::allocator_type` and is used for the coroutine frame allocation.
 
@@ -837,7 +875,7 @@ auto sndr = allocated_work(
 
 The allocator is available to child operations through the receiver's environment via `get_allocator`. The design supports environments where heap allocation is prohibited - the same context parameter that controls the scheduler type controls the allocator type.
 
-### 12.7 `co_yield with_error(e)`
+### 11.7 `co_yield with_error(e)`
 
 `co_yield with_error(e)` reports an error on the error channel without throwing an exception.
 
@@ -853,7 +891,7 @@ task<void> validate(request const& req) {
 
 This is how a `task` delivers a typed error to the sender composition algebra without relying on exceptions. The coroutine is suspended and completes with `set_error(e)`. The downstream pipeline handles the error through `upon_error` or `let_error`. This is a feature of the design: errors can be reported precisely, with the type preserved, and the composition algebra participates.
 
-### 12.8 Cancellation
+### 11.8 Cancellation
 
 `co_await just_stopped()` cancels the coroutine. The coroutine completes with `set_stopped()`.
 
@@ -869,7 +907,7 @@ task<void> check_cancel() {
 
 Any sender that completes with `set_stopped` cancels the `task`. The coroutine is never resumed - local variables are destroyed and the task completes on the stopped channel. The `task`'s stop token is linked to the parent context's stop token, so cancellation propagates structurally.
 
-### 12.9 Error Channel Mapping
+### 11.9 Error Channel Mapping
 
 When a `task` `co_await`s a sender that completes with `set_error(ec)`, the error is delivered as a thrown exception.
 
@@ -888,7 +926,7 @@ task<void> error_mapping_demo() {
 
 This is how the three-channel model composes with coroutines. The value channel becomes the `co_await` return value. The error channel becomes a thrown exception. The stopped channel becomes cancellation. The mapping is clean and the programmer can use familiar `try`/`catch` for error handling. The composition algebra built on `set_error` integrates with coroutines through the exception mechanism - the two error models meet at the `co_await` boundary.
 
-### 12.10 Compound Results
+### 11.10 Compound Results
 
 When an I/O operation returns both a status code and a byte count, the compound result can stay on the value channel. Both values arrive at the `co_await` expression.
 
@@ -905,7 +943,7 @@ task<void> read_with_status() {
 }
 ```
 
-Both values are visible. The programmer branches with `if`. The composition algebra - `retry`, `upon_error`, `when_all` - does not participate in this dispatch, because the result stayed on the value channel. This is the trade-off: data preservation or composition algebra participation, not both simultaneously. The programmer always has the option of writing sender code directly instead of using the coroutine, gaining access to the full composition algebra at the cost of the programming model documented in Sections 3 through 11.
+Both values are visible. The programmer branches with `if`. The composition algebra - `retry`, `upon_error`, `when_all` - does not participate in this dispatch, because the result stayed on the value channel. This is the trade-off: data preservation or composition algebra participation, not both simultaneously. The programmer always has the option of writing sender code directly instead of using the coroutine, gaining access to the full composition algebra at the cost of the programming model documented in Sections 3 through 10.
 
 Alternatively, the compound result can be bundled into the error type:
 
@@ -927,7 +965,7 @@ task<void> bundled_error() {
 
 The composition algebra now participates - `retry` sees the error, `upon_error` can handle it. Every `upon_error` handler downstream must accept `io_result` alongside any other error types in the pipeline. The data survives the channel crossing because it is inside the error object. Both approaches are legitimate design choices. The programmer evaluates the trade-off for the domain at hand.
 
-### 12.11 Pipelines Inside Coroutines
+### 11.11 Pipelines Inside Coroutines
 
 A sender pipeline can be `co_await`ed as a single expression inside a `task`.
 
@@ -947,9 +985,9 @@ task<string> fetch_and_transform(url u) {
 
 The pipeline is composed using the pipe operator, then `co_await`ed as a unit. The `task` provides the execution context; the pipeline provides the composition. The integration between coroutines and senders is seamless - each model contributes its strength.
 
-### 12.12 Tasks as Senders
+### 11.12 Tasks as Senders
 
-A `task` is a sender. It can be used anywhere a sender is expected - piped into `then`, passed to `when_all`, composed with any algorithm from Sections 3 through 11.
+A `task` is a sender. It can be used anywhere a sender is expected - piped into `then`, passed to `when_all`, composed with any algorithm from Sections 3 through 10.
 
 ```cpp
 auto sndr = fetch_and_transform(my_url)
@@ -964,11 +1002,11 @@ The `task` enters the sender world as a first-class participant. The coroutine's
 
 ---
 
-## 13. Composition
+## 12. Composition
 
 The final section demonstrates how senders and coroutines compose together in a realistic program. The example uses four layers, each building on the previous, combining the algorithms from this tutorial into a single system. The resulting program is readable - each layer is a natural application of the patterns introduced earlier.
 
-### 13.1 Sensor Fusion
+### 12.1 Sensor Fusion
 
 A `task` that `co_await`s a structured-concurrency pipeline to read three sensors in parallel and fuse the results.
 
@@ -1004,7 +1042,7 @@ task<sensor_data> read_sensors(
 
 Three sensors, three execution contexts, one `when_all`. The `task` provides scheduler affinity; the pipeline provides concurrency. The fused result is a single `sensor_data` value.
 
-### 13.2 Collision Detection
+### 12.2 Collision Detection
 
 The `task` from 13.1 is used as a sender inside a pipeline that evaluates whether immediate braking is required.
 
@@ -1030,7 +1068,7 @@ auto collision_pipeline(
 
 The `task` is a sender. The pipeline consumes it with `then` and `let_value`. The branching inside `let_value` returns different `brake_cmd` values - both branches return the same sender type, so no type erasure is needed.
 
-### 13.3 Actuator Command
+### 12.3 Actuator Command
 
 A `task` that `co_await`s the collision pipeline and sends brake commands on a real-time scheduler.
 
@@ -1055,7 +1093,7 @@ task<actuator_result> actuate_brakes(
 
 The pipeline from 13.2 is `co_await`ed inside a `task`. The brake command is issued on a real-time scheduler - a context transition from the sensor-processing context to the actuator context.
 
-### 13.4 Failover
+### 12.4 Failover
 
 The `task` from 13.3 is used as a sender inside a pipeline that handles sensor failure with emergency braking.
 
@@ -1095,7 +1133,7 @@ auto safety_controller(
 
 Four layers. A sender pipeline containing a `task` containing a sender pipeline containing a `task` containing a sender pipeline. Each layer is individually reasonable - a natural application of the algorithms this tutorial has introduced. The structure is intuitive. The composition follows the patterns established in the preceding sections. The tutorial has, in a sense, been unnecessary - the Sub-Language is its own best teacher.
 
-### 13.5 The Equivalent Program
+### 12.5 The Equivalent Program
 
 ```cpp
 task<actuator_result> safety_controller(
@@ -1127,7 +1165,7 @@ task<actuator_result> safety_controller(
 
 ---
 
-## 14. Conclusion
+## 13. Conclusion
 
 This tutorial has progressed from the simplest sender algorithm - `just(42)` - to a four-layer composition of sender pipelines and coroutines managing sensor fusion, collision detection, actuator commands, and failover in a safety-critical control system. Some readers may find the later examples challenging. There is no rush. The examples reward careful study and repeated reading. The Sender Sub-Language is C++26's asynchronous programming model - the standard's answer to structured concurrency and heterogeneous execution. The programmer who masters it has mastered the model the standard provides. With patience and practice, every pattern in this tutorial becomes familiar.
 
