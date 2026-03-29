@@ -1,7 +1,7 @@
 ---
 title: "The Sender Sub-Language"
 document: D4014R1
-date: 2026-02-22
+date: 2026-03-28
 reply-to:
   - "Vinnie Falco <vinnie.falco@gmail.com>"
   - "Mungo Gill <mungo.gill@me.com>"
@@ -10,748 +10,1500 @@ audience: LEWG
 
 ## Abstract
 
-C++26 introduces a rich sub-language for asynchronous programming through `std::execution` ([P2300R10](https://wg21.link/p2300r10))<sup>[1]</sup>. Sender pipelines replace C++'s control flow, variable binding, error handling, and iteration with library-level equivalents rooted in continuation-passing style and monadic composition. This paper is a guide to the Sender Sub-Language: its theoretical foundations, the programming model it provides, and the engineering trade-offs it makes. The trade-offs serve specific domains well. The question is whether other domains deserve the same freedom to choose the model that serves them.
+C++26 ships thirty sender algorithms that collectively replace sequential statements, local variables, error handling, and iteration with library-level equivalents rooted in continuation-passing style.
+
+This paper is a progressive tutorial. It introduces every sender algorithm in C++26<sup>[1]</sup>, one at a time, from the simplest to the most complex. Each algorithm is defined, demonstrated in a working example, and explained. After the explanation, the equivalent C++ program appears without commentary - the equivalents compute the same results but do not preserve concurrency or execution context semantics. The theoretical foundations are presented first - the lambda calculus, continuation-passing style, and monadic composition that give the Sub-Language its structure - followed by the algorithms themselves, grouped by function and ordered by escalating complexity. The final sections cover the `task` coroutine type ([P3552R3](https://wg21.link/p3552r3))<sup>[2]</sup> and the composition patterns that emerge when senders and coroutines interleave.
+
+The evidence is public. The conclusions are the reader's.
 
 ---
 
 ## Revision History
 
+### R1: March 2026
+
+- Complete rewrite as a progressive tutorial.
+- Covers all thirty sender algorithms in the C++26 working draft.
+- Adds coverage of `task` and sender-coroutine composition.
+- Adds real-world examples (backtracker, retry) from stdexec and sender-examples.
+
 ### R0: March 2026 (pre-Croydon mailing)
 
-* Initial version.
+- Initial version.
 
 ---
 
-## 1. Introduction
+## 1. Disclosure
 
-`std::execution` ([P2300R10](https://wg21.link/p2300r10))<sup>[1]</sup> was formally adopted into the C++26 working paper at St. Louis in July 2024. C++ developers who write asynchronous code will likely encounter it.
+The author maintains [Boost.Beast](https://github.com/boostorg/beast)<sup>[3]</sup>, [Corosio](https://github.com/cppalliance/corosio)<sup>[4]</sup>, and [Capy](https://github.com/cppalliance/capy)<sup>[5]</sup>. The author believes coroutine-native I/O is the correct foundation for networking in C++. A coroutine-native design cannot express compile-time work graphs. That is a genuine limitation, and domains that need compile-time work graphs - GPU dispatch, heterogeneous execution, high-frequency trading - are right to use a model that provides them.
 
-C++ has a tradition of sub-languages. Template metaprogramming is one: a Turing-complete compile-time language expressed through the type system. The preprocessor is another, operating before compilation begins with its own textual substitution rules. `constexpr` evaluation is a third, running a subset of C++ at compile time to produce values. Each operates within C++ but carries its own idioms, patterns, and mental model. *The Design and Evolution of C++*<sup>[21]</sup> observes that C++ contains multiple programming paradigms; sub-languages are how those paradigms manifest in practice.
+`std::execution` ([P2300R10](https://wg21.link/p2300r10))<sup>[6]</sup> provides compile-time sender composition, structured concurrency guarantees, zero-allocation pipelines in steady state, and a customization point model that enables heterogeneous dispatch across execution contexts. The P2300 authors built a framework grounded in four decades of programming language research - the lambda calculus, continuation-passing style, monadic composition, and algebraic effect channels - and delivered it as a working C++ library that ships in production at NVIDIA and Citadel Securities<sup>[7]</sup>. The [stdexec](https://github.com/NVIDIA/stdexec)<sup>[8]</sup> reference implementation demonstrates performance on par with hand-written CUDA<sup>[9]</sup>. The engineering depth is real. The theoretical foundations are sound. The achievement deserves the recognition it has earned.
 
-C++26 adds another. The Sender Sub-Language is a continuation-passing-style programming model expressed through `std::execution`, with its own control flow primitives, variable binding model, error handling system, and iteration strategy. It is a complete programming model for asynchronous computation.
+This paper is a tutorial. It shows how each of the thirty sender algorithms in C++26 works, what each one is for, and what the equivalent C++ program looks like. The author provides information and serves at the pleasure of the chair.
 
-Consider the simplicity of the basic unit of composition:
+---
+
+## 2. Theoretical Foundations
+
+The Sender Sub-Language is not merely a fluent API. It is continuation-passing style expressed as composable value types, drawing on techniques refined across four decades of programming language research<sup>[22]</sup>. Understanding where the pieces come from makes the tutorial that follows easier to absorb.
+
+### 2.1 Continuations and CPS
+
+The [Lambda Papers](https://en.wikisource.org/wiki/Lambda_Papers)<sup>[10]</sup> (Steele and Sussman, 1975-1980) formalized continuation-passing style: every function receives an explicit continuation representing "what happens next." Instead of returning a value to its caller, a function passes its result forward into the continuation. The sender protocol works the same way. `connect(sndr, rcvr)` reifies the continuation - it binds a sender to its receiver, producing an operation state that holds the entire work graph as a concrete type. `start(op)` evaluates it.
+
+Gordon Plotkin's 1975 paper on [call-by-value lambda calculus](https://doi.org/10.1016/0304-3975(75)90017-1)<sup>[11]</sup> established that CPS makes evaluation order explicit in the term structure. This is why optimizing compilers - [SML/NJ](https://www.smlnj.org/)<sup>[12]</sup>, [Chicken Scheme](https://www.call-cc.org/)<sup>[14]</sup> - use CPS as their intermediate representation, why [GHC](https://www.haskell.org/ghc/)<sup>[13]</sup> uses a closely related continuation-based model in its STG machine, and why the Sender Sub-Language can build zero-allocation pipelines and compile-time work graphs.
+
+### 2.2 Monads
+
+Eugenio Moggi's 1991 paper ["Notions of Computation and Monads"](https://doi.org/10.1016/0890-5401(91)90052-4)<sup>[15]</sup> showed that monads structure computation with effects (see also Milewski<sup>[23]</sup> for an accessible treatment). Two operations are sufficient: `return` (lift a value into the computational context) and `bind` (sequence one computation into the next). In the Sender Sub-Language, `just(x)` is monadic return and `let_value(f)` is monadic bind. `then(f)` is the functor lift - `fmap` - a specialization where the function returns a plain value rather than a new sender.
+
+### 2.3 Delimited Continuations and Algebraic Effects
+
+Olivier Danvy and Andrzej Filinski's 1990 paper ["Abstracting Control"](https://doi.org/10.1145/91556.91622)<sup>[16]</sup> introduced delimited continuations and the shift/reset operators, enabling multiple effect channels within a single computation. The sender three-channel model - `set_value`, `set_error`, `set_stopped` - applies the algebraic-effects pattern with a fixed channel set. Each channel carries a distinct semantic role, and the composition algebra dispatches on which channel a result arrives on.
+
+Timothy Griffin's 1990 paper ["A Formulae-as-Types Notion of Control"](https://doi.org/10.1145/96709.96714)<sup>[17]</sup> connected control operators to type systems. The sender completion signatures - the type-level declaration of which channels a sender may complete on and with what argument types - are this connection made concrete in C++.
+
+### 2.4 The Mapping
+
+| Sender concept                            | Theoretical origin        |
+| ----------------------------------------- | ------------------------- |
+| `just(x)`                                 | Monadic return / `pure`   |
+| `let_value(f)`                            | Monadic bind (`>>=`)      |
+| `then(f)`                                 | Functor `fmap`            |
+| `set_value` / `set_error` / `set_stopped` | Algebraic effect channels |
+| `connect(sndr, rcvr)`                     | CPS reification           |
+| `start(op)`                               | CPS evaluation            |
+| Completion signatures                     | Type-level signature sets |
+
+The names are not arbitrary. The P2300 authors chose them with care, and the choices reflect genuine scholarship. `just` echoes Haskell's<sup>[24]</sup> `Just`. `let_value` mirrors monadic bind. The three completion channels form a closed effect algebra. The framework is grounded in real theory, and the theory is worth knowing before the tutorial begins.
+
+---
+
+## 3. Value Lifting
+
+The simplest sender algorithms lift values into the sender context. They create senders from nothing - no scheduler, no I/O, no computation. The value is already known.
+
+### 3.1 `just`
+
+`just(vs...)` creates a sender that completes immediately with the given values on the value channel, where `vs...` are the values to carry forward.
 
 ```cpp
-auto work = just(42) | then([](int v) { return v + 1; });
+auto sndr = just(42);
 ```
 
-One value lifted into the sender context, one transformation applied through the pipe operator. The Sender Sub-Language builds from this foundation into an expressive system for describing asynchronous work, and the depth of that system is worth understanding.
+Put values into the pipeline. Nothing happens to them - they are simply there for the next step. The reader will appreciate the elegance: one value, placed into the sender context, ready to go.
 
-This paper is a guide to the Sender Sub-Language. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") examines the coroutine integration; this paper focuses on what the Sub-Language is, where it came from, and what it looks like in practice.
+This is monadic return - the `pure` operation that lifts a value into the sender context. The sender completes synchronously, inline, with no allocation and no scheduling. It is the entry point into every pipeline.
 
----
-
-## 2. The Equivalents
-
-The Sender Sub-Language provides equivalents for most of C++'s fundamental control flow constructs. The following table maps each C++ language feature to its Sub-Language counterpart:
-
-| Regular C++             | Sender Sub-Language                                     |
-|-------------------------|---------------------------------------------------------|
-| Sequential statements   | `|` pipe chaining                                       |
-| Local variables         | Lambda captures (with move semantics across boundaries) |
-| `return`                | `set_value` into the receiver                           |
-| `try` / `catch`         | `upon_error` / `let_error`                              |
-| `for` / `while` loop    | Recursive `let_value` with type-erased return           |
-| `if` / `else`           | `let_value` returning different sender types            |
-| `switch`                | Nested `let_value` with continuation selection          |
-| `throw`                 | `set_error`                                             |
-| `break` / `continue`    | `set_stopped` / continuation selection                  |
-| Function call + return  | `connect` + `start` + `set_value`                       |
-| Concurrent selection    | (absent)                                                |
-| Structured bindings     | (not needed)                                            |
-| Range-for               | (not needed)                                            |
-| `if` with initializer   | (not needed)                                            |
-
-Three details bear noting. First, the iteration and branching equivalents ([`repeat_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp)<sup>[26]</sup>, [`any_sender_of<>`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp)<sup>[24]</sup>, [`variant_sender`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp)<sup>[25]</sup>) are provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation but are not yet part of the C++26 working paper. Section 5 illustrates both patterns with working code. Second, the last three rows - structured bindings, range-for, and `if` with initializer - have no equivalent because the Sender Sub-Language does not produce intermediate return values. Values flow forward into continuations as arguments, not backward to callers as returns. Third, concurrent selection - the dual of `when_all` - is absent. Section 2.1 examines the gap.
-
-### 2.1 The Missing Row
-
-[P2300R7](https://wg21.link/p2300r7)<sup>[56]</sup> Section 1.3 motivates `std::execution` with this example:
-
-```cpp
-sender auto composed_cancellation_example(auto query) {
-  return stop_when(
-    timeout(
-      when_all(
-        first_successful(
-          query_server_a(query),
-          query_server_b(query)),
-        load_file("some_file.jpg")),
-      5s),
-    cancelButton.on_click());
-}
-```
-
-The example uses four algorithms:
-
-| Algorithm          | P2300R7 Section 1.3 | C++26   |
-|--------------------|:-------------------:|---------|
-| `when_all`         | used                | shipped |
-| `stop_when`        | used                | removed |
-| `timeout`          | used                | absent  |
-| `first_successful` | used                | absent  |
-
-`stop_when` appeared in [P2175R0](https://wg21.link/p2175r0)<sup>[57]</sup> (2020), was present through [P2300R7](https://wg21.link/p2300r7)<sup>[56]</sup> (2023), and was removed before [P2300R10](https://wg21.link/p2300r10)<sup>[1]</sup> (2024). No replacement was proposed. Three of the four algorithms in the motivating example for `std::execution` are not part of C++26.
-
----
-
-## 3. Why It Looks Like This
-
-The Sender Sub-Language is not merely a fluent API. It is continuation-passing style (CPS) expressed as composable value types, a technique with deep roots in the theory of computation.
-
-| Sender concept                            | Theoretical origin        | Source                                                                    |
-|-------------------------------------------|---------------------------|---------------------------------------------------------------------------|
-| `just(x)`                                 | Monadic `return`/`pure`   | [Moggi (1991)](https://doi.org/10.1016/0890-5401(91)90052-4)              |
-| `let_value(f)`                            | Monadic bind (`>>=`)      | [Lambda Papers (1975-1980)](https://en.wikisource.org/wiki/Lambda_Papers) |
-| `then(f)`                                 | Functor `fmap`            | [Moggi (1991)](https://doi.org/10.1016/0890-5401(91)90052-4)              |
-| `set_value` / `set_error` / `set_stopped` | Algebraic effect channels | [Danvy & Filinski (1990)](https://doi.org/10.1145/91556.91622)            |
-| `connect(sndr, rcvr)`                     | CPS reification           | [Lambda Papers (1975-1980)](https://en.wikisource.org/wiki/Lambda_Papers) |
-| `start(op)`                               | CPS evaluation            | [Plotkin (1975)](https://doi.org/10.1016/0304-3975(75)90017-1)            |
-| Completion signatures                     | Type-level sum type       | [Griffin (1990)](https://doi.org/10.1145/96709.96714)                     |
-
-CPS makes control flow, variable binding, and resource lifetime explicit in the term structure. This is why optimizing compilers ([SML/NJ](https://www.smlnj.org/)<sup>[32]</sup>, [GHC](https://www.haskell.org/ghc/)<sup>[33]</sup>, [Chicken Scheme](https://www.call-cc.org/)<sup>[34]</sup>) use it as their intermediate representation, and why the Sender Sub-Language can build zero-allocation pipelines and compile-time work graphs. The names are not arbitrary: `just` echoes Haskell's `Just`, `let_value` mirrors monadic bind, and the three completion channels form a fixed algebraic effect system. The P2300 authors built a framework grounded in four decades of programming language research.
-
----
-
-## 4. How the Emphasis Changed
-
-Both models - coroutines for direct-style async and senders for compile-time work graphs - are real contributions to C++. Both were described as valuable by the same engineer, in his own published words. Eric Niebler's 2020 assessment<sup>[11]</sup>, "90% of all async code in the future should be coroutines simply for maintainability," captures the coroutine model's strengths for I/O and general-purpose async programming. The Sender Sub-Language's strengths for heterogeneous compute and zero-allocation pipelines are equally real.
-
-His published writing provides the most complete public record of the design thinking behind `std::execution`, documented with candor and intellectual honesty. The following timeline, drawn from that record, shows how the emphasis naturally shifted as the target problems changed.
-
-**2017.** Eric Niebler published ["Ranges, Coroutines, and React: Early Musings on the Future of Async in C++"](https://ericniebler.com/2017/08/17/ranges-coroutines-and-react-early-musings-on-the-future-of-async-in-c/)<sup>[10]</sup>. The vision was pure coroutines and ranges: `for co_await`, async generators, range adaptors on async streams. No senders. No receivers. The original async vision for C++ was direct-style and coroutine-native:
-
-> *"The C++ Standard Library is already evolving in this direction, and I am working to make that happen both on the Committee and internally at Facebook."*
-
-**2020.** Eric Niebler published ["Structured Concurrency"](https://ericniebler.com/2020/11/08/structured-concurrency/)<sup>[11]</sup>, as [P2300R0](https://wg21.link/p2300r0)<sup>[2]</sup> was being developed. Coroutines were the primary model:
-
-> *"I think that 90% of all async code in the future should be coroutines simply for maintainability."*
-
-> *"We sprinkle `co_await` in our code and we get to continue using all our familiar idioms: exceptions for error handling, state in local variables, destructors for releasing resources, arguments passed by value or by reference, and all the other hallmarks of good, safe, and idiomatic Modern C++."*
-
-Senders were positioned as the optimization path for the remaining 10%:
-
-> *"Why would anybody write that when we have coroutines? You would certainly need a good reason."*
-
-> *"That style of programming makes a different tradeoff, however: it is far harder to write and read than the equivalent coroutine."*
-
-**2021.** Eric Niebler published ["Asynchronous Stacks and Scopes"](https://ericniebler.com/2021/08/29/asynchronous-stacks-and-scopes/)<sup>[12]</sup> during the P2300 R1/R2 revision period:
-
-> *"The overwhelming benefit of coroutines in C++ is its ability to make your async scopes line up with lexical scopes."*
-
-The post ended with a promise: *"Next post, I'll introduce these library abstractions, which are the subject of the C++ standard proposal [P2300](https://wg21.link/p2300)."*
-
-**2024.** Eric Niebler published ["What are Senders Good For, Anyway?"](https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/)<sup>[13]</sup> one month before the Tokyo meeting where P2300 received design approval. The reference implementation, [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup>, is maintained under NVIDIA's GitHub organization. The framing had changed:
-
-> *"If your library exposes asynchrony, then returning a sender is a great choice: your users can await the sender in a coroutine if they like."*
-
-Senders were now the foundation. Coroutines were one of several ways to consume them.
-
-**2025-2026.** The coroutine integration shipped via [P3552R3](https://wg21.link/p3552r3)<sup>[5]</sup> ("Add a Coroutine Task Type"). [P3796R1](https://wg21.link/p3796r1)<sup>[6]</sup> ("Coroutine Task Issues") cataloged twenty-nine open concerns. [D3980R0](https://isocpp.org/files/papers/D3980R0.html)<sup>[8]</sup> ("Task's Allocator Use") reworked the allocator model six months after adoption. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") documented three structural gaps.
-
-| Date      | Published writing                    | Concurrent paper activity                                                                              | Sender/coroutine relationship              |
-|-----------|--------------------------------------|--------------------------------------------------------------------------------------------------------|--------------------------------------------|
-| 2017      | "Ranges, Coroutines, and React"      | (ranges work, not P2300)                                                                               | Vision is pure coroutines                  |
-| 2020      | "Structured Concurrency"             | [P2300R0](https://wg21.link/p2300r0) ("std::execution") in development                                 | Coroutines 90%, senders for 10% hot paths   |
-| 2021      | "Asynchronous Stacks and Scopes"     | [P2300R2](https://wg21.link/p2300r2) revisions                                                         | Coroutines overwhelming, senders upcoming   |
-| 2024      | "What are Senders Good For, Anyway?" | [P2300R10](https://wg21.link/p2300r10); [P3164R0](https://wg21.link/p3164r0) ("Improving Diagnostics") | Senders are the foundation                   |
-| 2025-2026 | (no blog post)                       | [P3826R3](https://wg21.link/p3826r3) ("Fix Sender Algorithm Customization"): early customization described as "irreparably broken"      | Design under active rework                   |
-
-Between 2017 and 2024, the emphasis changed. In 2017, the vision was coroutines and ranges. By 2020, coroutines were the primary model and senders were the optimization path for hot code. By 2024, as the problems being solved turned toward heterogeneous computing and GPU dispatch, senders naturally received more attention, and the Sender Sub-Language became the foundation of `std::execution`.
-
-The question is not which discovery was right. Both were. Coroutines are already standardized. The question is whether the committee should give asynchronous I/O the same domain-specific accommodation it gave heterogeneous compute.
-
----
-
-## 5. The Sub-Language in Practice
-
-The following examples are drawn from the official [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> repository and the [sender-examples](https://github.com/steve-downey/sender-examples)<sup>[28]</sup> collection. Each illustrates a progressively more expressive pattern in the Sender Sub-Language, annotated with the functional programming concepts from Section 3. After each example, the same program is shown in C++.
-
-Downey demonstrates that the base sender operations - `just`, `then`, and `let_value` - are sufficient to express all structured programming constructs, including structured concurrency<sup>[35]</sup>. The examples that follow do not dispute that finding. They illustrate the cost of that expression for programs typical of the I/O domain.
-
-### 5.1 A Simple Pipeline
-
-```cpp
-auto work = just(42)                                      // pure/return
-          | then([](int v) { return v + 1; })             // fmap/functor lift
-          | then([](int v) { return v * 2; });            // functor composition
-auto [result] = sync_wait(std::move(work)).value();       // evaluate the continuation
-```
-
-The same program, expressed in C++:
+The equivalent program:
 
 ```cpp
 int v = 42;
-v = v + 1;
-v = v * 2;
 ```
 
-This is the basic unit of composition in the Sender Sub-Language. A value is lifted into the sender context with `just`, and two transformations are applied through the pipe operator. The entire pipeline is lazy - nothing executes until `sync_wait` evaluates the reified continuation.
+### 3.2 `just_error`
 
-### 5.2 Branching
+`just_error(e)` creates a sender that completes immediately with the error `e` on the error channel.
 
 ```cpp
-auto work = just(42)                                      // pure/return
-          | then([](int v) {                              // fmap/functor lift
-                return v > 0 ? v * 2 : -v;               // conditional value
+auto sndr = just_error(
+    make_error_code(errc::invalid_argument));
+```
+
+Signal that something went wrong. The error travels down the pipeline until something handles it. Equally natural - when an error needs to enter the pipeline, `just_error` provides it cleanly and without ceremony.
+
+`just_error` lifts an error into the sender context the way `just` lifts a value. The error is delivered to the first error handler downstream - an `upon_error` or `let_error` in the pipeline.
+
+The equivalent program:
+
+```cpp
+throw system_error(
+    make_error_code(errc::invalid_argument));
+```
+
+### 3.3 `just_stopped`
+
+`just_stopped()` creates a sender that completes immediately on the stopped channel. It takes no arguments. No value is produced and no error is reported. The operation was cancelled.
+
+```cpp
+auto sndr = just_stopped();
+```
+
+Signal that the operation was cancelled. This is how the programmer says "never mind" in a sender pipeline. The third channel completes the picture - a dedicated path for a dedicated intent.
+
+The stopped channel is the third path in the sender completion algebra - distinct from both success and failure. It represents cancellation as a first-class concept. The reader will find this a natural extension of the two-channel error model - a dedicated path for a dedicated intent. Regular C++ has no dedicated cancellation channel; the three-channel model is one of the properties the Sub-Language adds.
+
+### 3.4 `sync_wait`
+
+`sync_wait(sndr)` blocks the current thread until the sender completes, then returns the result as an `optional<tuple<...>>`. The argument `sndr` is the sender to execute.
+
+```cpp
+auto [result] =
+    sync_wait(just(42)).value();
+// result == 42
+```
+
+The reader has built a sender. Now they want the result. `sync_wait` is that moment - the point where the sender world opens and delivers its contents to regular C++ code. It is the only sender consumer in the standard, and nothing in the pipeline executes until `sync_wait` drives it to completion.
+
+`sync_wait` is the bridge between the Sender Sub-Language and regular C++. Everything upstream is lazy - a description of work, not the execution of it. `sync_wait` makes it real.
+
+The equivalent program:
+
+```cpp
+int result = 42;
+```
+
+---
+
+## 4. Transformation
+
+The transformation algorithms apply a function to a sender's completion and produce a new completion. The function returns a value, not a sender.
+
+### 4.1 `then`
+
+`then(f)` applies `f` to the values produced by the predecessor sender, where `f` is a callable that receives those values and returns a new value. The return value of `f` becomes the new value completion.
+
+```cpp
+auto sndr = just(3, 4)
+          | then([](int a, int b) {
+                return a * a + b * b;
             });
+// completes with set_value(25)
 ```
 
-The same program, expressed in C++:
+The most natural operation in the Sub-Language: take what came before, apply a function, and carry the result forward. The reader will find this immediately familiar - it is function application, expressed as a pipeline stage.
+
+`then` is functor `fmap`. It transforms values without changing the structure of the pipeline - the sender still completes on the value channel, with a different value. Errors and stopped signals pass through untouched. If `f` throws, the exception is caught and delivered as `set_error(current_exception())`.
+
+The equivalent program:
 
 ```cpp
-int v = 42;
-if (v > 0)
-    v = v * 2;
-else
-    v = -v;
+int result = 3 * 3 + 4 * 4;
 ```
 
-Conditional logic that produces a value (not a new sender) can use `then`. When the branches must return different sender types, `let_value` with [`variant_sender`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp)<sup>[25]</sup> is required.
+### 4.2 `upon_error`
 
-### 5.3 Error Handling
+`upon_error(f)` applies `f` to the error produced by the predecessor sender, where `f` is a callable that receives the error value and returns a recovery value. The return value of `f` becomes a value completion.
 
 ```cpp
-auto work = just(std::move(socket))                       // pure/return
-          | let_value([](tcp_socket& s) {                 // monadic bind (>>=)
-                return async_read(s, buf)                 // Kleisli arrow
-                     | then([](auto data) {               // fmap/functor lift
-                           return parse(data);            // value continuation
-                       });
-            })
-          | upon_error([](auto e) {                       // error continuation
-                log(e);                                   // error channel handler
-            })
-          | upon_stopped([] {                             // stopped continuation
-                log("cancelled");                         // cancellation channel handler
-            });
+auto sndr = just_error(
+        make_error_code(errc::connection_reset))
+      | upon_error([](error_code ec) {
+            return -1;
+        });
+// completes with set_value(-1)
 ```
 
-The same program, expressed as a C++ coroutine:
+When something goes wrong, `upon_error` provides the recovery. The function receives the error and returns a fallback value. The error is handled; the pipeline continues as if nothing happened.
+
+`upon_error` is the error-channel counterpart of `then`. Where `then` transforms values, `upon_error` transforms errors into values - the result crosses channels, converting an error completion into a value completion. Values and stopped signals pass through untouched.
+
+The equivalent program:
 
 ```cpp
+int result;
 try {
-    auto data = co_await async_read(socket, buf);
-    auto result = parse(data);
-} catch (const std::exception& e) {
-    log(e);
+    throw system_error(
+        make_error_code(
+            errc::connection_reset));
+} catch (system_error const&) {
+    result = -1;
 }
 ```
 
-In the Sub-Language version above, the three-channel completion model dispatches each outcome to its own handler: `then` for the value channel, `upon_error` for the error channel, `upon_stopped` for the cancellation channel. Each channel has a distinct semantic role in the sum type over completion outcomes.
+### 4.3 `upon_stopped`
 
-### 5.4 The Loop
-
-The following example is drawn from [loop.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/loop.cpp)<sup>[29]</sup> in the sender-examples repository:
+`upon_stopped(f)` applies `f` when the predecessor sender is cancelled, where `f` takes no arguments and returns a recovery value. The return value of `f` becomes a value completion.
 
 ```cpp
-auto snder(int t) {
-    int n = 0;                                            // initial state
-    int acc = 0;                                          // accumulator
-    stdexec::sender auto snd =
-        stdexec::just(t)                                  // pure/return
-      | stdexec::let_value(                               // monadic bind (>>=)
-            [n = n, acc = acc](int k) mutable {           // mutable closure state
-                return stdexec::just()                    // unit/return
-                     | stdexec::then([&n, &acc, k] {      // reference capture across
-                           acc += n;                      //   continuation boundary
-                           ++n;                           // mutate closure state
-                           return n == k;                 // termination predicate
-                       })
-                     | exec::repeat_until()        // tail-recursive effect
-                     | stdexec::then([&acc]() {           // accumulator extraction
-                           return acc;
+auto sndr = just_stopped()
+          | upon_stopped([] {
+                return 0;
+            });
+// completes with set_value(0)
+```
+
+The cancellation counterpart. If the operation was stopped, provide a fallback value instead. The stopped signal is absorbed; the pipeline moves on.
+
+`upon_stopped` converts a cancellation into a value. It is used when a pipeline needs a fallback result in the event of cancellation rather than propagating the stopped signal. Regular C++ has no cancellation equivalent.
+
+---
+
+## 5. Monadic Composition
+
+The `let_*` family is the complexity step. Where `then` applies a function that returns a value, `let_value` applies a function that returns a sender. The function constructs the next stage of the pipeline at runtime. This is monadic bind.
+
+### 5.1 `let_value`
+
+`let_value(f)` applies `f` to the values produced by the predecessor, where `f` is a callable that receives those values and returns a new sender. That sender's completion becomes the completion of the composed pipeline.
+
+```cpp
+auto sndr = just(std::string("hello"))
+          | let_value([](std::string s) {
+                return just(s + " world")
+                     | then([](std::string r) {
+                           return r.size();
                        });
             });
-    return snd;
+// completes with set_value(11)
+```
+
+Here the Sub-Language reveals its expressive depth. Where `then` applies a function that returns a value, `let_value` applies a function that returns an entirely new sender - a new pipeline within the pipeline. The reader will find this a natural extension of the composition model.
+
+`let_value` is monadic bind. The function receives the predecessor's values and returns a sender which may itself be a multi-stage pipeline. The result is a sender whose completion type is determined by the inner sender, not by the function's return type directly. This is what makes `let_value` more powerful than `then`: the next stage of computation is itself a sender. The pattern is straightforward once the distinction between returning a value and returning a sender is clear.
+
+The equivalent program:
+
+```cpp
+std::string s = "hello";
+s += " world";
+size_t result = s.size();
+```
+
+### 5.2 `let_error`
+
+`let_error(f)` applies `f` to the error produced by the predecessor, where `f` is a callable that receives the error and returns a new sender. The error is recovered by routing into a new computation.
+
+```cpp
+auto sndr = just_error(
+        make_error_code(errc::timed_out))
+      | let_error([](error_code ec) {
+            return just(ec.message());
+        });
+// completes with set_value("timed out")
+```
+
+The same principle, applied to errors. The recovery is itself an asynchronous operation - a pipeline that does real work to recover from the failure.
+
+`let_error` is the error-channel counterpart of `let_value`. Where `upon_error` transforms an error into a value, `let_error` transforms an error into a sender - enabling recovery paths that are themselves multi-stage pipelines.
+
+The equivalent program:
+
+```cpp
+std::string result;
+try {
+    throw system_error(
+        make_error_code(errc::timed_out));
+} catch (system_error const& e) {
+    result = e.code().message();
 }
 ```
 
-The same program, expressed in C++:
+### 5.3 `let_stopped`
+
+`let_stopped(f)` applies `f` when the predecessor is cancelled, where `f` takes no arguments and returns a new sender that replaces the cancellation.
 
 ```cpp
-int loop(int t) {
-    int acc = 0;
-    for (int n = 0; n < t; ++n)
-        acc += n;
-    return acc;
-}
-```
-
-The Sender Sub-Language version expresses iteration as tail-recursive continuation composition. The [`repeat_until`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp)<sup>[26]</sup> algorithm repeatedly invokes the sender until the predicate returns true. State is maintained through mutable lambda captures with reference captures into the closure - a pattern that requires careful attention to object lifetime across continuation boundaries. The `repeat_until` algorithm is provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation; it is not yet part of the C++26 working paper.
-
-### 5.5 The Fold
-
-The following example is drawn from [fold.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/fold.cpp)<sup>[30]</sup> in the sender-examples repository:
-
-```cpp
-struct fold_left_fn {
-    template<std::input_iterator I, std::sentinel_for<I> S,
-             class T, class F>
-    constexpr auto operator()(I first, S last, T init, F f) const
-        -> any_sender_of<                                 // type-erased monadic return
-            stdexec::set_value_t(
-                std::decay_t<
-                    std::invoke_result_t<F&, T, std::iter_reference_t<I>>>),
-            stdexec::set_stopped_t(),
-            stdexec::set_error_t(std::exception_ptr)> {
-        using U = std::decay_t<
-            std::invoke_result_t<F&, T, std::iter_reference_t<I>>>;
-
-        if (first == last) {                              // base case
-            return stdexec::just(U(std::move(init)));     // pure/return
-        }
-
-        auto nxt =
-            stdexec::just(                                // pure/return
-                std::invoke(f, std::move(init), *first))
-          | stdexec::let_value(                           // monadic bind (>>=)
-                [this,
-                 first = first,                           // iterator capture in closure
-                 last = last,
-                 f = f](U u) {
-                    I i = first;
-                    return (*this)(++i, last, u, f);      // recursive Kleisli composition
-                });
-        return std::move(nxt);                           // inductive case: bind + recurse
-    }
-};
-```
-
-The same program, expressed as a C++ coroutine:
-
-```cpp
-task<U> fold_left(auto first, auto last, U init, auto f) {
-    for (; first != last; ++first)
-        init = f(std::move(init), *first);
-    co_return init;
-}
-```
-
-The sender version above demonstrates recursive Kleisli composition with type-erased monadic returns. The `fold_left_fn` callable object recursively composes senders: each step applies the folding function and then constructs a new sender that folds the remainder. The return type is [`any_sender_of<>`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp)<sup>[24]</sup> because the recursive type would otherwise be infinite - type erasure breaks the recursion at the cost of a dynamic allocation per step.
-
-The `any_sender_of` type is provided by the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> reference implementation, which is ahead of the standard in this area. The C++26 working paper does not yet include a type-erased sender. The stdexec team has implemented the facility that recursive sender composition requires.
-
-### 5.6 The Backtracker
-
-The following example is drawn from [backtrack.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp)<sup>[31]</sup> in the sender-examples repository:
-
-```cpp
-auto search_tree(auto                    test,  // predicate
-                 tree::NodePtr<int>      tree,  // current node
-                 stdexec::scheduler auto sch,   // execution context
-                 any_node_sender&&       fail)  // the continuation (failure recovery)
-    -> any_node_sender {                                  // type-erased monadic return
-    if (tree == nullptr) {
-        return std::move(fail);                           // invoke the continuation
-    }
-    if (test(tree)) {
-        return stdexec::just(tree);                      // pure/return: lift into context
-    }
-    return stdexec::on(sch, stdexec::just())              // schedule on executor
-      | stdexec::let_value(                               // monadic bind (>>=)
-            [=, fail = std::move(fail)]() mutable {       // move-captured continuation
-                return search_tree(                       // recursive Kleisli composition
-                    test,
-                    tree->left(),                         // traverse left subtree
-                    sch,
-                    stdexec::on(sch, stdexec::just())     // schedule on executor
-                      | stdexec::let_value(               // nested monadic bind
-                            [=, fail = std::move(fail)]() mutable {
-                                return search_tree(       // recurse right subtree
-                                    test,
-                                    tree->right(),        // with failure continuation
-                                    sch,
-                                    std::move(fail));     // continuation-passing
-                                                          //   failure recovery
-                            }));
+auto sndr = just_stopped()
+          | let_stopped([] {
+                return just(
+                    std::string("recovered"));
             });
+// completes with set_value("recovered")
+```
+
+And for cancellation. The replacement for a stopped operation is itself a sender - a new computation that takes over where the cancelled one left off.
+
+`let_stopped` converts a cancellation into a new computation. The function receives no arguments - the stopped channel carries no data - and returns a sender whose completion replaces the stopped signal. The reader will recognize the pattern: each `let_*` variant handles one channel and routes its result into a new sender. Regular C++ has no cancellation equivalent.
+
+---
+
+## 6. Execution Contexts
+
+The execution context algorithms control where work runs. A scheduler represents an execution resource - a thread pool, an I/O context, a GPU stream - and these algorithms move work between them.
+
+### 6.1 `schedule`
+
+`schedule(sch)` produces a sender that, when started, completes on the execution context of `sch`, the specified scheduler.
+
+```cpp
+auto sndr = schedule(pool.get_scheduler())
+          | then([] {
+                return handle_request();
+            });
+```
+
+The reader enters an execution context. `schedule` is the door - it produces a sender that, when started, transitions to the scheduler's context. Everything piped after it runs there.
+
+`schedule` creates a sender from a scheduler. The sender completes with no values - it serves purely as a transition point. Work piped after `schedule` runs on the scheduler's context.
+
+The equivalent program:
+
+```cpp
+pool.post([&] {
+    handle_request();
+});
+```
+
+### 6.2 `starts_on`
+
+`starts_on(sch, sndr)` arranges for `sndr` to begin execution on the scheduler `sch`.
+
+```cpp
+auto sndr = starts_on(
+    pool.get_scheduler(),
+    just(request) | then([](auto req) {
+        return handle(req);
+    }));
+```
+
+The reader has a sender and wants it to run somewhere specific. `starts_on` arranges the introduction - the sender begins its work on the chosen scheduler.
+
+The equivalent program:
+
+```cpp
+pool.post([&] {
+    auto result = handle(request);
+});
+```
+
+### 6.3 `continues_on`
+
+`continues_on(sch)` transitions execution to the scheduler `sch` after the predecessor completes.
+
+```cpp
+auto sndr =
+    starts_on(io_ctx.get_scheduler(),
+              async_read(socket, buf))
+  | continues_on(pool.get_scheduler())
+  | then([](auto data) {
+        return parse(data);
+    });
+```
+
+A graceful transition. When the previous step finishes on one context, `continues_on` moves execution to another. The data carries over; the thread changes. This is how a pipeline moves work between contexts - read on the I/O thread, parse on the thread pool.
+
+The equivalent program:
+
+```cpp
+auto data = read(socket);
+pool.post([&] {
+    auto result = parse(data);
+});
+```
+
+### 6.4 `on`
+
+`on(sch, sndr)` runs `sndr` on the scheduler `sch`, then returns execution to the caller's context.
+
+```cpp
+auto sndr = on(
+    pool.get_scheduler(),
+    just(request) | then([](auto req) {
+        return handle(req);
+    }));
+```
+
+A round trip - work runs on another context and the result comes back. The reader does not need to manage the return; it is handled.
+
+The equivalent program:
+
+```cpp
+auto result = handle(request);
+```
+
+### 6.5 `affine_on`
+
+`affine_on(sndr, sch)` adapts `sndr` to complete on the scheduler `sch`, skipping the transition if the sender already completes there.
+
+```cpp
+auto sndr = some_operation()
+          | affine_on(pool.get_scheduler());
+```
+
+The optimization the reader would hope for - if the sender already completes on the target scheduler, the transition is skipped entirely. No wasted work.
+
+`affine_on` was introduced by [P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> as the scheduler affinity primitive. It behaves like `continues_on` but avoids the scheduling overhead when the predecessor already completes on the target scheduler. This is what makes scheduler affinity practical for coroutine `task` - the `await_transform` injects `affine_on` around every `co_await`ed sender. We will return to this in Section 11.
+
+The equivalent program:
+
+```cpp
+auto result = some_operation();
+```
+
+### 6.6 `schedule_from`
+
+`schedule_from(sch, sndr)` ensures that all of `sndr`'s completion signals - value, error, and stopped - arrive on the scheduler `sch`.
+
+```cpp
+auto sndr = schedule_from(
+    pool.get_scheduler(),
+    async_read(socket, buf));
+```
+
+An implementer's tool. Most readers will not need this directly, but it is satisfying to know it exists - precise control over where all three completion channels arrive. Where `continues_on` transitions the value channel, `schedule_from` transitions all three.
+
+The equivalent program:
+
+```cpp
+auto data = read(socket);
+```
+
+---
+
+## 7. Environment
+
+Senders execute within an environment - a queryable set of key-value pairs carried by the receiver. The environment provides context that the pipeline's algorithms can read: which scheduler to use, which allocator to use, whether cancellation has been requested. The following algorithms manipulate that environment.
+
+### 7.1 `read_env`
+
+`read_env(query)` creates a sender that reads the value associated with `query` from the receiver's environment and completes with it on the value channel.
+
+```cpp
+auto sndr = read_env(get_scheduler)
+          | let_value([](auto sch) {
+                return schedule(sch)
+                     | then([] {
+                           return load_config();
+                       });
+            });
+```
+
+The pipeline asks its context a question. What scheduler am I on? What allocator should I use? The environment carries these answers, and `read_env` retrieves them.
+
+`read_env` is the introspection primitive. The sender does not carry the environment value itself - it reads it from the receiver at connection time, when the environment is known. This enables context-dependent behavior: the same pipeline can behave differently depending on which scheduler, allocator, or stop token the enclosing context provides. The composition reads naturally once the receiver's role as environment carrier is understood.
+
+The equivalent program:
+
+```cpp
+auto config = load_config();
+```
+
+### 7.2 `write_env`
+
+`write_env(env, sndr)` wraps `sndr` so that downstream receivers see the additional or overridden entries in `env`.
+
+```cpp
+auto sndr = write_env(
+    make_env(get_allocator, pool_alloc),
+    process_file(path));
+```
+
+The reader can shape the environment for downstream operations. Override the allocator, substitute a scheduler, inject custom context - the downstream pipeline sees the modified environment without any change to its code.
+
+`write_env` overlays entries onto the receiver's environment. The wrapped sender and all of its children see the modified environment. This is how a pipeline provides a custom allocator, overrides a scheduler, or injects application-specific context without threading parameters through every function signature.
+
+The equivalent program:
+
+```cpp
+auto result = process_file(path);
+```
+
+### 7.3 `unstoppable`
+
+`unstoppable(sndr)` wraps `sndr` so that it does not receive stop requests from the parent context.
+
+```cpp
+auto sndr = unstoppable(
+    commit_transaction(db, txn));
+```
+
+Some operations must not be interrupted. `unstoppable` shields a sender from cancellation - the operation runs to completion regardless of what the parent pipeline decides. Transaction commits, resource cleanup, finalization steps - these are the operations that earn this protection.
+
+The equivalent program:
+
+```cpp
+commit_transaction(db, txn);
+```
+
+---
+
+## 8. Structured Concurrency
+
+The structured concurrency algorithms express fork-join parallelism and sender sharing. This is where the Sender Sub-Language provides something C++ statements alone do not: concurrent execution with structured lifetime guarantees.
+
+### 8.1 `when_all`
+
+`when_all(sndrs...)` starts all of the given senders concurrently and completes when every sender has completed. The value completions are concatenated.
+
+```cpp
+auto sndr = when_all(
+    fetch_user(user_id),
+    fetch_orders(user_id),
+    fetch_preferences(user_id))
+  | then([](auto user, auto orders,
+            auto prefs) {
+        return build_profile(
+            user, orders, prefs);
+    });
+```
+
+The reader will recognize this immediately - run everything at once, wait for all of them. If any fails, cancel the rest. This is structured concurrency, and it is one of the genuine strengths of the sender model.
+
+`when_all` is genuine structured concurrency. All child senders start together, run concurrently, and the join point is the `when_all` sender's completion. If any child completes with an error or is stopped, the remaining children are cancelled. The lifetime guarantee is structural - no child outlives the join point. Once the programmer has internalized the pattern, the intent is clear: three fetches, run concurrently, results combined.
+
+The equivalent program:
+
+```cpp
+auto user = fetch_user(user_id);
+auto orders = fetch_orders(user_id);
+auto prefs = fetch_preferences(user_id);
+auto profile =
+    build_profile(user, orders, prefs);
+```
+
+### 8.2 `when_all_with_variant`
+
+`when_all_with_variant(sndrs...)` is semantically equivalent to `when_all(into_variant(sndrs)...)`. It allows child senders with different value completion signatures.
+
+```cpp
+auto sndr = when_all_with_variant(
+    fetch_json(url_a),
+    fetch_binary(url_b))
+  | then([](auto json_var, auto bin_var) {
+        return combine(json_var, bin_var);
+    });
+```
+
+The same structured concurrency, but the senders may produce different types. Each result is wrapped in a variant - a natural accommodation for heterogeneous work.
+
+`when_all` requires each child to have exactly one value completion signature, but different children may produce different types - the results are concatenated in input order. `when_all_with_variant` relaxes the single-signature constraint: children with multiple possible value completion paths have each path wrapped in a `variant`, and the programmer destructures the variants at the join point.
+
+The equivalent program:
+
+```cpp
+auto json = fetch_json(url_a);
+auto binary = fetch_binary(url_b);
+auto result = combine(json, binary);
+```
+
+### 8.3 `split`
+
+`split(sndr)` converts a single-shot sender into a multi-shot sender. The result is shared: multiple downstream pipelines can consume the same sender's completion.
+
+```cpp
+auto shared = split(fetch_data(url));
+auto sndr = when_all(
+    shared | then([](auto data) {
+        return analyze(data);
+    }),
+    shared | then([](auto data) {
+        return archive(data);
+    }));
+```
+
+A sender's result, shared among multiple consumers. The sender runs once; everyone gets a copy. The reader will find this a natural way to express data sharing in a pipeline.
+
+`split` allocates shared state - the sender's result is stored once and distributed to all consumers. This is the sender equivalent of binding a value to a local variable and using it in multiple expressions. The allocation is the cost; the sharing is the benefit.
+
+The equivalent program:
+
+```cpp
+auto data = fetch_data(url);
+auto analysis = analyze(data);
+auto archived = archive(data);
+```
+
+---
+
+## 9. Signal Adaptation and Data Parallelism
+
+The signal adaptation algorithms reshape completion signatures - converting between channels, wrapping values in standard library types, and collapsing multiple completion paths into one. The data parallelism algorithms fan work out across an index space. Together, they handle the batch-processing and data-transformation patterns that arise in database operations, ETL pipelines, and scientific computing.
+
+### 9.1 `into_variant`
+
+`into_variant` adapts a sender with multiple value completion signatures into one that completes with a single `variant` of `tuple`s.
+
+```cpp
+auto sndr = query_database(stmt)
+          | into_variant;
+// if the query can complete with either
+// set_value(row) or set_value(int),
+// now completes with
+// set_value(variant<tuple<row>,
+//                   tuple<int>>)
+```
+
+When a sender might produce different types of values, `into_variant` wraps them all into a single variant type - a unification step that lets the rest of the pipeline proceed with one type.
+
+`into_variant` collapses heterogeneous value completions into a single variant type. The result is a sender with exactly one value completion signature. This is used when a sender's multiple value paths must be unified - for example, before passing to `when_all`, which requires a single value completion signature from each child.
+
+The equivalent program:
+
+```cpp
+auto result = query_database(stmt);
+```
+
+### 9.2 `stopped_as_optional`
+
+`stopped_as_optional` converts a sender's value completion into an `optional` and its stopped completion into an empty `optional`.
+
+```cpp
+auto sndr = dequeue(work_queue)
+          | stopped_as_optional;
+// value(item)   -> value(optional(item))
+// stopped()     -> value(optional())
+```
+
+Cancellation becomes an empty optional; values become engaged optionals. Both paths merge onto the value channel - the reader handles both cases with a single `if`.
+
+`stopped_as_optional` is the bridge between the stopped channel and ordinary value processing. A queue that reports "closed" via `set_stopped` becomes a sender that completes with an empty `optional` - the programmer handles both cases in the value channel with a single `if`.
+
+The equivalent program:
+
+```cpp
+auto item = dequeue(work_queue);
+// returns optional<item_type>
+```
+
+### 9.3 `stopped_as_error`
+
+`stopped_as_error(e)` converts a sender's stopped completion into an error completion carrying `e`.
+
+```cpp
+auto sndr = timed_operation(deadline)
+          | stopped_as_error(
+                make_error_code(
+                    errc::timed_out));
+```
+
+Cancellation becomes an error. The two failure paths unify into one, and the downstream error handling takes over.
+
+`stopped_as_error` reclassifies cancellation as an error. The stopped channel is eliminated from the completion signatures and replaced by an error. This is used when the downstream pipeline handles errors but not cancellation - the reclassification unifies the two failure paths.
+
+The equivalent program:
+
+```cpp
+auto result = timed_operation(deadline);
+if (timed_out)
+    throw system_error(
+        make_error_code(errc::timed_out));
+```
+
+### 9.4 `bulk`
+
+`bulk(policy, shape, f)` invokes `f(i, args...)` for each index `i` in the range `[0, shape)`, where `policy` is an execution policy (`std::par`, `std::seq`), `shape` is the number of invocations, and `args` are the values produced by the predecessor sender.
+
+```cpp
+auto sndr = just(records)
+          | bulk(std::par, records.size(),
+                [](size_t i, auto& recs) {
+                    recs[i].score =
+                        compute_score(recs[i]);
+                });
+```
+
+A parallel for-loop. The function runs once per index, and the execution policy controls whether the invocations overlap.
+
+`bulk` is the data-parallel primitive. The execution policy controls whether the invocations may run concurrently. The `parallel_scheduler` ([P2079R10](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p2079r10.html))<sup>[20]</sup> provides a customized implementation that executes the index space across the system thread pool. The design is remarkably expressive - a single algorithm covers sequential iteration, parallel map, and GPU-dispatched computation depending on the scheduler and policy.
+
+The equivalent program:
+
+```cpp
+std::for_each(std::execution::par,
+    records.begin(), records.end(),
+    [](auto& r) {
+        r.score = compute_score(r);
+    });
+```
+
+### 9.5 `bulk_chunked`
+
+`bulk_chunked(policy, shape, f)` partitions the index space into chunks and invokes `f` once per chunk with the chunk's index range, where `policy` is the execution policy, `shape` is the total index count, and `f` receives a range of indices plus the predecessor's values.
+
+```cpp
+auto sndr = just(data)
+          | bulk_chunked(std::par,
+                data.size(),
+                [](auto chunk, auto& d) {
+                    for (auto i : chunk)
+                        d[i] = transform(d[i]);
+                });
+```
+
+The same parallel work, but the implementation groups indices into chunks. Each invocation processes a range - ideal for cache-friendly access patterns and vectorization.
+
+`bulk_chunked` gives the implementation control over how the index space is divided. The `parallel_scheduler` uses this to distribute work across threads in chunks sized for the hardware. The callable receives a range of indices rather than a single index, enabling vectorization and cache-friendly access patterns within each chunk.
+
+The equivalent program:
+
+```cpp
+std::for_each(std::execution::par,
+    data.begin(), data.end(),
+    [](auto& x) { x = transform(x); });
+```
+
+### 9.6 `bulk_unchunked`
+
+`bulk_unchunked(policy, shape, f)` invokes `f` once per index with no chunking guarantees, where `policy`, `shape`, and `f` have the same roles as in `bulk`.
+
+```cpp
+auto sndr = just(pixels)
+          | bulk_unchunked(std::par,
+                pixels.size(),
+                [](size_t i, auto& px) {
+                    px[i] = apply_filter(px[i]);
+                });
+```
+
+One invocation per index, no chunking. The simplest mental model for parallel iteration.
+
+`bulk_unchunked` is the unchunked counterpart. The callable receives one index at a time. The implementation may still batch invocations internally, but the callable's interface is per-index. Each piece of the `bulk` family fits together with the precision one expects from a well-engineered system: `bulk` dispatches to `bulk_chunked` by default, which the scheduler can further specialize.
+
+The equivalent program:
+
+```cpp
+std::for_each(std::execution::par,
+    pixels.begin(), pixels.end(),
+    [](auto& p) { p = apply_filter(p); });
+```
+
+---
+
+## 10. Async Scopes
+
+The async scope algorithms manage the lifetime of dynamically spawned work. A `counting_scope` or `simple_counting_scope` tracks outstanding operations and provides a join point where the caller waits for all spawned work to complete. The scope token is the handle through which senders are associated with a scope.
+
+### 10.1 `associate`
+
+`associate(token, sndr)` ties a sender's lifetime to a scope. The scope will not complete its join until the associated sender has completed.
+
+```cpp
+counting_scope scope;
+auto token = scope.get_token();
+
+for (auto& conn : accepted_connections) {
+    auto sndr = associate(token,
+        starts_on(pool.get_scheduler(),
+                  handle_connection(conn)));
+    // sndr is fire-and-forget within the scope
+}
+// scope.join() waits for all connections
+```
+
+A sender's lifetime is tied to a scope. The scope does not shut down until the sender finishes - no dangling work, no orphaned operations.
+
+`associate` is the structured spawn. The sender runs independently - it is not piped into a continuation - but its lifetime is bounded by the scope. When the scope joins, all associated senders must have completed. This is how a server manages connection lifetimes: each connection is associated with the scope, and shutdown waits for all connections to drain.
+
+The equivalent program:
+
+```cpp
+for (auto& conn : accepted_connections)
+    pool.post([&] {
+        handle_connection(conn);
+    });
+pool.join();
+```
+
+### 10.2 `spawn_future`
+
+`spawn_future(token, sndr)` spawns a sender into a scope and returns a new sender that completes with the spawned sender's result.
+
+```cpp
+auto sndr = spawn_future(token,
+    starts_on(pool.get_scheduler(),
+              fetch_data(key)))
+  | then([](auto data) {
+        return process(data);
+    });
+```
+
+Start work in the background and keep a handle to the result. The work runs now; the result arrives when the reader asks for it.
+
+`spawn_future` is `associate` with a return channel. The spawned sender begins executing immediately, and the returned sender completes with the result when it is ready. This is the sender equivalent of `std::async` - fire off work, get a handle to the result, consume it later.
+
+The equivalent program:
+
+```cpp
+auto future = std::async(
+    std::launch::async,
+    [&] { return fetch_data(key); });
+auto result = process(future.get());
+```
+
+---
+
+## 11. The `task` Coroutine Type
+
+[P3552R3](https://wg21.link/p3552r3)<sup>[2]</sup> adds `execution::task<T, C>` to C++26 - a coroutine type that is also a sender. [P3796R1](https://wg21.link/p3796r1)<sup>[18]</sup> catalogs open design concerns. The `task` is the bridge between coroutine-style `co_await` and the sender pipeline model. The integration between the two worlds is seamless: a `task` can `co_await` any sender, and a `task` can be used as a sender in any pipeline.
+
+### 11.1 `task<T>`
+
+`task<T>` declares a coroutine that produces a value of type `T` on the value channel when it completes.
+
+```cpp
+task<int> the_answer() {
+    co_return 42;
+}
+
+int main() {
+    auto [v] =
+        sync_wait(the_answer()).value();
+    // v == 42
 }
 ```
 
-The same program, expressed in C++:
+A `task` is lazy - the coroutine body does not execute until the task is connected to a receiver and started. It is a sender: it can be piped, composed, passed to `sync_wait`, or used as a child of `when_all`. The completion signatures are `set_value_t(T)`, `set_error_t(exception_ptr)`, and `set_stopped_t()`.
+
+### 11.2 `co_await` a Sender
+
+Inside a `task`, any sender can be `co_await`ed. The sender is connected to an internal receiver, started, and the result is delivered as the value of the `co_await` expression.
 
 ```cpp
-auto search_tree(auto test, tree::NodePtr<int> node) -> tree::NodePtr<int> {
-    if (node == nullptr) return nullptr;
-    if (test(node)) return node;
-    if (auto found = search_tree(test, node->left())) return found;
-    return search_tree(test, node->right());
+task<int> add_one() {
+    int v = co_await just(41);
+    co_return v + 1;
 }
 ```
 
-The sender version above demonstrates recursive CPS with continuation-passing failure recovery and type-erased monadic return. The failure continuation is itself a sender pipeline passed as a parameter to a recursive function. Each recursive call nests another `let_value` lambda that captures and moves the failure sender. The reader must trace the `fail` parameter through three levels of `std::move` to understand which path executes. As with the fold example, the `any_node_sender` type alias uses stdexec's [`any_sender_of<>`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp)<sup>[24]</sup>, a type-erased sender facility not yet included in the C++26 working paper.
+When the sender completes with `set_value(args...)`, the `co_await` expression produces the values. A single value is returned directly. Multiple values are returned as a `tuple`. A sender with no value arguments produces `void`. If the sender completes with `set_error`, the error is thrown as an exception. If it completes with `set_stopped`, the coroutine is cancelled without resuming.
 
-### 5.7 The `retry` Algorithm
+### 11.3 `task_scheduler`
 
-The following example is drawn from [retry.hpp](https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp)<sup>[27]</sup> in the official NVIDIA stdexec repository. It implements a `retry` algorithm that re-executes a sender whenever it completes with an error. The complete implementation is reproduced here.
+`task_scheduler` is a type-erased scheduler used by `task` for scheduler affinity. When a `task` is connected to a receiver, the scheduler is obtained from the receiver's environment via `get_scheduler(get_env(rcvr))` and stored in the `task_scheduler`.
 
 ```cpp
-// Deferred construction helper - emplaces non-movable types
-// into std::optional via conversion operator
-template <std::invocable Fun>                             // higher-order function wrapper
-    requires std::is_nothrow_move_constructible_v<Fun>
+task<void> work() {
+    co_await async_read(socket, buf);
+    // resumes on the task's scheduler
+    process(buf);
+}
+
+sync_wait(
+    starts_on(pool.get_scheduler(),
+              work()));
+```
+
+The `task_scheduler` uses small-object optimization to avoid allocation for common scheduler types. The type erasure is the cost of not knowing the scheduler type at coroutine definition time. The programmer has everything they need: the scheduler is obtained automatically, the affinity is maintained transparently, and the type erasure overhead is minimal.
+
+### 11.4 `inline_scheduler`
+
+`inline_scheduler` completes immediately on the calling thread. Using it as the task's scheduler type disables scheduler affinity.
+
+```cpp
+struct no_affinity {
+    using scheduler_type = inline_scheduler;
+};
+
+task<void, no_affinity> fast_path() {
+    co_await async_op();
+    // no rescheduling - resumes wherever
+    // the sender completed
+}
+```
+
+Disabling affinity removes the rescheduling overhead at the cost of the guarantees affinity provides. The programmer who understands the implications is free to make this choice.
+
+### 11.5 Scheduler Affinity
+
+The `task`'s promise type injects `affine_on` around every `co_await`ed sender via `await_transform`. The effect: after each `co_await`, execution resumes on the task's scheduler regardless of where the sender completed.
+
+```cpp
+task<void> affine_demo() {
+    // running on pool's scheduler
+    co_await async_read(socket, buf);
+    // still on pool's scheduler
+    auto result = parse(buf);
+    co_await async_write(socket, result);
+    // still on pool's scheduler
+}
+```
+
+Scheduler affinity means the programmer can reason about execution context the same way they reason about synchronous code - each line runs on the same context as the line before it. The `affine_on` insertion is invisible. The rescheduling happens only when necessary - if the sender already completes on the correct scheduler, `affine_on` skips the transition.
+
+### 11.6 Allocator Support
+
+The context parameter `C` configures allocator support. The allocator type is declared via `C::allocator_type` and is used for the coroutine frame allocation.
+
+```cpp
+struct alloc_ctx {
+    using allocator_type =
+        pmr::polymorphic_allocator<byte>;
+};
+
+task<int, alloc_ctx> allocated_work(
+        allocator_arg_t,
+        pmr::polymorphic_allocator<byte>,
+        int input) {
+    co_return input * 2;
+}
+
+pmr::monotonic_buffer_resource pool;
+auto sndr = allocated_work(
+    allocator_arg,
+    pmr::polymorphic_allocator<byte>{&pool},
+    21);
+```
+
+The allocator is available to child operations through the receiver's environment via `get_allocator`. The design supports environments where heap allocation is prohibited - the same context parameter that controls the scheduler type controls the allocator type.
+
+### 11.7 `co_yield with_error(e)`
+
+`co_yield with_error(e)` reports an error on the error channel without throwing an exception.
+
+```cpp
+task<void> validate(request const& req) {
+    if (!req.valid())
+        co_yield with_error(
+            make_error_code(
+                errc::invalid_argument));
+    co_return;
+}
+```
+
+This is how a `task` delivers a typed error to the sender composition algebra without relying on exceptions. The coroutine is suspended and completes with `set_error(e)`. The downstream pipeline handles the error through `upon_error` or `let_error`. This is a feature of the design: errors can be reported precisely, with the type preserved, and the composition algebra participates.
+
+### 11.8 Cancellation
+
+`co_await just_stopped()` cancels the coroutine. The coroutine completes with `set_stopped()`.
+
+```cpp
+task<void> check_cancel() {
+    auto token = co_await
+        read_env(get_stop_token);
+    if (token.stop_requested())
+        co_await just_stopped();
+    co_return;
+}
+```
+
+Any sender that completes with `set_stopped` cancels the `task`. The coroutine is never resumed - local variables are destroyed and the task completes on the stopped channel. The `task`'s stop token is linked to the parent context's stop token, so cancellation propagates structurally.
+
+### 11.9 Error Channel Mapping
+
+When a `task` `co_await`s a sender that completes with `set_error(ec)`, the error is delivered as a thrown exception.
+
+```cpp
+task<void> error_mapping_demo() {
+    try {
+        co_await async_connect(
+            socket, endpoint);
+    } catch (system_error const& e) {
+        // set_error(ec) became throw
+        log("connect failed: {}",
+            e.code().message());
+    }
+}
+```
+
+This is how the three-channel model composes with coroutines. The value channel becomes the `co_await` return value. The error channel becomes a thrown exception. The stopped channel becomes cancellation. The mapping is clean and the programmer can use familiar `try`/`catch` for error handling. The composition algebra built on `set_error` integrates with coroutines through the exception mechanism - the two error models meet at the `co_await` boundary.
+
+### 11.10 Compound Results
+
+When an I/O operation returns both a status code and a byte count, the compound result can stay on the value channel. Both values arrive at the `co_await` expression.
+
+```cpp
+task<void> read_with_status() {
+    auto [ec, n] = co_await
+        async_read(socket, buf);
+    if (!ec) {
+        process(buf, n);
+    } else if (
+            ec == errc::connection_reset) {
+        cleanup(n);
+    }
+}
+```
+
+Both values are visible. The programmer branches with `if`. The composition algebra - `retry`, `upon_error`, `when_all` - does not participate in this dispatch, because the result stayed on the value channel. This is the trade-off: data preservation or composition algebra participation, not both simultaneously. The programmer always has the option of writing sender code directly instead of using the coroutine, gaining access to the full composition algebra at the cost of the programming model documented in Sections 3 through 10.
+
+Alternatively, the compound result can be bundled into the error type:
+
+```cpp
+struct io_result {
+    error_code ec;
+    size_t bytes;
+};
+
+task<void> bundled_error() {
+    auto [ec, n] = co_await
+        async_read(socket, buf);
+    if (ec)
+        co_yield with_error(
+            io_result{ec, n});
+    process(buf, n);
+}
+```
+
+The composition algebra now participates - `retry` sees the error, `upon_error` can handle it. Every `upon_error` handler downstream must accept `io_result` alongside any other error types in the pipeline. The data survives the channel crossing because it is inside the error object. Both approaches are legitimate design choices. The programmer evaluates the trade-off for the domain at hand.
+
+### 11.11 Pipelines Inside Coroutines
+
+A sender pipeline can be `co_await`ed as a single expression inside a `task`.
+
+```cpp
+task<string> fetch_and_transform(url u) {
+    auto result = co_await (
+        async_fetch(u)
+      | then([](auto resp) {
+            return resp.body();
+        })
+      | then([](auto body) {
+            return compress(body);
+        }));
+    co_return result;
+}
+```
+
+The pipeline is composed using the pipe operator, then `co_await`ed as a unit. The `task` provides the execution context; the pipeline provides the composition. The integration between coroutines and senders is seamless - each model contributes its strength.
+
+### 11.12 Tasks as Senders
+
+A `task` is a sender. It can be used anywhere a sender is expected - piped into `then`, passed to `when_all`, composed with any algorithm from Sections 3 through 10.
+
+```cpp
+auto sndr = fetch_and_transform(my_url)
+          | then([](string compressed) {
+                return store(compressed);
+            });
+auto [stored] =
+    sync_wait(std::move(sndr)).value();
+```
+
+The `task` enters the sender world as a first-class participant. The coroutine's completion signatures become the sender's completion signatures. The scheduler affinity, allocator support, and error handling all compose through the sender protocol. The programmer has everything they need.
+
+---
+
+## 12. Composition
+
+The final section demonstrates how senders and coroutines compose together in a realistic program. The example uses four layers, each building on the previous, combining the algorithms from this tutorial into a single system. The resulting program is readable - each layer is a natural application of the patterns introduced earlier.
+
+### 12.1 Sensor Fusion
+
+A `task` that `co_await`s a structured-concurrency pipeline to read three sensors in parallel and fuse the results.
+
+```cpp
+task<sensor_data> read_sensors(
+        sensor_array const& sensors) {
+    auto [lidar, radar, camera] = co_await
+        when_all(
+            starts_on(
+                sensors.lidar_ctx(),
+                async_read(
+                    sensors.lidar()))
+            | then([](raw_data raw) {
+                  return decode_lidar(raw);
+              }),
+            starts_on(
+                sensors.radar_ctx(),
+                async_read(
+                    sensors.radar()))
+            | then([](raw_data raw) {
+                  return decode_radar(raw);
+              }),
+            starts_on(
+                sensors.camera_ctx(),
+                async_read(
+                    sensors.camera()))
+            | then([](raw_data raw) {
+                  return decode_camera(raw);
+              }));
+    co_return fuse(lidar, radar, camera);
+}
+```
+
+Three sensors, three execution contexts, one `when_all`. The `task` provides scheduler affinity; the pipeline provides concurrency. The fused result is a single `sensor_data` value.
+
+### 12.2 Collision Detection
+
+The `task` from 12.1 is used as a sender inside a pipeline that evaluates whether immediate braking is required.
+
+```cpp
+auto collision_pipeline(
+        sensor_array const& sensors,
+        vehicle_state const& state) {
+    return read_sensors(sensors)
+         | then([&](sensor_data data) {
+               return detect_obstacles(
+                   data, state);
+           })
+         | let_value(
+               [](obstacle_set obstacles) {
+               if (obstacles.imminent())
+                   return just(brake_cmd{
+                       obstacles.severity()});
+               return just(
+                   brake_cmd::none());
+           });
+}
+```
+
+The `task` is a sender. The pipeline consumes it with `then` and `let_value`. The branching inside `let_value` returns different `brake_cmd` values - both branches return the same sender type, so no type erasure is needed.
+
+### 12.3 Actuator Command
+
+A `task` that `co_await`s the collision pipeline and sends brake commands on a real-time scheduler.
+
+```cpp
+task<actuator_result> actuate_brakes(
+        sensor_array const& sensors,
+        vehicle_state const& state,
+        brake_controller& brakes) {
+    auto cmd = co_await
+        collision_pipeline(sensors, state);
+    if (cmd.severity() > 0) {
+        co_await starts_on(
+            brakes.realtime_ctx(),
+            async_write(
+                brakes.channel(), cmd));
+        co_return
+            actuator_result::applied(cmd);
+    }
+    co_return actuator_result::none();
+}
+```
+
+The pipeline from 12.2 is `co_await`ed inside a `task`. The brake command is issued on a real-time scheduler - a context transition from the sensor-processing context to the actuator context.
+
+### 12.4 Failover
+
+The `task` from 12.3 is used as a sender inside a pipeline that handles sensor failure with emergency braking.
+
+```cpp
+auto safety_controller(
+        sensor_array const& sensors,
+        vehicle_state const& state,
+        brake_controller& brakes,
+        counting_scope& scope) {
+    return associate(
+        scope.get_token(),
+        actuate_brakes(
+            sensors, state, brakes)
+      | let_error(
+            [&](error_code ec) {
+            return starts_on(
+                brakes.realtime_ctx(),
+                async_write(
+                    brakes.channel(),
+                    brake_cmd::emergency()))
+              | then([ec](auto) {
+                    log("sensor failure: "
+                        "{}, emergency "
+                        "brake applied",
+                        ec);
+                    return actuator_result
+                        ::emergency();
+                });
+        })
+      | upon_stopped([&] {
+            log("controller stopped");
+            return
+                actuator_result::none();
+        }));
+}
+```
+
+Four layers. A sender pipeline containing a `task` containing a sender pipeline containing a `task` containing a sender pipeline. Each layer is individually reasonable - a natural application of the algorithms this tutorial has introduced. The structure is intuitive. The composition follows the patterns established in the preceding sections. The tutorial has, in a sense, been unnecessary - the Sub-Language is its own best teacher.
+
+### 12.5 The Equivalent Program
+
+```cpp
+task<actuator_result> safety_controller(
+        sensor_array const& sensors,
+        vehicle_state const& state,
+        brake_controller& brakes) {
+    try {
+        auto data = co_await
+            read_all_sensors(sensors);
+        auto obs =
+            detect_obstacles(data, state);
+        if (obs.imminent()) {
+            auto cmd =
+                brake_cmd{obs.severity()};
+            co_await brakes.apply(cmd);
+            co_return
+                actuator_result::applied(
+                    cmd);
+        }
+        co_return actuator_result::none();
+    } catch (...) {
+        co_await
+            brakes.emergency_stop();
+        co_return
+            actuator_result::emergency();
+    }
+}
+```
+
+---
+
+## 13. Real World Examples
+
+The following examples are drawn from the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[8]</sup> reference implementation (whose algorithm customization model is addressed by [P3826R3](https://wg21.link/p3826r3)<sup>[19]</sup>) and the [sender-examples](https://github.com/steve-downey/sender-examples)<sup>[21]</sup> repository. They demonstrate patterns that combine the algorithms from this tutorial into working code at a scale the reader may encounter in practice.
+
+### 13.1 The Backtracker
+
+A recursive tree search with continuation-passing failure recovery, drawn from [backtrack.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp)<sup>[25]</sup> in the sender-examples repository. The `search_tree` function traverses a binary tree looking for a node that satisfies a predicate. When a subtree yields no match, the failure continuation - itself a sender - takes over.
+
+```cpp
+using any_node_sender = any_sender_of<
+    set_value_t(tree::NodePtr),
+    set_stopped_t(),
+    set_error_t(exception_ptr)>;
+
+auto search_tree(
+        auto test,
+        tree::NodePtr tree,
+        scheduler auto sch,
+        any_node_sender&& fail)
+    -> any_node_sender {
+    if (tree == nullptr)
+        return std::move(fail);
+    if (test(tree))
+        return just(tree);
+    return on(sch, just())
+      | let_value(
+            [=, fail = std::move(fail)]()
+                mutable {
+            return search_tree(
+                test,
+                tree->left(),
+                sch,
+                on(sch, just())
+                  | let_value(
+                        [=, fail =
+                            std::move(fail)]()
+                            mutable {
+                        return search_tree(
+                            test,
+                            tree->right(),
+                            sch,
+                            std::move(fail));
+                    }));
+        });
+}
+```
+
+The function is recursive Kleisli composition with type-erased return. Each recursive call nests another `let_value` lambda that captures and moves the failure sender. The reader must trace the `fail` parameter through three levels of `std::move` to understand which path executes. The `any_sender_of<>` type alias uses a type-erased sender facility<sup>[27]</sup> from [stdexec](https://github.com/NVIDIA/stdexec)<sup>[8]</sup> - it is not part of C++26. Without type erasure, the recursive return type would be infinite.
+
+The equivalent program:
+
+```cpp
+auto search_tree(auto test,
+        tree::NodePtr node)
+    -> tree::NodePtr {
+    if (node == nullptr)
+        return nullptr;
+    if (test(node))
+        return node;
+    if (auto found = search_tree(
+            test, node->left()))
+        return found;
+    return search_tree(
+        test, node->right());
+}
+```
+
+### 13.2 The `retry` Algorithm
+
+A complete sender algorithm implementation from [retry.hpp](https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp)<sup>[26]</sup> in the [stdexec](https://github.com/NVIDIA/stdexec)<sup>[8]</sup> examples. Where the preceding sections show how to *use* sender algorithms, this example shows how to *implement* one. The `retry` algorithm re-executes a sender whenever it completes with an error. The code uses stdexec extension types (`exec::receiver_adaptor`) and macros (`STDEXEC_TRY`, `STDEXEC_CATCH_ALL`) that are not part of the C++26 standard library. Some names appear unqualified because the original source uses `using namespace` directives omitted here for brevity.
+
+```cpp
+template <class Fun>
+    requires std::is_nothrow_move_constructible_v<
+        Fun>
 struct _conv {
-    Fun f_;                                               // stored callable
-    explicit _conv(Fun f) noexcept                        // explicit construction
+    Fun f_;
+    explicit _conv(Fun f) noexcept
         : f_(static_cast<Fun&&>(f)) {}
-    operator std::invoke_result_t<Fun>() && {             // conversion operator
-        return static_cast<Fun&&>(f_)();                  //   invokes stored callable
+    operator std::invoke_result_t<Fun>() && {
+        return static_cast<Fun&&>(f_)();
     }
 };
 
-// Forward declaration of operation state
 template <class S, class R>
 struct _op;
 
-// Receiver adaptor - intercepts set_error to trigger retry
-// All other completions pass through to the inner receiver
 template <class S, class R>
-struct _retry_receiver                                    // receiver adaptor pattern
-    : exec::receiver_adaptor<                              // CRTP base for receiver
+struct _retry_receiver
+    : exec::receiver_adaptor<
           _retry_receiver<S, R>> {
-    _op<S, R>* o_;                                        // pointer to owning op state
+    _op<S, R>* o_;
 
-    auto base() && noexcept -> R&& {                     // access inner receiver (rvalue)
+    auto base() && noexcept -> R&& {
         return static_cast<R&&>(o_->r_);
     }
-    auto base() const& noexcept -> const R& {             // access inner receiver (const)
+    auto base() const& noexcept
+        -> R const& {
         return o_->r_;
     }
-    explicit _retry_receiver(_op<S, R>* o) : o_(o) {}     // construct from op state
+    explicit _retry_receiver(
+        _op<S, R>* o) : o_(o) {}
 
     template <class Error>
-    void set_error(Error&&) && noexcept {                 // intercept error channel
-        o_->_retry();                                     //   trigger retry instead
-    }                                                     // error is discarded
+    void set_error(Error&&) && noexcept {
+        o_->_retry();
+    }
 };
 
-// Operation state - holds sender, receiver, and nested op state
-// The nested op is in std::optional so it can be destroyed
-// and re-constructed on each retry
 template <class S, class R>
 struct _op {
-    S s_;                                              // the sender to retry
-    R r_;                                              // the downstream receiver
-    std::optional<                                     // optional nested op state
-        stdexec::connect_result_t<                     //   type of connect(S, retry_rcvr)
-            S&, _retry_receiver<S, R>>> o_;            //   re-created on each retry
+    S s_;
+    R r_;
+    std::optional<connect_result_t<
+        S&, _retry_receiver<S, R>>> o_;
 
-    _op(S s, R r)                                      // construct from sender + receiver
+    _op(S s, R r)
         : s_(static_cast<S&&>(s))
         , r_(static_cast<R&&>(r))
-        , o_{_connect()} {}                               // initial connection
+        , o_{_connect()} {}
+    _op(_op&&) = delete;
 
-    _op(_op&&) = delete;                                  // immovable (stable address)
-
-    auto _connect() noexcept {                         // connect sender to retry receiver
-        return _conv{[this] {                          // deferred construction via _conv
-            return stdexec::connect(                   //   connect sender
-                s_,                                    //   to retry receiver
-                _retry_receiver<S, R>{this});          //   that points back to this op
+    auto _connect() noexcept {
+        return _conv{[this] {
+            return stdexec::connect(
+                s_,
+                _retry_receiver<S, R>{
+                    this});
         }};
     }
 
-    void _retry() noexcept {                              // retry: destroy and reconnect
+    void _retry() noexcept {
         STDEXEC_TRY {
-            o_.emplace(_connect());                    // re-emplace the operation state
-            stdexec::start(*o_);                       // restart the operation
+            o_.emplace(_connect());
+            stdexec::start(*o_);
         }
-        STDEXEC_CATCH_ALL {                               // if reconnection itself throws
-            stdexec::set_error(                           //   propagate to downstream
+        STDEXEC_CATCH_ALL {
+            stdexec::set_error(
                 static_cast<R&&>(r_),
                 std::current_exception());
         }
     }
 
-    void start() & noexcept {                             // initial start
-        stdexec::start(*o_);                              // start the nested operation
+    void start() & noexcept {
+        stdexec::start(*o_);
     }
 };
 
-// The retry sender - wraps an inner sender and removes
-// error completions from the completion signatures
 template <class S>
 struct _retry_sender {
-    using sender_concept = stdexec::sender_t;             // declare as sender
-    S s_;                                                 // the inner sender
+    using sender_concept =
+        stdexec::sender_t;
+    S s_;
 
-    explicit _retry_sender(S s)                           // construct from inner sender
+    explicit _retry_sender(S s)
         : s_(static_cast<S&&>(s)) {}
 
-    template <class>                                    // completion signature transform:
-    using _error = stdexec::completion_signatures<>;   //   remove all error signatures
-
     template <class... Args>
-    using _value =                                        // pass through value signatures
-        stdexec::completion_signatures<
-            stdexec::set_value_t(Args...)>;
+    using _error =
+        completion_signatures<>;
+    template <class... Args>
+    using _value =
+        completion_signatures<
+            set_value_t(Args...)>;
 
-    template <class Self, class... Env>                 // compute transformed signatures
-    static consteval auto get_completion_signatures()
-        -> stdexec::transform_completion_signatures<      // signature transformation
-            stdexec::completion_signatures_of_t<S&, Env...>, // from inner sender's sigs
-            stdexec::completion_signatures<                //   add exception_ptr error
-                stdexec::set_error_t(std::exception_ptr)>,
-            _value,                                       //   pass through values
-            _error> {                                     //   remove original errors
+    template <class... Env>
+    static consteval auto
+    get_completion_signatures()
+        -> transform_completion_signatures<
+            completion_signatures_of_t<
+                S, Env...>,
+            completion_signatures<
+                set_error_t(
+                    exception_ptr)>,
+            _value, _error> {
         return {};
     }
 
-    template <stdexec::receiver R>                        // connect to a receiver
-    auto connect(R r) && -> _op<S, R> {                   // produce operation state
-        return {static_cast<S&&>(s_),                     // reify the continuation
-                static_cast<R&&>(r)};
+    template <class R>
+    auto connect(R r) &&
+        -> _op<S, R> {
+        return {
+            static_cast<S&&>(s_),
+            static_cast<R&&>(r)};
     }
 
-    auto get_env() const noexcept                         // forward environment
-        -> stdexec::env_of_t<S> {
+    auto get_env() const noexcept
+        -> env_of_t<S const&> {
         return stdexec::get_env(s_);
     }
 };
 
-template <stdexec::sender S>                              // the user-facing function
-auto retry(S s) -> stdexec::sender auto {
-    return _retry_sender{static_cast<S&&>(s)};            // wrap in retry sender
+template <class S>
+auto retry(S s) -> sender auto {
+    return _retry_sender{
+        static_cast<S&&>(s)};
 }
 ```
 
-A complete sender algorithm implementation demonstrating receiver adaptation, operation state lifecycle management, completion signature transformation, and the deferred construction pattern. The `_retry_receiver` intercepts `set_error` and calls `_retry()`, which destroys the nested operation state, reconnects the sender, and restarts it. The `_retry_sender` uses `transform_completion_signatures` to remove error signatures from the public interface, since the retry loop absorbs errors internally. The sender version accepts a sender directly and re-connects it by lvalue reference on each retry; the coroutine version takes a callable that produces a sender, since `co_await` consumes its operand.
+The implementation demonstrates receiver adaptation, operation state lifecycle management, completion signature transformation, and the deferred construction pattern. The `_retry_receiver` intercepts `set_error` and calls `_retry()`, which destroys the nested operation state, reconnects the sender, and restarts it. The `_retry_sender` uses `transform_completion_signatures` to remove error signatures from the public interface, since the retry loop absorbs errors internally.
 
-The same algorithm, expressed as a C++ coroutine:
+The equivalent program:
 
 ```cpp
-// Generic retry: takes a callable that produces a sender,
-// co_awaits it in a loop, catches any error, and retries
-// until success or stopped.
-template<class F>
-auto retry(F make_sender) -> task</*value type*/> {
-    for (;;) {                                            // loop until success
+template <class T, class F>
+auto retry(F make_sender) -> task<T> {
+    for (;;) {
         try {
-            co_return co_await make_sender();             // attempt the operation
-        } catch (...) {}                                  // absorb the error, retry
+            co_return
+                co_await make_sender();
+        } catch (...) {}
     }
 }
 ```
 
-The question is whether regular C++ developers should write asynchronous code this way, or whether simpler alternatives exist for the common case.
+---
+
+## 14. Conclusion
+
+This tutorial has progressed from the simplest sender algorithm - `just(42)` - to a four-layer composition of sender pipelines and coroutines, and then to real-world algorithm implementations drawn from production repositories. Some readers may find the later examples challenging. There is no rush. The examples reward careful study and repeated reading. The Sender Sub-Language is C++26's asynchronous programming model - the standard's answer to structured concurrency and heterogeneous execution. The programmer who masters it has mastered the model the standard provides. With patience and practice, every pattern in this tutorial becomes familiar.
+
+There is something to be said for one size fits all. Every C++ developer learns the same abstractions. Every codebase uses the same patterns. Every team shares the same vocabulary for asynchronous programming. The consistency is real, and the predictability is a gift. For the programmer whose domain would benefit from a different model?
+
+The ecosystem provides.<sup>[28]</sup>
 
 ---
 
-## 6. What Complexity Buys
+## Acknowledgments
 
-The complexity documented in Section 5 is not accidental. It is the price of admission to a set of engineering properties that no other C++ async model provides.
-
-### 6.1 The Trade-off
-
-| What you get                                                                                                                                                                                                                                                                                        | What it costs                      |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| Full type visibility - the compiler sees the entire work graph as a concrete type                                                                                                                                                                                                                    | Header-only implementations        |
-| Zero allocation in steady state - the operation state lives on the stack                                                                                                                                                                                                                             | Long compile times                 |
-| Compile-time work graph construction - [`connect`](https://eel.is/c++draft/exec.connect) collapses the pipeline into a single type. [HPC Wire](https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/) reports performance "on par with the CUDA implementation"       | The programming model of Section 5 |
-
-For GPU dispatch, high-frequency trading, embedded systems, and scientific computing, every party involved has opted in. The question is whether domains that do not need these properties - networking, file I/O, ordinary request handling - should be required to pay the same cost, or whether they deserve the same freedom to choose the model that serves them.
-
-For some, this is a good trade-off.
-
-### 6.2 The Precedent
-
-The committee designed `std::execution` to accommodate domain-specific needs. NVIDIA's [nvexec](https://github.com/NVIDIA/stdexec/tree/main/include/nvexec)<sup>[41]</sup> demonstrates this accommodation in practice: a GPU-specific sender implementation that lives alongside [stdexec](https://github.com/NVIDIA/stdexec)<sup>[23]</sup> in the same repository but in a separate namespace.
-
-The [`nvexec`](https://github.com/NVIDIA/stdexec/tree/main/include/nvexec)<sup>[41]</sup> implementation includes GPU-specific reimplementations of the standard sender algorithms - [`bulk`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/bulk.cuh)<sup>[44]</sup>, [`then`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/then.cuh)<sup>[45]</sup>, [`when_all`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/when_all.cuh)<sup>[46]</sup>, [`continues_on`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/continues_on.cuh)<sup>[47]</sup>, [`let_value`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/let_xxx.cuh)<sup>[48]</sup>, [`split`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/split.cuh)<sup>[49]</sup>, and [`reduce`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/reduce.cuh)<sup>[50]</sup> - all in `.cuh` (CUDA header) files rather than standard C++ headers. The GPU scheduler in [`stream_context.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream_context.cuh)<sup>[42]</sup> uses CUDA-specific types throughout:
-
-```cpp
-// From nvexec/stream_context.cuh - CUDA execution space specifiers
-STDEXEC_ATTRIBUTE(nodiscard, host, device)                // __host__ __device__
-auto schedule() const noexcept {
-    return sender{ctx_};
-}
-```
-
-```cpp
-// From nvexec/stream/common.cuh - CUDA kernel launch syntax
-continuation_kernel<<<1, 1, 0, get_stream()>>>(  // <<<grid, block, smem, stream>>>
-    static_cast<R&&>(rcvr_), Tag(), static_cast<Args&&>(args)...);
-```
-
-```cpp
-// From nvexec/stream/common.cuh - CUDA memory management
-status_ = STDEXEC_LOG_CUDA_API(
-    cudaMallocAsync(&this->atom_next_, ptr_size, stream_));
-```
-
-These annotations and APIs are non-standard C++ language extensions. The [CUDA C/C++ Language Extensions](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> documentation enumerates them:
-
-- **Execution space specifiers**: [`__host__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__device__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, and [`__global__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> indicate whether a function executes on the host (CPU) or the device (GPU).
-- **Memory space specifiers**: [`__device__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__managed__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, [`__constant__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup>, and [`__shared__`](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html)<sup>[51]</sup> indicate the storage location of a variable on the device.
-- **Kernel launch syntax**: The `<<<grid_dim, block_dim, dynamic_smem_bytes, stream>>>` syntax between the function name and argument list is not valid C++.
-
-GPU compute has requirements that standard C++ alone cannot meet. These extensions require a specialized compiler ([`nvcc`](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html)<sup>[52]</sup>), and every NVIDIA GPU user has opted in to that requirement.
-
-Eric Niebler acknowledges this directly in [P3826R3](https://wg21.link/p3826r3)<sup>[7]</sup> ("Fix Sender Algorithm Customization"):
-
-> *"Some execution contexts place extra-standard requirements on the code that executes on them. For example, NVIDIA GPUs require device-accelerated code to be annotated with its proprietary `__device__` annotation. Standard libraries are unlikely to ship implementations of `std::execution` with such annotations. The consequence is that, rather than shipping just a GPU scheduler with some algorithm customizations, a vendor like NVIDIA is already committed to shipping its own complete implementation of `std::execution` (in a different namespace, of course)."*
-
-The committee accommodated a domain that needed its own model. GPU compute got a complete, domain-specific implementation of `std::execution` with non-standard extensions, a specialized compiler, and reimplementations of every standard algorithm.
-
-This is a precedent.
-
-### 6.3 The Principle
-
-The [CUDA C++ Language Support](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-support.html)<sup>[55]</sup> documentation (v13.1, December 2025) lists C++20 feature support for GPU device code. The following rows are representative:
-
-| C++20 Language Feature                | nvcc Device Code  |
-|---------------------------------------|:-----------------:|
-| Concepts                              | Yes               |
-| Consistent comparison (`operator<=>`) | Yes               |
-| `consteval` functions                 | Yes               |
-| Parenthesized initialization          | Yes               |
-| Coroutines                            | **NOT SUPPORTED** |
-
-Coroutine support for GPU device code may arrive in a future release. In the meantime, this is not a deficiency in either model. GPU compute has requirements that coroutines were not designed to meet, just as I/O has requirements that the Sender Sub-Language's compile-time work graph was not designed to meet. Not every C++ feature must serve every domain.
-
-Coexistence is principled.
-
-### 6.4 Can Everyone Win?
-
-The Sender Sub-Language serves specific domains exceptionally well:
-
-- **High-frequency trading and quantitative finance**: where nanosecond-level determinism justifies any compile-time cost
-- **GPU dispatch and heterogeneous computing**: where vendor-specific implementations (like [nvexec](https://github.com/NVIDIA/stdexec/tree/main/include/nvexec)<sup>[41]</sup>) with non-standard compiler extensions are the norm
-- **Embedded systems**: where heap allocation is prohibited and the zero-allocation guarantee is a hard requirement
-- **Scientific computing**: where performance matches hand-written CUDA (Section 6.1)
-
-Direct-style coroutines serve other domains equally well: networking, file I/O, request handling - the domains where partial success is normal, allocator propagation matters, and the programming model documented in Section 5 is a cost without a corresponding benefit.
-
-C++ has always grown by adding models that serve specific domains. Templates serve generic programming. Coroutines serve async I/O. The Sender Sub-Language serves heterogeneous compute. The standard is stronger when each domain gets the model it needs, and neither is forced to use the other's tool. [P4007R0](https://wg21.link/p4007r0)<sup>[9]</sup> ("Senders and Coroutines") examines the boundary where these two models meet.
-
-Everyone can win.
-
----
-
-## 7. Conclusion
-
-C++26 has a new programming model. It has its own control flow, its own variable binding, and its own error handling. It is grounded in four decades of programming language research, and it is already [shipping in production](https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/)<sup>[14]</sup> at NVIDIA and Citadel Securities. That is not nothing. That is an achievement.
-
-The Sender Sub-Language is here, and it is not going anywhere. The committee adopted it. The implementation exists. Real users depend on it. We should be proud of it - it solves problems that no other C++ async model can touch.
-
-Yet does it have to solve every problem? The domains it serves - GPU dispatch, HFT, embedded, scientific computing - opted in to the trade-offs documented in this paper. The domains it does not serve - networking, file I/O, the everyday async code that most C++ developers write - deserve their own model, built for their own needs, with the same care and the same respect.
-
-I think we can get there. The precedent exists. The principle is sound. And the committee has done harder things than giving two communities the tools they each need.
-
----
-
-## 8. Suggested Straw Polls
-
-1. "`std::execution` serves coroutine-driven async I/O less ideally than heterogeneous compute."
-
-2. "Coroutine-driven async I/O should have the same freedom to optimize for its domain as heterogeneous compute did."
-
----
-
-## Further Reading
-
-For readers who wish to explore the theoretical foundations of the Sender Sub-Language in greater depth, the following works provide essential background:
-
-- [*The Lambda Papers*](https://en.wikisource.org/wiki/Lambda_Papers)<sup>[15]</sup> (Steele and Sussman, 1975-1980) - the formalization of continuations and continuation-passing style
-- [*Notions of Computation and Monads*](https://doi.org/10.1016/0890-5401(91)90052-4)<sup>[16]</sup> (Moggi, 1991) - the foundational paper on monads as a structuring principle for computation
-- [*Abstracting Control*](https://doi.org/10.1145/91556.91622)<sup>[17]</sup> (Danvy and Filinski, 1990) - delimited continuations and the shift/reset operators
-- [*Haskell 2010 Language Report*](https://www.haskell.org/onlinereport/haskell2010/)<sup>[19]</sup> - the language whose type system and monadic abstractions most directly influenced the Sender Sub-Language's vocabulary
-- [*Category Theory for Programmers*](https://github.com/hmemcpy/milewski-ctfp-pdf)<sup>[20]</sup> (Milewski, 2019) - an accessible introduction to the categorical foundations: functors, monads, and Kleisli arrows
-- [*The Design Philosophy of the DARPA Internet Protocols*](https://www.cs.princeton.edu/~jrex/teaching/spring2005/reading/clark88.pdf)<sup>[22]</sup> (Clark, 1988) - on how narrow, practice-first abstractions succeed where top-down designs do not
-
----
-
-## Acknowledgements
-
-This document is written in Markdown and depends on the extensions in
-[`pandoc`](https://pandoc.org/MANUAL.html#pandocs-markdown) and
-[`mermaid`](https://github.com/mermaid-js/mermaid), and we would like to
-thank the authors of those extensions and associated libraries.
-
-The authors would also like to thank Steve Downey, whose
-[sender-examples](https://github.com/steve-downey/sender-examples) code
-provided the foundation for Sections 5.4-5.6 and whose published response
-sharpened this paper's framing; and John Lakos, Joshua Berne, Pablo Halpern,
-and Dietmar K&uuml;hl for their valuable feedback in the development of this paper.
+The authors thank the P2300 authors - Micha&lstrok; Dominiak, Georgy Evtushenko, Lewis Baker, Lucian Radu Teodorescu, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, and Bryce Adelstein Lelbach - for building `std::execution` and for the theoretical depth that informs this tutorial. The authors also thank Dietmar K&uuml;hl and Maikel Nadolski for the `task` coroutine type, Steve Downey for the sender-examples that informed our understanding, and Peter Dimov for editorial guidance.
 
 ---
 
 ## References
 
-### WG21 Papers
+1. [N5014](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/n5014.pdf). Thomas K&ouml;ppe (ed.). "Working Draft, Standard for Programming Language C++." 2025. https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/n5014.pdf
 
-1. [P2300R10](https://wg21.link/p2300r10). Micha&lstrok; Dominiak, Georgy Evtushenko, Lewis Baker, Lucian Radu Teodorescu, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach. "std::execution." 2024. https://wg21.link/p2300r10
-2. [P2300R0](https://wg21.link/p2300r0). Micha&lstrok; Dominiak, Lewis Baker, Lee Howes, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach. "std::execution." 2021. https://wg21.link/p2300r0
-3. [P2300R2](https://wg21.link/p2300r2). Micha&lstrok; Dominiak, Lewis Baker, Lee Howes, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach. "std::execution." 2021. https://wg21.link/p2300r2
-4. [P3164R0](https://wg21.link/p3164r0). Eric Niebler. "Improving Diagnostics for Sender Expressions." 2024. https://wg21.link/p3164r0
-5. [P3552R3](https://wg21.link/p3552r3). Dietmar K&uuml;hl, Maikel Nadolski. "Add a Coroutine Task Type." 2025. https://wg21.link/p3552r3
-6. [P3796R1](https://wg21.link/p3796r1). Dietmar K&uuml;hl. "Coroutine Task Issues." 2025. https://wg21.link/p3796r1
-7. [P3826R3](https://wg21.link/p3826r3). Eric Niebler. "Fix Sender Algorithm Customization." 2026. https://wg21.link/p3826r3
-8. [D3980R0](https://isocpp.org/files/papers/D3980R0.html). Dietmar K&uuml;hl. "Task's Allocator Use." 2026. https://isocpp.org/files/papers/D3980R0.html
-9. [P4007R0](https://wg21.link/p4007r0). Vinnie Falco, Mungo Gill. "Senders and Coroutines." 2026. https://wg21.link/p4007r0
+2. [P3552R3](https://wg21.link/p3552r3). Dietmar K&uuml;hl, Maikel Nadolski. "Add a Coroutine Task Type." 2025. https://wg21.link/p3552r3
 
-### Blog Posts
+3. [Boost.Beast](https://github.com/boostorg/beast). Vinnie Falco. HTTP and WebSocket library. https://github.com/boostorg/beast
 
-10. Eric Niebler. ["Ranges, Coroutines, and React: Early Musings on the Future of Async in C++"](https://ericniebler.com/2017/08/17/ranges-coroutines-and-react-early-musings-on-the-future-of-async-in-c/). 2017. https://ericniebler.com/2017/08/17/ranges-coroutines-and-react-early-musings-on-the-future-of-async-in-c/
-11. Eric Niebler. ["Structured Concurrency"](https://ericniebler.com/2020/11/08/structured-concurrency/). 2020. https://ericniebler.com/2020/11/08/structured-concurrency/
-12. Eric Niebler. ["Asynchronous Stacks and Scopes"](https://ericniebler.com/2021/08/29/asynchronous-stacks-and-scopes/). 2021. https://ericniebler.com/2021/08/29/asynchronous-stacks-and-scopes/
-13. Eric Niebler. ["What are Senders Good For, Anyway?"](https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/). 2024. https://ericniebler.com/2024/02/04/what-are-senders-good-for-anyway/
-14. Herb Sutter. ["Living in the Future: Using C++26 at Work"](https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/). 2025. https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/
-35. Steve Downey. ["The Sender Sub-Language"](https://sdowney.org/posts/the-sender-sub-language/). 2026. https://sdowney.org/posts/the-sender-sub-language/
+4. [Corosio](https://github.com/cppalliance/corosio). Vinnie Falco. Coroutine-native networking library. https://github.com/cppalliance/corosio
 
-### Functional Programming Theory
+5. [Capy](https://github.com/cppalliance/capy). Vinnie Falco. Coroutine I/O primitives. https://github.com/cppalliance/capy
 
-15. Guy Steele and Gerald Sussman. [*The Lambda Papers*](https://en.wikisource.org/wiki/Lambda_Papers). MIT AI Memo series, 1975-1980. https://en.wikisource.org/wiki/Lambda_Papers
-16. Eugenio Moggi. ["Notions of Computation and Monads"](https://doi.org/10.1016/0890-5401(91)90052-4). *Information and Computation*, 1991. https://doi.org/10.1016/0890-5401(91)90052-4
-17. Olivier Danvy and Andrzej Filinski. ["Abstracting Control"](https://doi.org/10.1145/91556.91622). *LFP*, 1990. https://doi.org/10.1145/91556.91622
-18. Timothy Griffin. ["A Formulae-as-Types Notion of Control"](https://doi.org/10.1145/96709.96714). *POPL*, 1990. https://doi.org/10.1145/96709.96714
-19. Simon Marlow (ed.). [*Haskell 2010 Language Report*](https://www.haskell.org/onlinereport/haskell2010/). 2010. https://www.haskell.org/onlinereport/haskell2010/
-20. Bartosz Milewski. [*Category Theory for Programmers*](https://github.com/hmemcpy/milewski-ctfp-pdf). 2019. https://github.com/hmemcpy/milewski-ctfp-pdf
-58. Gordon Plotkin. ["Call-by-name, call-by-value and the lambda-calculus"](https://doi.org/10.1016/0304-3975(75)90017-1). *Theoretical Computer Science*, 1(2):125-159, 1975. https://doi.org/10.1016/0304-3975(75)90017-1
+6. [P2300R10](https://wg21.link/p2300r10). Micha&lstrok; Dominiak, Georgy Evtushenko, Lewis Baker, Lucian Radu Teodorescu, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach. "std::execution." 2024. https://wg21.link/p2300r10
 
-### Books
+7. Herb Sutter. ["Living in the Future: Using C++26 at Work"](https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/). 2025. https://herbsutter.com/2025/04/23/living-in-the-future-using-c26-at-work/
 
-21. Bjarne Stroustrup. *The Design and Evolution of C++*. Addison-Wesley, 1994. ISBN 0-201-54330-3.
-22. David Clark. ["The Design Philosophy of the DARPA Internet Protocols"](https://www.cs.princeton.edu/~jrex/teaching/spring2005/reading/clark88.pdf). *SIGCOMM*, 1988. https://www.cs.princeton.edu/~jrex/teaching/spring2005/reading/clark88.pdf
+8. [stdexec](https://github.com/NVIDIA/stdexec). NVIDIA's reference implementation of `std::execution`. https://github.com/NVIDIA/stdexec
 
-### Implementations and Examples
+9. ["New C++ Sender Library Enables Portable Asynchrony"](https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/). HPC Wire, 2022. https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/
 
-23. [stdexec](https://github.com/NVIDIA/stdexec). NVIDIA's reference implementation of `std::execution`. https://github.com/NVIDIA/stdexec
-24. [`any_sender_of.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp). Type-erased sender facility in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp
-25. [`variant_sender.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp). Variant sender facility in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/variant_sender.hpp
-26. [`repeat_until.hpp`](https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp). Iteration algorithm in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/repeat_until.hpp
-27. [`retry.hpp`](https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp). Retry algorithm example in stdexec. https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp
-28. [sender-examples](https://github.com/steve-downey/sender-examples). Example code for C++Now talk (Steve Downey). https://github.com/steve-downey/sender-examples
-29. [`loop.cpp`](https://github.com/steve-downey/sender-examples/blob/main/src/examples/loop.cpp). Iteration example in sender-examples. https://github.com/steve-downey/sender-examples/blob/main/src/examples/loop.cpp
-30. [`fold.cpp`](https://github.com/steve-downey/sender-examples/blob/main/src/examples/fold.cpp). Fold example in sender-examples. https://github.com/steve-downey/sender-examples/blob/main/src/examples/fold.cpp
-31. [`backtrack.cpp`](https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp). Backtracking search example in sender-examples. https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp
+10. Guy Steele and Gerald Sussman. [*The Lambda Papers*](https://en.wikisource.org/wiki/Lambda_Papers). MIT AI Memo series, 1975-1980. https://en.wikisource.org/wiki/Lambda_Papers
 
-### Background
+11. Gordon Plotkin. ["Call-by-name, call-by-value and the lambda-calculus"](https://doi.org/10.1016/0304-3975(75)90017-1). *Theoretical Computer Science*, 1(2):125-159, 1975. https://doi.org/10.1016/0304-3975(75)90017-1
 
-32. [SML/NJ](https://www.smlnj.org/). Standard ML of New Jersey (uses CPS as internal representation). https://www.smlnj.org/
-33. [GHC](https://www.haskell.org/ghc/). Glasgow Haskell Compiler. https://www.haskell.org/ghc/
-34. [Chicken Scheme](https://www.call-cc.org/). Scheme implementation using CPS compilation. https://www.call-cc.org/
+12. [SML/NJ](https://www.smlnj.org/). Standard ML of New Jersey. https://www.smlnj.org/
 
-### NVIDIA CUDA and nvexec
+13. [GHC](https://www.haskell.org/ghc/). Glasgow Haskell Compiler. https://www.haskell.org/ghc/
 
-41. [nvexec](https://github.com/NVIDIA/stdexec/tree/main/include/nvexec). GPU-specific sender implementation in the stdexec repository. https://github.com/NVIDIA/stdexec/tree/main/include/nvexec
-42. [`stream_context.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream_context.cuh). GPU stream scheduler and context. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream_context.cuh
-44. [`bulk.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/bulk.cuh). GPU-specific `bulk` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/bulk.cuh
-45. [`then.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/then.cuh). GPU-specific `then` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/then.cuh
-46. [`when_all.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/when_all.cuh). GPU-specific `when_all` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/when_all.cuh
-47. [`continues_on.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/continues_on.cuh). GPU-specific `continues_on` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/continues_on.cuh
-48. [`let_xxx.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/let_xxx.cuh). GPU-specific `let_value`/`let_error`/`let_stopped` algorithms. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/let_xxx.cuh
-49. [`split.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/split.cuh). GPU-specific `split` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/split.cuh
-50. [`reduce.cuh`](https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/reduce.cuh). GPU-specific `reduce` algorithm. https://github.com/NVIDIA/stdexec/blob/main/include/nvexec/stream/reduce.cuh
-51. [CUDA C/C++ Language Extensions](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html). NVIDIA CUDA Programming Guide. https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html
-52. [`nvcc`](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html). NVIDIA CUDA Compiler Driver. https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
-53. ["New C++ Sender Library Enables Portable Asynchrony"](https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/). HPC Wire, 2022. https://www.hpcwire.com/2022/12/05/new-c-sender-library-enables-portable-asynchrony/
-54. [`connect`](https://eel.is/c++draft/exec.connect). C++26 draft standard, [exec.connect]. https://eel.is/c++draft/exec.connect
-55. [CUDA C++ Language Support](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-support.html). NVIDIA CUDA Programming Guide v13.1, Section 5.3 (December 2025). https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-support.html
+14. [Chicken Scheme](https://www.call-cc.org/). Scheme implementation using CPS compilation. https://www.call-cc.org/
 
-### Concurrent Selection Gap
+15. Eugenio Moggi. ["Notions of Computation and Monads"](https://doi.org/10.1016/0890-5401(91)90052-4). *Information and Computation*, 1991. https://doi.org/10.1016/0890-5401(91)90052-4
 
-56. [P2300R7](https://wg21.link/p2300r7). Micha&lstrok; Dominiak, Lewis Baker, Lee Howes, Kirk Shoop, Michael Garland, Eric Niebler, Bryce Adelstein Lelbach. "std::execution." 2023. https://wg21.link/p2300r7
-57. [P2175R0](https://wg21.link/p2175r0). Lewis Baker. "Composable cancellation for sender-based async operations." 2020. https://wg21.link/p2175r0
+16. Olivier Danvy and Andrzej Filinski. ["Abstracting Control"](https://doi.org/10.1145/91556.91622). *LFP*, 1990. https://doi.org/10.1145/91556.91622
+
+17. Timothy Griffin. ["A Formulae-as-Types Notion of Control"](https://doi.org/10.1145/96709.96714). *POPL*, 1990. https://doi.org/10.1145/96709.96714
+
+18. [P3796R1](https://wg21.link/p3796r1). Dietmar K&uuml;hl. "Coroutine Task Issues." 2025. https://wg21.link/p3796r1
+
+19. [P3826R3](https://wg21.link/p3826r3). Eric Niebler. "Fix Sender Algorithm Customization." 2026. https://wg21.link/p3826r3
+
+20. [P2079R10](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p2079r10.html). Lucian Radu Teodorescu, Ruslan Arutyunyan, Lee Howes, Michael Voss. "Parallel Scheduler." 2025. https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p2079r10.html
+
+21. [sender-examples](https://github.com/steve-downey/sender-examples). Steve Downey. Example code for C++Now talk. https://github.com/steve-downey/sender-examples
+
+22. Bjarne Stroustrup. *The Design and Evolution of C++*. Addison-Wesley, 1994. ISBN 0-201-54330-3.
+
+23. Bartosz Milewski. [*Category Theory for Programmers*](https://github.com/hmemcpy/milewski-ctfp-pdf). 2019. https://github.com/hmemcpy/milewski-ctfp-pdf
+
+24. Simon Marlow (ed.). [*Haskell 2010 Language Report*](https://www.haskell.org/onlinereport/haskell2010/). 2010. https://www.haskell.org/onlinereport/haskell2010/
+
+25. [backtrack.cpp](https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp). Backtracking search example in sender-examples. https://github.com/steve-downey/sender-examples/blob/main/src/examples/backtrack.cpp
+
+26. [retry.hpp](https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp). Retry algorithm example in stdexec. https://github.com/NVIDIA/stdexec/blob/main/examples/algorithms/retry.hpp
+
+27. [any_sender_of.hpp](https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp). Type-erased sender facility in stdexec (not part of C++26). https://github.com/NVIDIA/stdexec/blob/main/include/exec/any_sender_of.hpp
+
+28. [Corosio](https://corosio.org). Coroutine-native networking for C++. https://corosio.org
