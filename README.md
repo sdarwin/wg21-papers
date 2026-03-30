@@ -26,3 +26,4 @@ Output files are created in the repository root.
 - xelatex (for PDF output)
 
 Run `make check` to verify dependencies.
+
