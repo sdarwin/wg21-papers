@@ -71,7 +71,7 @@ jobs:
         continue-on-error: true
         run: |
             set -xe
-            touch gh_pages_dir/.nojekyll # Prevent GH pages from treating these files as Jekyll pages.
+            touch .nojekyll # Prevent GH pages from treating these files as Jekyll pages.
             echo "<html><body><ul>" > index.html
             for f in *.pdf; do
               echo "<li><a href='$f'>$f</a></li>" >> index.html
