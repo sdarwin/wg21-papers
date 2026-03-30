@@ -66,6 +66,17 @@ jobs:
         run: |
           set -o pipefail
           bash master/tools/render.sh master rendered 2>&1 | tee /tmp/render.log
+      - name: github pages
+        id: gh-pages
+        continue-on-error: true
+        run: |
+            set -xe
+            touch gh_pages_dir/.nojekyll # Prevent GH pages from treating these files as Jekyll pages.
+            echo "<html><body><ul>" > index.html
+            for f in *.pdf; do
+              echo "<li><a href='$f'>$f</a></li>" >> index.html
+            done
+            echo "</ul></body></html>" >> index.html
 
       - name: Commit and push
         working-directory: rendered
