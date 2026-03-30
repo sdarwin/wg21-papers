@@ -71,6 +71,7 @@ jobs:
         continue-on-error: true
         run: |
             set -xe
+            cd rendered
             touch .nojekyll # Prevent GH pages from treating these files as Jekyll pages.
             echo "<html><body><ul>" > index.html
             for f in *.pdf; do
